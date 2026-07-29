@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createGestureHandlers, zoneAt, GESTURE_CONSTANTS } from './useGestures.js';
+import { createGestureHandlers, zoneAt, tapZoneWidth, GESTURE_CONSTANTS } from './useGestures.js';
 
 const WIDTH = 400;
 
@@ -24,9 +24,52 @@ describe('zoneAt', () => {
         expect(zoneAt(380, WIDTH)).toBe('next');
     });
 
-    it('el centro es la zona más ancha', () => {
+    it('el centro ocupa la mayor parte de la pantalla', () => {
+        // Con zonas laterales del 28 % el centro percibido caía dentro de la
+        // zona de paso de página: tocar un poco a la izquierda del medio
+        // retrocedía. El centro tiene que ser inequívocamente el centro.
         const lateral = GESTURE_CONSTANTS.TAP_ZONE * 2;
-        expect(1 - lateral).toBeGreaterThan(lateral / 2);
+        expect(1 - lateral).toBeGreaterThan(0.6);
+    });
+
+    it('un toque justo a la izquierda del centro no pasa página', () => {
+        expect(zoneAt(WIDTH / 2 - 30, WIDTH)).toBe('chrome');
+        expect(zoneAt(WIDTH / 2 + 30, WIDTH)).toBe('chrome');
+    });
+
+    it('reparte las dos zonas por igual', () => {
+        // La izquierda salía más ancha que la derecha porque la x venía del
+        // iframe y se dividía entre el ancho del contenedor, más grande.
+        const left = zoneAt(tapZoneWidth(WIDTH) - 1, WIDTH);
+        const right = zoneAt(WIDTH - tapZoneWidth(WIDTH) + 1, WIDTH);
+        expect(left).toBe('prev');
+        expect(right).toBe('next');
+        expect(zoneAt(tapZoneWidth(WIDTH) + 1, WIDTH)).toBe('chrome');
+        expect(zoneAt(WIDTH - tapZoneWidth(WIDTH) - 1, WIDTH)).toBe('chrome');
+    });
+});
+
+describe('tapZoneWidth', () => {
+    it('escala con el ancho en un móvil', () => {
+        expect(tapZoneWidth(392)).toBeCloseTo(392 * GESTURE_CONSTANTS.TAP_ZONE, 5);
+    });
+
+    it('deja de crecer en una tablet', () => {
+        // Un 18 % de 1200 px serían 216 px de banda muerta a cada lado: media
+        // pantalla para pasar página. El pulgar mide lo mismo en cualquier
+        // pantalla, así que la zona también.
+        expect(tapZoneWidth(1200)).toBe(GESTURE_CONSTANTS.TAP_ZONE_MAX_PX);
+        expect(tapZoneWidth(1200)).toBeLessThan(1200 * GESTURE_CONSTANTS.TAP_ZONE);
+    });
+
+    it('el centro sigue siendo mayoría en una tablet', () => {
+        const width = 1200;
+        expect(width - tapZoneWidth(width) * 2).toBeGreaterThan(width * 0.7);
+    });
+
+    it('no deja la pantalla sin centro en un móvil muy estrecho', () => {
+        const width = 320;
+        expect(width - tapZoneWidth(width) * 2).toBeGreaterThan(width * 0.6);
     });
 });
 

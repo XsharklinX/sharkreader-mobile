@@ -87,6 +87,7 @@ export const createPageDrag = ({ getWidth, onMove, onCommit, onCancel, isEnabled
                 start.dragging = true;
             }
 
+            start.dx = dx;
             onMove(dragOffset({ dx, width: getWidth() }));
         },
 
@@ -110,10 +111,26 @@ export const createPageDrag = ({ getWidth, onMove, onCommit, onCancel, isEnabled
             return true;
         },
 
+        /**
+         * El sistema se ha quedado el gesto a mitad.
+         *
+         * Pasa cuando Android decide que el arrastre es suyo —el panel de
+         * notificaciones, el gesto de atrás desde el borde, un WebView que
+         * ignora `touch-action`—. Si ya se había recorrido lo suficiente para
+         * pasar página, se pasa: el usuario completó el gesto y no tiene forma
+         * de saber que el sistema lo interrumpió; ver la página volver a su
+         * sitio se lee como que la app ha fallado.
+         */
         cancel() {
-            const wasDragging = start?.dragging;
+            if (!start?.dragging) { reset(); return; }
+            const { commit, direction } = resolveDrag({
+                dx: start.dx || 0,
+                width: getWidth(),
+                elapsed: Date.now() - start.time,
+            });
             reset();
-            if (wasDragging) onCancel();
+            if (commit) onCommit(direction);
+            else onCancel();
         },
 
         isDragging: () => Boolean(start?.dragging),

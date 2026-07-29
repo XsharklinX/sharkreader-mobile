@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { App as CapApp } from '@capacitor/app';
+import { useBackHandler } from '../ui/useBackHandler.js';
 import SettingsHome from '../settings/SettingsHome.jsx';
 import { PAGES } from '../settings/pages.jsx';
 import { CATEGORIES } from '../settings/catalog.js';
@@ -23,15 +23,14 @@ export default function SettingsScreen({ library, stats, sync }) {
         setTimeout(() => setNotice(null), 5000);
     }, []);
 
-    // El botón atrás cierra la subpantalla. Se registra con prioridad alta para
-    // que gane al manejador global de App, que saldría a la biblioteca.
-    useEffect(() => {
-        if (!page) return undefined;
-        let listener;
-        CapApp.addListener('backButton', () => setPage(null))
-            .then((handle) => { listener = handle; });
-        return () => { listener?.remove(); };
-    }, [page]);
+    // El botón atrás cierra la subpantalla en vez de salir a la biblioteca.
+    // Va por la pila de `backStack`: registrar un oyente de Capacitor propio no
+    // daba ninguna prioridad —los llama todos— y hacía las dos cosas a la vez.
+    useBackHandler(() => {
+        if (!page) return false;
+        setPage(null);
+        return true;
+    }, Boolean(page));
 
     /**
      * Un resultado de búsqueda abre su categoría y resalta la opción.

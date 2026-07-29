@@ -267,6 +267,28 @@ export const createEpubEngine = () => {
             });
         },
 
+        /**
+         * Ancho del documento del libro, en sus propias coordenadas.
+         *
+         * Los eventos de toque se escuchan **dentro** del iframe, así que sus
+         * coordenadas van de 0 al ancho del iframe. El contenedor es más ancho:
+         * lleva los márgenes de lectura como relleno. Dividir una x del iframe
+         * entre el ancho del contenedor descuadraba las zonas de toque — la
+         * izquierda salía más grande que la derecha y un toque a la izquierda
+         * del centro retrocedía página.
+         *
+         * También descuadraba el umbral del arrastre, que se medía contra un
+         * ancho mayor que el real y exigía deslizar de más.
+         */
+        contentWidth() {
+            const contents = [].concat(rendition?.getContents?.() || []);
+            for (const content of contents) {
+                const width = content?.window?.innerWidth;
+                if (width > 0) return width;
+            }
+            return 0;
+        },
+
         /** Idioma declarado por el EPUB, para poder ofrecerlo como sugerencia. */
         bookLanguage() {
             return book?.packaging?.metadata?.language || '';

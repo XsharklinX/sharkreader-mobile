@@ -4,17 +4,44 @@
  * El escritorio navega con teclado y ratón; aquí todo pasa por el dedo. Las tres
  * zonas verticales de la pantalla se reparten así:
  *
- *   ┌──────┬────────────┬──────┐
- *   │ ←    │  controles │    → │
- *   │ 28%  │    44%     │  28% │
- *   └──────┴────────────┴──────┘
+ *   ┌────┬──────────────────┬────┐
+ *   │ ←  │    controles     │  → │
+ *   │18% │       64%        │18% │
+ *   └────┴──────────────────┴────┘
  *
  * Un toque en los laterales pasa página; en el centro muestra u oculta la
  * interfaz. Deslizar horizontalmente también pasa página, con un umbral que
  * evita que un roce al hacer scroll cuente como gesto.
+ *
+ * Las zonas se miden en las coordenadas del **documento del libro**, que es
+ * donde se escuchan los eventos. El contenedor es más ancho —lleva los
+ * márgenes de lectura como relleno— y usar su ancho hacía la zona izquierda
+ * más grande que la derecha.
  */
 
-const TAP_ZONE = 0.28;         // ancho de las zonas laterales
+/**
+ * Ancho de las zonas laterales, como fracción del ancho de página.
+ *
+ * Era 0.28. Con casi un tercio de pantalla por lado, el centro «real» —lo que
+ * uno percibe como el medio— quedaba dentro de la zona de paso de página, y
+ * tocar un poco a la izquierda del centro retrocedía. 0.18 deja el 64 % central
+ * libre, que ya se lee claramente como centro.
+ */
+const TAP_ZONE = 0.18;
+
+/**
+ * Tope absoluto de la zona lateral, en píxeles.
+ *
+ * En una tablet, un 18 % de 1200 px son 216 px de banda muerta a cada lado:
+ * media pantalla dedicada a pasar página. El toque es del mismo tamaño en
+ * cualquier pantalla —un pulgar— así que la zona también debe serlo a partir de
+ * cierto ancho.
+ */
+const TAP_ZONE_MAX_PX = 140;
+
+/** Ancho efectivo de la zona lateral para un ancho de página dado. */
+export const tapZoneWidth = (width) =>
+    Math.min(TAP_ZONE_MAX_PX, width * TAP_ZONE);
 const SWIPE_MIN_DISTANCE = 48; // px que hay que recorrer para que cuente
 const SWIPE_MAX_DURATION = 700;// ms: más lento que esto no es un deslizamiento
 const TAP_MAX_MOVEMENT = 12;   // px de tolerancia para considerar que fue un toque
@@ -105,9 +132,9 @@ export const createGestureHandlers = (handlers) => {
         // habría que parar, buscar y volver a empezar.
         if (handlers.onTapWhileSpeaking?.({ x: event.clientX, y: event.clientY })) return;
 
-        const ratio = event.clientX / width;
-        if (ratio < TAP_ZONE) onPrev();
-        else if (ratio > 1 - TAP_ZONE) onNext();
+        const zone = tapZoneWidth(width);
+        if (event.clientX < zone) onPrev();
+        else if (event.clientX > width - zone) onNext();
         else onToggleChrome();
     };
 
@@ -129,14 +156,15 @@ export const createGestureHandlers = (handlers) => {
 
 /** Zona en la que cae un punto — se usa para pintar las ayudas visuales. */
 export const zoneAt = (x, width) => {
-    const ratio = x / width;
-    if (ratio < TAP_ZONE) return 'prev';
-    if (ratio > 1 - TAP_ZONE) return 'next';
+    const zone = tapZoneWidth(width);
+    if (x < zone) return 'prev';
+    if (x > width - zone) return 'next';
     return 'chrome';
 };
 
 export const GESTURE_CONSTANTS = {
     TAP_ZONE,
+    TAP_ZONE_MAX_PX,
     SWIPE_MIN_DISTANCE,
     SWIPE_MAX_DURATION,
     TAP_MAX_MOVEMENT,

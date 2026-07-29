@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
+import { runBack } from './ui/backStack.js';
+import { useBackHandler } from './ui/useBackHandler.js';
 import TabBar from './ui/TabBar.jsx';
 import LibraryScreen from './screens/LibraryScreen.jsx';
 import ProgressScreen from './screens/ProgressScreen.jsx';
@@ -73,20 +75,30 @@ export default function App() {
         return () => { listener?.remove(); };
     }, [library.status]);
 
-    // El botón atrás de Android: dentro del lector vuelve a la biblioteca; fuera
-    // de la pestaña principal vuelve a ella; en la raíz, sale de la app.
-    // Sin esto, atrás siempre cerraría la app, que es la queja número uno en las
-    // reseñas de apps web empaquetadas.
+    // El botón atrás de Android. Este es el **único** oyente de la app: lo que
+    // decide qué se cierra es la pila de `backStack`, empezando por la capa más
+    // reciente. Antes cada pantalla registraba el suyo y Capacitor los llamaba
+    // todos, así que atrás con el índice abierto cerraba el índice y además
+    // salía del libro — parecía que se saltaba un nivel.
     useEffect(() => {
         let listener;
         CapApp.addListener('backButton', () => {
-            if (readingId) setReadingId(null);
-            else if (tab !== 'library') setTab('library');
+            // Alguna capa abierta lo ha atendido: no se toca la navegación.
+            if (runBack()) return;
+            if (tab !== 'library') setTab('library');
             else CapApp.exitApp();
         }).then((handle) => { listener = handle; });
 
         return () => { listener?.remove(); };
-    }, [readingId, tab]);
+    }, [tab]);
+
+    // Salir del libro es el último recurso dentro del lector: solo se ejecuta
+    // si ninguna hoja, panel o selección tenía nada que cerrar.
+    useBackHandler(() => {
+        if (!readingId) return false;
+        setReadingId(null);
+        return true;
+    }, Boolean(readingId));
 
     /** Guarda posición, progreso y preferencias del libro que se está leyendo. */
     const handleProgress = useCallback((update) => {

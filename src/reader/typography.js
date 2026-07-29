@@ -171,6 +171,24 @@ export const buildReaderStyles = (typography, themeId) => {
     // Mezclar las dos cosas es el error de composición más común.
     const indented = settings.paragraphStyle === 'indent';
 
+    /**
+     * Sin esto no funcionaba deslizar para pasar página.
+     *
+     * El WebView de Android decide **él** qué hacer con un arrastre en cuanto
+     * detecta movimiento: si el documento no declara lo contrario, se queda el
+     * gesto para desplazar la página y emite `pointercancel`. A partir de ahí no
+     * llegan más `pointermove` ni el `pointerup`, así que el arrastre no se
+     * pintaba nunca y el deslizamiento tampoco se llegaba a evaluar. Los toques
+     * seguían funcionando porque no hay movimiento que interceptar — que es
+     * exactamente el síntoma que se veía: se pasaba página tocando los bordes
+     * pero deslizar no hacía nada.
+     *
+     * Paginado: `none`, no hay nada que desplazar y el gesto es nuestro.
+     * Desplazamiento: `pan-y`, el vertical es del navegador y el horizontal
+     * nuestro.
+     */
+    const touchAction = settings.flow === 'scrolled' ? 'pan-y' : 'none';
+
     // Muchos EPUB traen color y fondo incrustados en su CSS o en atributos en
     // línea. Sin `!important` sobre los elementos concretos, un libro con fondo
     // blanco fijo sigue saliendo blanco en modo oscuro.
@@ -189,6 +207,7 @@ export const buildReaderStyles = (typography, themeId) => {
             // Sin esto el WebView de Android agranda el texto por su cuenta.
             '-webkit-text-size-adjust': '100% !important',
             'text-size-adjust': '100% !important',
+            'touch-action': touchAction,
         },
         'body': {
             'padding': '0 !important',
@@ -206,6 +225,7 @@ export const buildReaderStyles = (typography, themeId) => {
             'text-size-adjust': '100% !important',
             'word-spacing': settings.dyslexia ? '0.16em !important' : 'normal',
             '-webkit-tap-highlight-color': 'transparent',
+            'touch-action': touchAction,
             // En tinta electrónica el trazo fino se pierde: la tinta se expande
             // al asentarse y un peso normal sale lavado.
             ...(base.eink ? { 'font-weight': `${EINK_OVERRIDES.fontWeight} !important` } : {}),

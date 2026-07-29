@@ -34,6 +34,7 @@ import { normalizeAnnotationKind } from '../core/annotationExport.js';
 import { UNKNOWN_AUTHOR_FALLBACK } from '../core/bookModel.js';
 import { readBookBlob } from '../adapters/SafPicker.js';
 import { usePorts } from '../ports/index.js';
+import { useBackHandler } from '../ui/useBackHandler.js';
 import { formatMinutes } from '../stats/derive.js';
 import {
     IconArrowLeft, IconTextSize, IconList, IconBookmark, IconHighlight, IconSearch,
@@ -117,7 +118,12 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             onPrev: () => turnPage('prev'),
             onToggleChrome: () => setChrome((visible) => !visible),
             shouldIgnore: () => Boolean(engineRef.current?.selectionText()),
-            getWidth: () => viewportRef.current?.clientWidth || window.innerWidth,
+            // El ancho del documento del libro, no el del contenedor: los
+            // eventos llegan en coordenadas del iframe y el contenedor es más
+            // ancho por los márgenes de lectura.
+            getWidth: () => engineRef.current?.contentWidth()
+                || viewportRef.current?.clientWidth
+                || window.innerWidth,
         });
     }
 
@@ -163,7 +169,12 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         };
 
         dragRef.current = createPageDrag({
-            getWidth: () => viewportRef.current?.clientWidth || window.innerWidth,
+            // El ancho del documento del libro, no el del contenedor: los
+            // eventos llegan en coordenadas del iframe y el contenedor es más
+            // ancho por los márgenes de lectura.
+            getWidth: () => engineRef.current?.contentWidth()
+                || viewportRef.current?.clientWidth
+                || window.innerWidth,
             isEnabled: () => transitionRef.current !== 'none'
                 && !engineRef.current?.selectionText(),
             onMove: setShift,
@@ -607,6 +618,32 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         }
     }, [book, theme]);
 
+    /**
+     * Atrás dentro del libro cierra una capa cada vez.
+     *
+     * El orden es el de encima hacia abajo, que es el que ve el usuario. Solo
+     * cuando no queda nada abierto se devuelve `false` y `App` sale a la
+     * biblioteca — antes se salía del libro con el índice todavía abierto,
+     * porque los dos manejadores se ejecutaban a la vez.
+     *
+     * El salto de historial va antes que la barra: si acabas de saltar a una
+     * nota, lo que atrás significa es «devuélveme donde estaba», no «cierra la
+     * barra de herramientas».
+     */
+    useBackHandler(() => {
+        if (image) { setImage(null); return true; }
+        if (citing) { setCiting(null); return true; }
+        if (editing) { setEditing(null); return true; }
+        if (footnote) { setFootnote(null); return true; }
+        if (lookup) { setLookup(null); return true; }
+        if (selection) { cancelSelection(); return true; }
+        if (panel) { setPanel(null); return true; }
+        if (speech.state !== 'idle') { speech.stop(); return true; }
+        if (history.canGoBack) { goBack(); return true; }
+        if (chrome) { setChrome(false); return true; }
+        return false;
+    });
+
     if (state === 'error') {
         return (
             <div className="reader" style={{ '--reader-bg': palette.bg }}>
@@ -725,6 +762,26 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     <span className="reader-book">{book.name}</span>
                     {location.chapter && <span className="reader-chapter">{location.chapter}</span>}
                 </div>
+                {/* Índice y búsqueda van arriba, junto al título y al marcador:
+                    los tres responden a «dónde estoy y a dónde voy». Abajo
+                    quedan solo los ajustes de lectura, que es lo que se toca
+                    mientras se lee y no para navegar. */}
+                <button
+                    type="button"
+                    className="icon-btn"
+                    onClick={() => setPanel('search')}
+                    aria-label="Buscar en el libro"
+                >
+                    <IconSearch size={20} />
+                </button>
+                <button
+                    type="button"
+                    className="icon-btn"
+                    onClick={() => setPanel('toc')}
+                    aria-label="Índice"
+                >
+                    <IconList size={21} />
+                </button>
                 <button
                     type="button"
                     className={`icon-btn${isBookmarked ? ' on' : ''}`}
@@ -808,10 +865,6 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     <button type="button" className="tool" onClick={() => setPanel('display')} aria-label="Pantalla y lectura">
                         <IconSun size={21} />
                         <span>Pantalla</span>
-                    </button>
-                    <button type="button" className="tool" onClick={() => setPanel('toc')} aria-label="Índice">
-                        <IconList size={21} />
-                        <span>Índice</span>
                     </button>
                     <button
                         type="button"

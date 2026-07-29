@@ -129,10 +129,13 @@ describe('controlador del gesto', () => {
         expect(drag.up(at(120))).toBe(true);
     });
 
-    it('cancelar en mitad del arrastre devuelve la página a su sitio', () => {
+    it('cancelar antes del umbral devuelve la página a su sitio', () => {
+        // Un arrastre corto interrumpido no completa: el usuario no llegó a
+        // expresar que quería pasar página. Pasado el umbral sí completa, y eso
+        // se prueba aparte en «interrupción del sistema».
         const { drag, onCancel } = setup();
         drag.down(at(300));
-        drag.move(at(150));
+        drag.move(at(270));
         drag.cancel();
         expect(onCancel).toHaveBeenCalled();
     });
@@ -142,5 +145,52 @@ describe('controlador del gesto', () => {
         drag.down(at(300));
         drag.move(at(100));
         expect(onMove).not.toHaveBeenCalled();
+    });
+});
+
+describe('interrupción del sistema', () => {
+    const build = () => {
+        const onCommit = vi.fn();
+        const onCancel = vi.fn();
+        const onMove = vi.fn();
+        const drag = createPageDrag({
+            getWidth: () => 400,
+            onMove,
+            onCommit,
+            onCancel,
+        });
+        return { drag, onCommit, onCancel };
+    };
+
+    it('completa el pase si el gesto ya había pasado el umbral', () => {
+        // Android se queda el gesto —panel de notificaciones, deslizar desde el
+        // borde— sin que el usuario sepa que se interrumpió. Ver la página
+        // volver a su sitio después de haberla arrastrado se lee como un fallo.
+        const { drag, onCommit, onCancel } = build();
+        drag.down({ clientX: 300, clientY: 200 });
+        drag.move({ clientX: 100, clientY: 205 });
+        drag.cancel();
+
+        expect(onCommit).toHaveBeenCalledWith('next');
+        expect(onCancel).not.toHaveBeenCalled();
+    });
+
+    it('devuelve la página si no había llegado al umbral', () => {
+        const { drag, onCommit, onCancel } = build();
+        drag.down({ clientX: 300, clientY: 200 });
+        drag.move({ clientX: 275, clientY: 205 });
+        drag.cancel();
+
+        expect(onCommit).not.toHaveBeenCalled();
+        expect(onCancel).toHaveBeenCalledOnce();
+    });
+
+    it('no hace nada si el dedo no llegó a arrastrar', () => {
+        const { drag, onCommit, onCancel } = build();
+        drag.down({ clientX: 300, clientY: 200 });
+        drag.cancel();
+
+        expect(onCommit).not.toHaveBeenCalled();
+        expect(onCancel).not.toHaveBeenCalled();
     });
 });

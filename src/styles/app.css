@@ -672,7 +672,10 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 }
 .reader-top.hidden { transform: translateY(-100%); opacity: 0; pointer-events: none; }
 
-.reader-title { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+/* Alineado a la izquierda, no centrado: con un botón a la izquierda y tres a la
+   derecha, un título «centrado» en el espacio sobrante queda descuadrado
+   respecto a la pantalla y se lee como un fallo de maquetación. */
+.reader-title { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding-left: var(--sp-1); }
 .reader-book { font-size: var(--t-tiny); font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .reader-chapter { font-size: var(--t-micro); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
