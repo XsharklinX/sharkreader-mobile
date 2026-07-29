@@ -13,6 +13,7 @@ import { createLocalNotifier } from './LocalNotifier.js';
 import { createAndroidTts } from './AndroidTts.js';
 import { createWebdavSync } from './WebdavSync.js';
 import { createScreenOrientation } from './ScreenOrientation.js';
+import { createNeuralTts, createTtsRouter } from './NeuralTts.js';
 
 export const createAndroidPorts = () => {
     const storage = createSqliteStorage();
@@ -20,7 +21,14 @@ export const createAndroidPorts = () => {
         storage,
         filePicker: createSafPicker(),
         notifier: createLocalNotifier(),
-        tts: createAndroidTts(),
+        // La voz del sistema es la de por defecto y funciona sin red. La
+        // neuronal solo entra si el usuario ha configurado su propio servidor,
+        // y si falla se vuelve a la del sistema: quedarse callado a mitad de
+        // capítulo sería mucho peor que cambiar de voz.
+        tts: createTtsRouter(
+            createAndroidTts(),
+            createNeuralTts(() => storage.getSetting('neuralTts'))
+        ),
         screen: createScreenOrientation(),
         // El adaptador lee su configuración del almacenamiento cada vez, así
         // que cambiar de servidor en ajustes surte efecto sin reiniciar.

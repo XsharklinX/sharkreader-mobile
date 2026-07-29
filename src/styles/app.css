@@ -2183,3 +2183,76 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
     .spinner { animation-duration: 2s; }
 }
+
+/* ═══ Tablets y plegables ═══════════════════════════════════════════════════ */
+
+.two-pane {
+    display: flex;
+    height: 100dvh;
+    overflow: hidden;
+}
+
+.pane-side {
+    flex-shrink: 0;
+    position: relative;
+    border-right: 1px solid var(--line);
+    overflow: hidden;
+}
+
+.pane-main {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+}
+
+/* El lector es `position: fixed` en móvil, donde ocupa la pantalla entera. En
+   dos paneles tiene que quedarse dentro del suyo, o taparía la biblioteca. */
+.pane-main > .reader {
+    position: absolute;
+    inset: 0;
+}
+
+.pane-side > .app { height: 100%; }
+
+/* En una pantalla ancha, un formulario a todo lo ancho deja la etiqueta a la
+   izquierda y el control a un palmo: hay que barrer la pantalla con la vista
+   para relacionarlos. Se limita el ancho y se centra. */
+@media (min-width: 600px) {
+    .screen,
+    .settings-page,
+    .app-main > .screen {
+        max-width: 680px;
+        margin-inline: auto;
+    }
+
+    /* La biblioteca no: su rejilla sí sabe usar el ancho, y limitarla dejaría
+       las portadas apretadas en el centro con márgenes enormes. */
+    .app-main > .screen.library {
+        max-width: none;
+    }
+}
+
+/* Dentro del panel lateral se vuelve al comportamiento de móvil: son 360 px,
+   exactamente el ancho para el que está pensada la disposición compacta. */
+.pane-side .screen,
+.pane-side .settings-page {
+    max-width: none;
+    margin-inline: 0;
+}
+
+/* Limpieza de pantalla en tinta electrónica. Ver `einkRefresh.js`: el objetivo
+   es que TODA la superficie cambie de color a la vez, que es lo único que
+   obliga al panel a repintarse entero. */
+.eink-flash {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    background: #FFF;
+    pointer-events: none;
+}
+
+.eink-flash.on { background: #000; }
+
+/* Sin transición a propósito: un fundido gradual repinta por zonas, que es
+   exactamente lo que se está intentando evitar. Y por el mismo motivo esta
+   regla se salta `prefers-reduced-motion`: no es decoración, es la función. */

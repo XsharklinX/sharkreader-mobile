@@ -5,6 +5,7 @@ import { AUTOSCROLL_SPEEDS } from './useAutoScroll.js';
 import Switch from '../ui/Switch.jsx';
 import { SPREAD_MODES } from './spread.js';
 import { RULER_MODES } from './ruler.js';
+import { REFRESH_INTERVALS, intervalLabel } from './einkRefresh.js';
 import { ORIENTATION_MODES } from '../adapters/ScreenOrientation.js';
 import { IconSun, IconColumns, IconRotate } from '../ui/icons.jsx';
 
@@ -28,6 +29,7 @@ export default function DisplaySheet({
     ruler, onChangeRuler,
     eink, onChangeEink,
     onOpenGestures,
+    refreshEvery, onChangeRefreshEvery, onFlashNow,
     autoScroll,
     onClose,
 }) {
@@ -51,6 +53,37 @@ export default function DisplaySheet({
                         checked={Boolean(eink)}
                         onChange={onChangeEink}
                     />
+                )}
+
+                {/* Solo con el modo tinta activado: en una pantalla normal un
+                    parpadeo negro cada diez páginas no tendría ningún sentido. */}
+                {eink && onChangeRefreshEvery && (
+                    <div className="setting">
+                        <span className="setting-label">
+                            <span>Limpiar la pantalla</span>
+                            <span className="setting-value">{intervalLabel(refreshEvery)}</span>
+                        </span>
+                        <div className="segmented">
+                            {REFRESH_INTERVALS.map((value) => (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    className={refreshEvery === value ? 'on' : ''}
+                                    onClick={() => onChangeRefreshEvery(value)}
+                                >
+                                    {value === 0 ? 'Nunca' : value}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="option-desc">
+                            En tinta electrónica el texto va dejando rastro de las
+                            páginas anteriores. Un parpadeo cada tantas páginas deja la
+                            pantalla limpia.
+                        </p>
+                        <button type="button" className="btn btn-block" onClick={onFlashNow}>
+                            Limpiar ahora
+                        </button>
+                    </div>
                 )}
 
                 <div className="setting">

@@ -3,6 +3,7 @@ import { createEpubEngine } from './EpubEngine.js';
 import { createGestureHandlers } from './useGestures.js';
 import { buildReaderStyles, DEFAULT_TYPOGRAPHY, READER_THEMES, EINK_OVERRIDES } from './typography.js';
 import { mapStatus, progressLabel } from './locationMap.js';
+import { createRefreshCounter, flashScreen, DEFAULT_REFRESH_EVERY } from './einkRefresh.js';
 import ReadingRuler from './ReadingRuler.jsx';
 import ReaderSettingsSheet from './ReaderSettingsSheet.jsx';
 import DisplaySheet from './DisplaySheet.jsx';
@@ -94,6 +95,15 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
 
     const [ruler, setRuler] = useState(book.readerPreferences?.ruler || 'off');
 
+    // Limpieza de pantalla en tinta electrónica. Ver `einkRefresh.js`: se cuenta
+    // pasando página, no por tiempo, porque el rastro lo produce el cambio de
+    // contenido y no el paso del reloj.
+    const [refreshEvery, setRefreshEvery] = useState(
+        book.readerPreferences?.einkRefresh ?? DEFAULT_REFRESH_EVERY
+    );
+    const refreshRef = useRef(null);
+    if (!refreshRef.current) refreshRef.current = createRefreshCounter(refreshEvery);
+
     // Rejilla de gestos. Es una preferencia de la app, no del libro: quien
     // invierte los lados los quiere invertidos en todos.
     const [grid, setGrid] = useState(() => normalizeGrid(preferences.gestureGrid));
@@ -147,6 +157,8 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     transitionRef.current = effectiveTransition;
     const cleanupRef = useRef(null);
 
+    const einkRef = useRef(false);
+
     const turnPage = (direction) => {
         const engine = engineRef.current;
         if (!engine) return;
@@ -154,6 +166,12 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         cleanupRef.current = runTransition(viewportRef.current, transitionRef.current, direction);
         if (direction === 'next') engine.next();
         else engine.prev();
+
+        // La limpieza va después de pasar página, no antes: parpadear y luego
+        // cambiar el contenido dejaría el rastro de la página nueva sin limpiar.
+        if (einkRef.current && refreshRef.current.pageTurned()) {
+            flashScreen(viewportRef.current?.parentElement);
+        }
     };
 
     /**
@@ -327,6 +345,11 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         if (state === 'ready') engineRef.current?.applyStyles(styles);
     }, [styles, state]);
 
+    useEffect(() => {
+        einkRef.current = eink;
+        refreshRef.current.setInterval(eink ? refreshEvery : 0);
+    }, [eink, refreshEvery]);
+
     // Cambiar el margen mueve el contenedor, no el documento: epub.js tiene que
     // volver a medir para recalcular el ancho de columna.
     useEffect(() => {
@@ -336,9 +359,12 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     useEffect(() => {
         if (state !== 'ready') return;
         progressRef.current?.({
-            readerPreferences: { typography, theme, transition, warm, spread, orientation, ruler },
+            readerPreferences: {
+                typography, theme, transition, warm, spread, orientation, ruler,
+                einkRefresh: refreshEvery,
+            },
         });
-    }, [typography, theme, transition, warm, spread, orientation, ruler, state]);
+    }, [typography, theme, transition, warm, spread, orientation, ruler, refreshEvery, state]);
 
     // ── Columnas y orientación ───────────────────────────────────────────────
 
@@ -987,6 +1013,12 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     eink={eink}
                     onChangeEink={(value) => setTypography({ ...typography, eink: value })}
                     onOpenGestures={() => setPanel('gestures')}
+                    refreshEvery={refreshEvery}
+                    onChangeRefreshEvery={setRefreshEvery}
+                    onFlashNow={() => {
+                        refreshRef.current.reset();
+                        flashScreen(viewportRef.current?.parentElement);
+                    }}
                     transitionMode={transition}
                     autoScroll={autoScroll}
                     onClose={() => setPanel(null)}

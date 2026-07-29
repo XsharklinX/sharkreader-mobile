@@ -556,6 +556,112 @@ const CONNECTIONS = [
     },
 ];
 
+/**
+ * Ajustes de la voz neuronal.
+ *
+ * El coste va arriba y en euros, no escondido en un enlace. Leerse una novela
+ * entera con voz neuronal cuesta unos 15 €, y eso decide si la función interesa
+ * o no antes de configurar nada.
+ */
+const NeuralVoiceSettings = ({ notify }) => {
+    const ports = usePorts();
+    const [config, setConfig] = useState({ enabled: false, endpoint: '', token: '' });
+    const [testing, setTesting] = useState(false);
+
+    useEffect(() => {
+        ports.storage.getSetting('neuralTts')
+            .then((stored) => stored && setConfig((current) => ({ ...current, ...stored })))
+            .catch(() => {});
+    }, [ports]);
+
+    const save = async (changes) => {
+        const next = { ...config, ...changes };
+        setConfig(next);
+        await ports.storage.setSetting('neuralTts', next);
+    };
+
+    const check = async () => {
+        setTesting(true);
+        try {
+            const { createNeuralTts } = await import('../adapters/NeuralTts.js');
+            await createNeuralTts(() => config).test(config.endpoint, config.token);
+            notify?.('El servidor responde correctamente.');
+        } catch (error) {
+            notify?.(error?.message || 'No se pudo conectar con el servidor.');
+        } finally {
+            setTesting(false);
+        }
+    };
+
+    return (
+        <>
+            <p className="option-desc">
+                Voces mucho mejores que la del sistema, servidas por tu propio
+                servidor. Necesita configurarlo tú: no hay uno de SharkReader porque
+                la síntesis se paga por carácter, y uno compartido sería pagar la
+                lectura de todo el mundo hasta que se agotara.
+            </p>
+
+            <p className="warn-note">
+                Leerse una novela entera ronda los 15 € de síntesis. El texto de lo
+                que se lee sale del dispositivo hacia tu servidor. La voz del sistema
+                sigue siendo gratis y funciona sin red.
+            </p>
+
+            <Switch
+                label="Usar voz neuronal"
+                checked={Boolean(config.enabled)}
+                onChange={(enabled) => save({ enabled })}
+            />
+
+            {config.enabled && (
+                <>
+                    <label className="field">
+                        <span className="field-label">Dirección del servidor</span>
+                        <input
+                            className="text-input"
+                            type="url"
+                            inputMode="url"
+                            autoCapitalize="none"
+                            placeholder="https://mi-servidor.example/speak"
+                            value={config.endpoint}
+                            onChange={(event) => save({ endpoint: event.target.value })}
+                        />
+                    </label>
+
+                    <label className="field">
+                        <span className="field-label">Token</span>
+                        <input
+                            className="text-input"
+                            type="password"
+                            autoCapitalize="none"
+                            value={config.token}
+                            onChange={(event) => save({ token: event.target.value })}
+                        />
+                        <span className="option-desc">
+                            Sin token, quien dé con la dirección sintetiza a tu costa.
+                        </span>
+                    </label>
+
+                    <button
+                        type="button"
+                        className="btn btn-block"
+                        onClick={check}
+                        disabled={testing || !config.endpoint}
+                    >
+                        {testing ? 'Probando…' : 'Probar la conexión'}
+                    </button>
+
+                    <p className="option-desc">
+                        El servidor mínimo está en docs/tts-proxy.md del repositorio:
+                        unas cuarenta líneas de Node.
+                    </p>
+                </>
+            )}
+        </>
+    );
+};
+
 export const PrivacyPage = ({ notify, stats }) => {
     const ports = usePorts();
     const [lockStatus, setLockStatus] = useState(null);
@@ -589,6 +695,11 @@ export const PrivacyPage = ({ notify, stats }) => {
                     Sin cuentas, sin telemetría, sin publicidad. SharkReader no tiene
                     servidores propios.
                 </p>
+            </section>
+
+            <section className="section" data-setting="neural-voice">
+                <h2 className="bs-heading">Voz neuronal</h2>
+                <NeuralVoiceSettings notify={notify} />
             </section>
 
             <section className="section" data-setting="app-lock">

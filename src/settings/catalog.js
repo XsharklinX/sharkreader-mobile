@@ -67,6 +67,7 @@ export const CATEGORIES = [
         summary: 'Permisos y conexiones',
         items: [
             { id: 'permissions', label: 'Permisos concedidos', keywords: 'android notificaciones internet acceso' },
+            { id: 'neural-voice', label: 'Voz neuronal', keywords: 'tts servidor proxy azure narrador calidad nube' },
             { id: 'app-lock', label: 'Bloquear la aplicación', keywords: 'huella dactilar cara pin patron biometria seguridad candado' },
             { id: 'connections', label: 'Conexiones a internet', keywords: 'red openlibrary diccionario webdav datos' },
             { id: 'clear-dict', label: 'Borrar la caché del diccionario', keywords: 'limpiar palabras guardadas' },

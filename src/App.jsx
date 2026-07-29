@@ -18,6 +18,8 @@ import { exportAnnotations } from './library/backup.js';
 import { publishShortcuts, publishWidget, bookIdFromUrl, isImportUrl } from './adapters/Shortcuts.js';
 import { readDynamicColors, applyDynamicColors, clearDynamicColors } from './adapters/SystemTheme.js';
 import AppLock from './ui/AppLock.jsx';
+import { useLayout } from './ui/useLayout.js';
+import { SIDE_PANEL_WIDTH } from './ui/layout.js';
 
 // Tres pantallas. Logros vive dentro de Progreso y Workshop dentro de Ajustes.
 const SCREENS = {
@@ -30,6 +32,7 @@ export default function App() {
     const [tab, setTab] = useState('library');
     const [readingId, setReadingId] = useState(null);
 
+    const layout = useLayout();
     const library = useLibrary();
     const stats = useStats(library.books);
     const sync = useSync(library);
@@ -204,33 +207,34 @@ export default function App() {
         <AppLock enabled={Boolean(stats.preferences.appLock)}>{content}</AppLock>
     );
 
-    if (reading) {
-        const Reader = reading.type === 'pdf' ? PdfReaderScreen
-            : reading.type === 'comic' ? ComicReaderScreen
-            : ReaderScreen;
-        return lock(
-            <Reader
-                key={reading.id}
-                book={reading}
-                onClose={closeReader}
-                onProgress={handleProgress}
-                onAnnotationsChange={handleAnnotations}
-                onExportAnnotations={handleExportAnnotations}
-                preferences={stats.preferences}
-                onPreferencesChange={stats.savePreferences}
-            />
-        );
-    }
+    const Reader = !reading ? null
+        : reading.type === 'pdf' ? PdfReaderScreen
+        : reading.type === 'comic' ? ComicReaderScreen
+        : ReaderScreen;
+
+    const readerPane = reading ? (
+        <Reader
+            key={reading.id}
+            book={reading}
+            onClose={closeReader}
+            onProgress={handleProgress}
+            onAnnotationsChange={handleAnnotations}
+            onExportAnnotations={handleExportAnnotations}
+            preferences={stats.preferences}
+            onPreferencesChange={stats.savePreferences}
+        />
+    ) : null;
 
     const Screen = SCREENS[tab];
 
-    return lock(
+    const appPane = (
         <div className="app">
             <main className="app-main">
                 <Screen
                     library={library}
                     stats={stats}
                     sync={sync}
+                    layout={layout}
                     onOpenBook={(book) => setReadingId(book.id)}
                     onGoToSettings={() => setTab('settings')}
                 />
@@ -242,4 +246,27 @@ export default function App() {
             />
         </div>
     );
+
+    // ── Dos paneles en tablet y plegable abierto ─────────────────────────────
+    //
+    // El libro no sustituye a la biblioteca, se pone al lado. En una pantalla
+    // ancha, ocultar una lista de 360 px para enseñar un texto que ya sobra de
+    // ancho es desperdiciar la pantalla y además perder el sitio donde estabas.
+    //
+    // El lector conserva su `key`, así que al cambiar de libro se remonta igual
+    // que en móvil: no hereda la posición ni los ajustes del anterior.
+    if (layout.twoPanes && reading) {
+        return lock(
+            <div className="two-pane">
+                <aside className="pane-side" style={{ width: SIDE_PANEL_WIDTH }}>
+                    {appPane}
+                </aside>
+                <section className="pane-main">{readerPane}</section>
+            </div>
+        );
+    }
+
+    if (reading) return lock(readerPane);
+
+    return lock(appPane);
 }
