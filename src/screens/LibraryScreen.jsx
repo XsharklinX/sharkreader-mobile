@@ -7,7 +7,7 @@ import { selectBooks, FILTERS, SORTS } from '../library/useLibrary.js';
 import { minutesToday } from '../stats/derive.js';
 import { buildSeries } from '../library/collections.js';
 import {
-    IconSearch, IconSort, IconPlus, IconClose, IconBook, IconFolder, IconGrid,
+    IconSearch, IconSort, IconPlus, IconClose, IconBook, IconFolder, IconGrid, IconSettings,
 } from '../ui/icons.jsx';
 
 const greeting = (hour = new Date().getHours()) => {
@@ -17,7 +17,7 @@ const greeting = (hour = new Date().getHours()) => {
     return 'Buenas noches';
 };
 
-export default function LibraryScreen({ library, stats: statsApi, onOpenBook }) {
+export default function LibraryScreen({ library, stats: statsApi, onOpenBook, onGoToSettings }) {
     const { books, status, error, importing, importFiles, importFolder, clearError } = library;
 
     const [query, setQuery] = useState('');
@@ -65,6 +65,22 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook }) 
     };
 
     const sharkyOn = statsApi?.preferences?.sharky ?? false;
+
+    /**
+     * Tocar una portada abre el libro directamente. La ficha pasa a la pulsación
+     * larga: obligar a pasar por ella para leer añadía un paso a la acción más
+     * frecuente de la app, y cualquier fallo en ese intermediario dejaba la
+     * biblioteca sin forma de abrir nada.
+     */
+    const openBook = (book) => {
+        if (!book.sourcePath) {
+            // Un libro que vino de un backup no trae el fichero. Decirlo es
+            // mejor que no reaccionar al toque.
+            setDetail(book);
+            return;
+        }
+        onOpenBook(book);
+    };
 
     if (status === 'loading') {
         return (
@@ -134,16 +150,23 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook }) 
                 ) : (
                     <>
                         <div className="head-txt">
-                            <h1 className="head-title">{greeting()}</h1>
-                            <p className="head-sub">
-                                {statsApi?.stats?.streak > 0
-                                    ? `Llevas ${statsApi.stats.streak} ${statsApi.stats.streak === 1 ? 'día' : 'días'} seguidos leyendo`
-                                    : `${books.length} libro${books.length === 1 ? '' : 's'} en tu biblioteca`}
-                            </p>
+                            <h1 className="brand">
+                                Shark<span>Reader</span>
+                            </h1>
+                            <p className="brand-tagline">Tu biblioteca, en tu bolsillo</p>
                         </div>
                         <div className="head-actions">
                             <button type="button" className="icon-btn" onClick={() => setSearching(true)} aria-label="Buscar">
                                 <IconSearch size={21} />
+                            </button>
+                            <button
+                                type="button"
+                                className="icon-btn"
+                                onClick={() => runImport('files')}
+                                disabled={!!importing}
+                                aria-label="Importar libros"
+                            >
+                                <IconPlus size={22} />
                             </button>
                             <button
                                 type="button"
@@ -153,6 +176,14 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook }) 
                                 aria-label="Ordenar y ver"
                             >
                                 <IconSort size={21} />
+                            </button>
+                            <button
+                                type="button"
+                                className="icon-btn"
+                                onClick={() => onGoToSettings?.()}
+                                aria-label="Ajustes"
+                            >
+                                <IconSettings size={21} />
                             </button>
                         </div>
                     </>
@@ -246,7 +277,7 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook }) 
                             </div>
                             <div className={`grid-books${compact ? ' compact' : ''}`}>
                                 {visible.map((book) => (
-                                    <BookCard key={book.id} book={book} onOpen={setDetail} />
+                                    <BookCard key={book.id} book={book} onOpen={openBook} onLongPress={setDetail} />
                                 ))}
                             </div>
                         </div>
@@ -318,7 +349,7 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook }) 
                             </div>
                             <div className="rail">
                                 {started.map((book) => (
-                                    <BookCard key={book.id} book={book} onOpen={setDetail} />
+                                    <BookCard key={book.id} book={book} onOpen={openBook} onLongPress={setDetail} />
                                 ))}
                             </div>
                         </div>
@@ -331,22 +362,26 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook }) 
                         </div>
                         <div className={`grid-books${compact ? ' compact' : ''}`}>
                             {selectBooks(books, { sort }).map((book) => (
-                                <BookCard key={book.id} book={book} onOpen={setDetail} />
+                                <BookCard key={book.id} book={book} onOpen={openBook} onLongPress={setDetail} />
                             ))}
                         </div>
                     </div>
                 </>
             )}
 
-            <button
-                type="button"
-                className="fab"
-                onClick={() => runImport('files')}
-                disabled={!!importing}
-                aria-label="Importar libros"
-            >
-                <IconPlus size={24} />
-            </button>
+            {/* El botón flotante reanuda la última lectura: es la acción que
+                más se repite y la que mejor encaja en la zona del pulgar.
+                Importar se ha ido arriba, junto a la lupa. */}
+            {current && (
+                <button
+                    type="button"
+                    className="fab"
+                    onClick={() => onOpenBook(current)}
+                    aria-label={`Seguir leyendo ${current.name}`}
+                >
+                    <IconBook size={24} />
+                </button>
+            )}
 
             {detail && (
                 <BookSheet

@@ -140,6 +140,7 @@ export default function App() {
                     stats={stats}
                     sync={sync}
                     onOpenBook={(book) => setReadingId(book.id)}
+                    onGoToSettings={() => setTab('settings')}
                 />
             </main>
             <TabBar active={tab} onChange={setTab} />

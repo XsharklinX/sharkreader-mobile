@@ -45,10 +45,17 @@ export const IconChart = (p) => (
     </Svg>
 );
 
+/**
+ * Rueda dentada de verdad.
+ *
+ * La versión anterior era un círculo con ocho rayos rectos, que es exactamente
+ * como se dibuja un sol: nadie la leía como «ajustes». Aquí los dientes son
+ * trapecios unidos al aro, que es lo que distingue un engranaje.
+ */
 export const IconSettings = (p) => (
     <Svg {...p}>
-        <circle cx="12" cy="12" r="3.2" />
-        <path d="M12 2v2.2M12 19.8V22M22 12h-2.2M4.2 12H2M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6M18.7 18.7l-1.6-1.6M6.9 6.9 5.3 5.3" />
+        <path d="M10.3 3.2h3.4l.35 2.2a6.9 6.9 0 0 1 1.72 1l2.03-.87 1.7 2.94-1.68 1.45a7 7 0 0 1 0 2l1.68 1.45-1.7 2.94-2.03-.87a6.9 6.9 0 0 1-1.72 1l-.35 2.2h-3.4l-.35-2.2a6.9 6.9 0 0 1-1.72-1l-2.03.87-1.7-2.94 1.68-1.45a7 7 0 0 1 0-2L4.5 8.47l1.7-2.94 2.03.87a6.9 6.9 0 0 1 1.72-1z" />
+        <circle cx="12" cy="12" r="2.6" />
     </Svg>
 );
 

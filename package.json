@@ -1,6 +1,6 @@
 {
   "name": "sharkreader-mobile",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "SharkReader para Android — lector de EPUB y PDF local-first, sin cuenta y sin nube",
   "author": "David Bonilla",
   "license": "ISC",
@@ -19,7 +19,8 @@
     "apk:debug": "pnpm sync && cd android && gradlew.bat assembleDebug",
     "apk:release": "pnpm sync && cd android && gradlew.bat bundleRelease",
     "core:diff": "node scripts/core-diff.mjs",
-    "icons": "node scripts/generate-icons.mjs"
+    "icons": "node scripts/generate-icons.mjs",
+    "keystore": "node scripts/create-keystore.mjs"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "^7.0.3",

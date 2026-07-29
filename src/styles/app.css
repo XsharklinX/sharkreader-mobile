@@ -200,18 +200,22 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     transition: color 0.15s var(--ease);
 }
 
-.tab[aria-current="page"] { color: var(--accent); }
-
-/* Marca del elemento activo: una barra corta arriba, no un fondo. */
-.tab[aria-current="page"]::before {
-    content: "";
-    position: absolute;
-    margin-top: -14px;
-    width: 22px;
-    height: 3px;
-    border-radius: 0 0 3px 3px;
-    background: var(--accent);
+/* La pastilla que hay detrás del icono es lo que se enciende al activar la
+   pestaña. La versión anterior usaba una barrita con posición absoluta sin
+   contenedor de referencia: aparecía suelta en mitad de la pantalla. */
+.tab-pill {
+    display: grid;
+    place-items: center;
+    width: 58px;
+    height: 32px;
+    border-radius: var(--r-full);
+    transition: background 0.18s var(--ease), color 0.18s var(--ease);
 }
+
+.tab[aria-current="page"] { color: var(--accent); }
+.tab[aria-current="page"] .tab-pill { background: var(--accent-soft); }
+.tab:active .tab-pill { background: var(--sf-2); }
+.tab-label { transition: color 0.18s var(--ease); }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Superficies
@@ -1165,3 +1169,48 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     from { opacity: 0.4; transform: translateX(var(--turn-from, 8px)); }
     to { opacity: 1; transform: none; }
 }
+
+/* ── Marca de la app ──
+   La cabecera de la biblioteca lleva el nombre y para qué sirve, no un saludo:
+   «Buenos días» no dice qué app es ni qué hace. */
+.brand {
+    font-size: 27px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    margin: 0;
+    background: linear-gradient(100deg, var(--accent), #7DD3FC 55%, #A78BFA);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+/* El segundo tramo del nombre en peso normal: separa las dos mitades sin
+   necesitar otro color ni otro tamaño. */
+.brand span { font-weight: 400; }
+
+.brand-tagline {
+    font-size: var(--t-tiny);
+    color: var(--text-3);
+    margin: 2px 0 0;
+    letter-spacing: 0.01em;
+}
+
+.head-actions { flex-wrap: wrap; justify-content: flex-end; }
+.head-actions .icon-btn { min-width: 42px; min-height: 42px; }
+
+/* Porcentaje sobre la portada */
+.book-pct {
+    position: absolute;
+    left: var(--sp-2);
+    bottom: 9px;
+    font-size: var(--t-micro);
+    font-weight: 700;
+    color: #fff;
+    padding: 1px 6px;
+    border-radius: var(--r-full);
+    background: rgba(11, 16, 23, 0.72);
+    backdrop-filter: blur(4px);
+}
+
+.book-progress { height: 4px; }

@@ -69,13 +69,21 @@ export default function BookCard({ book, onOpen, onLongPress }) {
                     <span className="book-badge"><IconStar size={13} filled /></span>
                 ) : null}
 
+                {/* El porcentaje va sobre la portada, encima de la barra: una
+                    barra de 3 px sola no se lee de un vistazo al recorrer la
+                    rejilla, que es justo cuando hace falta. */}
                 {done > 0 && !book.isFinished && (
-                    <span className="book-progress"><i style={{ width: `${done}%` }} /></span>
+                    <>
+                        <span className="book-pct mono">{done}%</span>
+                        <span className="book-progress"><i style={{ width: `${done}%` }} /></span>
+                    </>
                 )}
             </span>
 
             <span className="book-title">{book.name}</span>
-            <span className="book-author">{book.author}</span>
+            <span className="book-author">
+                {book.isFinished ? 'Terminado' : book.author}
+            </span>
         </button>
     );
 }
