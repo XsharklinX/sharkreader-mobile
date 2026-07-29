@@ -5,6 +5,7 @@ import { usePorts } from '../ports/index.js';
 import { readBookBlob } from '../adapters/SafPicker.js';
 import { parseBackupFile, mergeIntoLibrary, buildBackup, shareTextFile, exportAnnotations } from '../library/backup.js';
 import { getMobileAddons } from '../library/workshop.js';
+import { loadVocabulary, vocabularyToMarkdown } from '../reader/dictionary.js';
 import {
     IconShare, IconFolder, IconBell, IconClose, IconChevronRight, IconBook,
 } from '../ui/icons.jsx';
@@ -122,6 +123,24 @@ export default function SettingsScreen({ library, stats: statsApi }) {
 
     const hasNotes = library.books.some((book) => book.bookmarks?.length);
 
+    // ── Vocabulario ──────────────────────────────────────────────────────────
+    const [vocabulary, setVocabulary] = useState([]);
+
+    useEffect(() => {
+        loadVocabulary(ports.storage).then(setVocabulary).catch(() => {});
+    }, [ports]);
+
+    const exportVocabulary = async () => {
+        try {
+            const markdown = vocabularyToMarkdown(vocabulary);
+            const date = new Date().toISOString().slice(0, 10);
+            await shareTextFile(`vocabulario-${date}.md`, markdown, 'Exportar vocabulario');
+            say(`${vocabulary.length} palabras exportadas`);
+        } catch (error) {
+            library.setError?.(error?.message || 'No se pudo exportar el vocabulario.');
+        }
+    };
+
     return (
         <div className="screen">
             <header className="head">
@@ -233,6 +252,18 @@ export default function SettingsScreen({ library, stats: statsApi }) {
                     <button type="button" className="row" onClick={exportAllNotes} disabled={!!busy || !hasNotes}>
                         <span className="row-icon"><IconShare size={19} /></span>
                         <span className="row-txt"><span>Exportar anotaciones a Markdown</span></span>
+                        <IconChevronRight size={18} />
+                    </button>
+                    <button type="button" className="row" onClick={exportVocabulary} disabled={!!busy || vocabulary.length === 0}>
+                        <span className="row-icon"><IconShare size={19} /></span>
+                        <span className="row-txt">
+                            <span>Exportar vocabulario</span>
+                            <span className="row-sub">
+                                {vocabulary.length === 0
+                                    ? 'Sin palabras guardadas todavía'
+                                    : `${vocabulary.length} palabra${vocabulary.length === 1 ? '' : 's'}`}
+                            </span>
+                        </span>
                         <IconChevronRight size={18} />
                     </button>
                 </div>

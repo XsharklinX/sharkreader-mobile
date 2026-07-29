@@ -129,6 +129,31 @@ export const shareTextFile = async (fileName, content, title) => {
     await Share.share({ title, url: uri, dialogTitle: title });
 };
 
+/**
+ * Comparte una imagen generada en el momento.
+ *
+ * El binario se escribe en la caché y se comparte por URI en lugar de pasar el
+ * base64 al diálogo: una imagen de 1080×1350 en base64 son más de 2 MB de
+ * cadena, y Android rechaza intents de ese tamaño.
+ */
+export const shareImage = async (fileName, blob, title) => {
+    const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+    });
+
+    await Filesystem.writeFile({
+        path: fileName,
+        data: base64,
+        directory: Directory.Cache,
+        recursive: true,
+    });
+    const { uri } = await Filesystem.getUri({ path: fileName, directory: Directory.Cache });
+    await Share.share({ title, url: uri, dialogTitle: title });
+};
+
 /** Exporta las anotaciones de un libro (o de toda la biblioteca) a Markdown. */
 export const exportAnnotations = async (books, bookId = null) => {
     const entries = buildAnnotationEntries(books, { bookId });

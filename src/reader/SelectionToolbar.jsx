@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { HIGHLIGHT_SWATCHES, HIGHLIGHT_LABEL_DEFAULTS } from './annotations.js';
+import { isLookupable } from './dictionary.js';
 
 /**
  * Barra que aparece al seleccionar texto.
@@ -8,7 +9,7 @@ import { HIGHLIGHT_SWATCHES, HIGHLIGHT_LABEL_DEFAULTS } from './annotations.js';
  * contextual con cuadraditos de 16 px funciona porque hay puntero; aquí cada
  * opción tiene que ser un objetivo cómodo para el pulgar.
  */
-export default function SelectionToolbar({ text, onHighlight, onCancel, onCopy }) {
+export default function SelectionToolbar({ text, onHighlight, onCancel, onCopy, onLookup, onQuote }) {
     const [writing, setWriting] = useState(false);
     const [comment, setComment] = useState('');
     const [color, setColor] = useState('yellow');
@@ -78,7 +79,13 @@ export default function SelectionToolbar({ text, onHighlight, onCancel, onCopy }
             </div>
 
             <div className="selbar-actions">
-                <button type="button" className="link-btn" onClick={() => setWriting(true)}>Añadir nota</button>
+                <button type="button" className="link-btn" onClick={() => setWriting(true)}>Nota</button>
+                {/* El diccionario solo aparece si la selección es una palabra:
+                    ofrecerlo sobre un párrafo entero sería una promesa falsa. */}
+                {onLookup && isLookupable(text) && (
+                    <button type="button" className="link-btn" onClick={() => onLookup(text)}>Definir</button>
+                )}
+                {onQuote && <button type="button" className="link-btn" onClick={() => onQuote(text)}>Compartir</button>}
                 <button type="button" className="link-btn" onClick={onCopy}>Copiar</button>
                 <button type="button" className="link-btn" onClick={onCancel}>Cerrar</button>
             </div>

@@ -9,6 +9,10 @@ import AnnotationsPanel from './AnnotationsPanel.jsx';
 import DimZone from './DimZone.jsx';
 import SpeechBar from './SpeechBar.jsx';
 import { useSpeech } from './useSpeech.js';
+import { useAutoScroll } from './useAutoScroll.js';
+import DictionarySheet from './DictionarySheet.jsx';
+import { renderQuoteImage } from './quoteImage.js';
+import { shareImage } from '../library/backup.js';
 import {
     createHighlight, createBookmark, addAnnotation, removeAnnotation, HIGHLIGHT_SWATCHES,
 } from './annotations.js';
@@ -17,7 +21,8 @@ import { readBookBlob } from '../adapters/SafPicker.js';
 import { usePorts } from '../ports/index.js';
 import { formatMinutes } from '../stats/derive.js';
 import {
-    IconArrowLeft, IconTextSize, IconList, IconBookmark, IconHighlight, IconSearch, IconVolume,
+    IconArrowLeft, IconTextSize, IconList, IconBookmark, IconHighlight, IconSearch,
+    IconVolume, IconClock,
 } from '../ui/icons.jsx';
 
 const LOCATIONS_KEY = (bookId) => `locations:${bookId}`;
@@ -260,6 +265,34 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         setSelection(null);
     }, []);
 
+    // ── Avance automático y teclas de volumen ────────────────────────────────
+    const autoScroll = useAutoScroll({
+        onNext: () => engineRef.current?.next(),
+        onPrev: () => engineRef.current?.prev(),
+        enabled: state === 'ready',
+    });
+
+    // ── Diccionario e imagen de cita ─────────────────────────────────────────
+    const [lookup, setLookup] = useState(null);
+
+    const openDictionary = useCallback((text) => {
+        setLookup(text);
+        engineRef.current?.clearSelection();
+        setSelection(null);
+    }, []);
+
+    const shareQuote = useCallback(async (text) => {
+        setSelection(null);
+        engineRef.current?.clearSelection();
+        try {
+            const blob = await renderQuoteImage({ text, book, theme });
+            await shareImage(`cita-${Date.now()}.png`, blob, 'Compartir cita');
+        } catch {
+            // Si el diálogo de compartir no está disponible, no hay alternativa
+            // razonable; se cierra la barra y ya está.
+        }
+    }, [book, theme]);
+
     if (state === 'error') {
         return (
             <div className="reader" style={{ '--reader-bg': palette.bg }}>
@@ -373,6 +406,18 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     </button>
                     <button
                         type="button"
+                        className={`icon-btn${autoScroll.running ? ' on' : ''}`}
+                        onClick={autoScroll.toggle}
+                        aria-label={
+                            autoScroll.running
+                                ? `Detener el avance automático (${autoScroll.secondsPerPage} s por página)`
+                                : 'Avance automático'
+                        }
+                    >
+                        <IconClock size={22} />
+                    </button>
+                    <button
+                        type="button"
                         className={`icon-btn${speech.isSpeaking ? ' on' : ''}`}
                         onClick={speech.toggle}
                         disabled={!speech.supported}
@@ -418,12 +463,18 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 />
             )}
 
+            {lookup && (
+                <DictionarySheet word={lookup} book={book} onClose={() => setLookup(null)} />
+            )}
+
             {selection && (
                 <SelectionToolbar
                     text={selection.text}
                     onHighlight={highlightSelection}
                     onCopy={copySelection}
                     onCancel={cancelSelection}
+                    onLookup={openDictionary}
+                    onQuote={shareQuote}
                 />
             )}
         </div>

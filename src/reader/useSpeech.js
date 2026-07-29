@@ -170,6 +170,32 @@ export const useSpeech = ({ getPageText, onSentence, onNextPage, title = '', cha
         [state, pause, resume, start]
     );
 
+    // ── Temporizador de apagado ──────────────────────────────────────────────
+    // «Para en 30 minutos»: quien escucha para dormirse no quiere despertarse
+    // tres capítulos más adelante sin saber por dónde iba.
+    const [sleepAt, setSleepAt] = useState(null);
+    const stopRef = useRef(stop);
+    stopRef.current = stop;
+
+    useEffect(() => {
+        if (!sleepAt) return undefined;
+        const remaining = sleepAt - Date.now();
+        if (remaining <= 0) {
+            stopRef.current();
+            setSleepAt(null);
+            return undefined;
+        }
+        const timer = setTimeout(() => {
+            stopRef.current();
+            setSleepAt(null);
+        }, remaining);
+        return () => clearTimeout(timer);
+    }, [sleepAt]);
+
+    const setSleepTimer = useCallback((minutes) => {
+        setSleepAt(minutes ? Date.now() + minutes * 60_000 : null);
+    }, []);
+
     // Botones de la notificación y de los auriculares. Se registran una sola vez
     // y leen el estado a través de las funciones más recientes, que van en una
     // ref para no volver a suscribirse en cada render.
@@ -202,6 +228,8 @@ export const useSpeech = ({ getPageText, onSentence, onNextPage, title = '', cha
         updateSettings,
         speakFrom,
         /** Índice de la frase que suena, para poder saltar tocando un párrafo. */
+        sleepAt,
+        setSleepTimer,
         currentIndex: () => index.current,
         sentences: () => queue.current,
         toggle,

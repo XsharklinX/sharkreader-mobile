@@ -109,6 +109,29 @@ export default function SpeechBar({ speech, onClose }) {
                             )}
                         </div>
 
+                        <div className="setting">
+                            <span className="setting-label">
+                                Apagar al cabo de
+                                {speech.sleepAt && (
+                                    <span className="setting-value">
+                                        {Math.max(0, Math.round((speech.sleepAt - Date.now()) / 60000))} min
+                                    </span>
+                                )}
+                            </span>
+                            <div className="segmented">
+                                {[0, 15, 30, 45, 60].map((minutes) => (
+                                    <button
+                                        key={minutes}
+                                        type="button"
+                                        className={(minutes === 0) === !speech.sleepAt ? 'on' : ''}
+                                        onClick={() => speech.setSleepTimer(minutes)}
+                                    >
+                                        {minutes === 0 ? 'Nunca' : `${minutes}m`}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         <button type="button" className="btn btn-primary btn-block" onClick={() => setShowSettings(false)}>
                             Listo
                         </button>

@@ -5,6 +5,7 @@ import BookSheet from '../library/BookSheet.jsx';
 import Sharky from '../ui/Sharky.jsx';
 import { selectBooks, FILTERS, SORTS } from '../library/useLibrary.js';
 import { minutesToday } from '../stats/derive.js';
+import { buildSeries } from '../library/collections.js';
 import {
     IconSearch, IconSort, IconPlus, IconClose, IconBook, IconFolder, IconGrid,
 } from '../ui/icons.jsx';
@@ -42,6 +43,8 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook }) 
             .sort((a, b) => (b.lastReadDate || 0) - (a.lastReadDate || 0))[0] || null,
         [books]
     );
+
+    const series = useMemo(() => buildSeries(books), [books]);
 
     const started = useMemo(
         () => books
@@ -262,6 +265,49 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook }) 
                             }}
                             onDisable={() => statsApi?.savePreferences?.({ sharky: false })}
                         />
+                    )}
+
+                    {series.length > 0 && (
+                        <div className="section">
+                            <div className="section-head">
+                                <h2 className="section-title">Series</h2>
+                                <span className="section-meta">{series.length}</span>
+                            </div>
+                            <div className="rail">
+                                {series.map((serie) => (
+                                    <button
+                                        type="button"
+                                        className="serie"
+                                        key={serie.name}
+                                        onClick={() => setDetail(serie.next || serie.books[0])}
+                                    >
+                                        <span className="serie-covers">
+                                            {serie.books.slice(0, 3).map((item, index) => (
+                                                <span
+                                                    className="serie-cover"
+                                                    key={item.id}
+                                                    style={{
+                                                        background: item.coverUrl ? undefined : item.color,
+                                                        zIndex: 3 - index,
+                                                        marginLeft: index ? -18 : 0,
+                                                    }}
+                                                >
+                                                    {item.coverUrl && <img src={item.coverUrl} alt="" loading="lazy" />}
+                                                </span>
+                                            ))}
+                                        </span>
+                                        <span className="serie-name">{serie.name}</span>
+                                        <span className="serie-meta">
+                                            {serie.complete
+                                                ? `✓ completa · ${serie.count}`
+                                                : serie.gaps.length
+                                                    ? `falta el ${serie.gaps[0]}`
+                                                    : `${serie.finished}/${serie.count}`}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     )}
 
                     {started.length > 0 && (

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { IconStar, IconCheck, IconShare, IconTrash, IconBook } from '../ui/icons.jsx';
+import { IconStar, IconCheck, IconShare, IconTrash, IconBook, IconSearch } from '../ui/icons.jsx';
+import { searchMetadata, fetchCover, applyMetadata } from './metadata.js';
 import { formatMinutes } from '../stats/derive.js';
 import { estimateRemaining } from './ContinueCard.jsx';
 
@@ -13,6 +14,39 @@ import { estimateRemaining } from './ContinueCard.jsx';
  */
 export default function BookSheet({ book, onClose, onOpen, onUpdate, onDelete, onExportNotes }) {
     const [confirmDelete, setConfirmDelete] = useState(false);
+    const [candidates, setCandidates] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const [notice, setNotice] = useState(null);
+
+    /**
+     * Busca metadata en OpenLibrary. Solo cuando el usuario lo pide: una app
+     * local-first no puede salir a internet por su cuenta con los títulos de tu
+     * biblioteca.
+     */
+    const searchOnline = async () => {
+        setBusy(true);
+        setNotice(null);
+        const { results, offline } = await searchMetadata({
+            title: book.originalTitle || book.name,
+            author: book.author,
+        });
+        setBusy(false);
+
+        if (offline) { setNotice('Sin conexión. Esta función necesita internet.'); return; }
+        if (results.length === 0) { setNotice('No se ha encontrado nada para este título.'); return; }
+        setCandidates(results);
+    };
+
+    const applyCandidate = async (candidate) => {
+        setBusy(true);
+        // La portada se guarda como imagen, no como URL: la biblioteca tiene que
+        // seguir funcionando sin conexión.
+        const cover = await fetchCover(candidate.coverUrl);
+        await onUpdate(book.id, applyMetadata(book, candidate, cover));
+        setBusy(false);
+        setCandidates(null);
+        setNotice('Metadata actualizada.');
+    };
 
     const done = Math.round((book.progress || 0) * 100);
     const cover = book.coverUrl || book.coverBase64;
@@ -92,6 +126,15 @@ export default function BookSheet({ book, onClose, onOpen, onUpdate, onDelete, o
                 <div className="detail-actions">
                     <button
                         type="button"
+                        className="detail-action"
+                        onClick={searchOnline}
+                        disabled={busy}
+                    >
+                        <IconSearch size={20} />
+                        Metadata
+                    </button>
+                    <button
+                        type="button"
                         className={`detail-action${book.isFav ? ' on' : ''}`}
                         onClick={() => onUpdate(book.id, { isFav: !book.isFav })}
                         aria-pressed={book.isFav}
@@ -133,6 +176,45 @@ export default function BookSheet({ book, onClose, onOpen, onUpdate, onDelete, o
                         Borrar
                     </button>
                 </div>
+
+                {busy && <div className="banner" role="status">Buscando…</div>}
+                {notice && <div className="banner" role="status">{notice}</div>}
+
+                {candidates && (
+                    <section className="section">
+                        <div className="section-head">
+                            <h3 className="section-title">¿Cuál es este libro?</h3>
+                            <button type="button" className="link-btn" onClick={() => setCandidates(null)}>
+                                Cancelar
+                            </button>
+                        </div>
+                        <div className="rows">
+                            {candidates.map((candidate) => (
+                                <button
+                                    type="button"
+                                    className="row"
+                                    key={candidate.key}
+                                    onClick={() => applyCandidate(candidate)}
+                                >
+                                    {candidate.coverUrl && (
+                                        <img
+                                            src={candidate.coverUrl}
+                                            alt=""
+                                            style={{ width: 34, borderRadius: 4, flex: 'none' }}
+                                            loading="lazy"
+                                        />
+                                    )}
+                                    <span className="row-txt">
+                                        <span>{candidate.title}</span>
+                                        <span className="row-sub">
+                                            {[candidate.author, candidate.year].filter(Boolean).join(' · ')}
+                                        </span>
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    </section>
+                )}
 
                 {confirmDelete && (
                     <div className="card" style={{ background: 'var(--sf-2)' }}>
