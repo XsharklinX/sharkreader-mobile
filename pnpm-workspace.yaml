@@ -1,0 +1,6 @@
+# Ningún paquete necesita ejecutar scripts de postinstall.
+# core-js y es5-ext los declaran, pero solo para avisos y polyfills que aquí no
+# se usan: el build de Vite apunta a es2020 y el WebView de Android 8+ lo cubre.
+allowBuilds:
+  core-js: false
+  es5-ext: false

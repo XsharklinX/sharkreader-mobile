@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SharkReader</string>
+    <string name="title_activity_main">SharkReader</string>
+    <string name="package_name">com.sharkreader.mobile</string>
+    <string name="custom_url_scheme">com.sharkreader.mobile</string>
+</resources>

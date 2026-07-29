@@ -1,0 +1,85 @@
+/* Tokens de SharkReader Mobile.
+   Heredados de styles/main.css del escritorio para que las dos apps se
+   reconozcan como la misma marca. Lo que cambia es la escala: aquí las medidas
+   parten de un pulgar, no de un ratón. */
+
+:root {
+    /* Superficies — tema oscuro por defecto, que es como se lee de noche */
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-2: #142433;
+    --border: #24405480;
+    --border-strong: #334155;
+
+    --text: #f1f5f9;
+    --text-2: #9db4c4;
+    --text-3: #6f8899;
+
+    --accent: #38bdf8;
+    --accent-ink: #04121b;
+    --accent-deep: #0369a1;
+
+    --warn: #f5a524;
+    --ok: #3dd68c;
+    --risk: #f2617a;
+
+    /* Colores de subrayado — mismos cuatro que en escritorio */
+    --hl-yellow: #fde047;
+    --hl-green: #4ade80;
+    --hl-blue: #60a5fa;
+    --hl-pink: #f472b6;
+
+    /* Escala de espaciado */
+    --sp-1: 4px;
+    --sp-2: 8px;
+    --sp-3: 12px;
+    --sp-4: 16px;
+    --sp-5: 24px;
+    --sp-6: 32px;
+
+    --radius: 10px;
+    --radius-sm: 6px;
+
+    /* Objetivo táctil mínimo. Ningún control interactivo baja de aquí. */
+    --touch: 48px;
+
+    /* Zonas seguras del sistema (barra de estado, gestos de navegación) */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+    --font: "Segoe UI", Roboto, system-ui, -apple-system, sans-serif;
+    --font-read: Georgia, "Times New Roman", serif;
+    --font-mono: "Roboto Mono", ui-monospace, monospace;
+}
+
+:root.theme-light {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --surface-2: #eef2f6;
+    --border: #e2e8f0;
+    --border-strong: #cbd5e1;
+
+    --text: #0f172a;
+    --text-2: #475569;
+    --text-3: #64748b;
+
+    --accent: #0284c7;
+    --accent-ink: #ffffff;
+    --accent-deep: #0369a1;
+}
+
+:root.theme-sepia {
+    --bg: #fef3c7;
+    --surface: #fde68a;
+    --surface-2: #fcefc0;
+    --border: #d3c6aa;
+    --border-strong: #b8a684;
+
+    --text: #451a03;
+    --text-2: #7c4a12;
+    --text-3: #8b6b4a;
+
+    --accent: #92400e;
+    --accent-ink: #fef3c7;
+    --accent-deep: #78350f;
+}

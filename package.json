@@ -1,0 +1,47 @@
+{
+  "name": "sharkreader-mobile",
+  "version": "0.1.0",
+  "description": "SharkReader para Android — lector de EPUB y PDF local-first, sin cuenta y sin nube",
+  "author": "David Bonilla",
+  "license": "ISC",
+  "type": "module",
+  "private": true,
+  "packageManager": "pnpm@11.1.1",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "sync": "pnpm build && cap sync android",
+    "android": "pnpm sync && cap open android",
+    "android:run": "pnpm sync && cap run android",
+    "apk:debug": "pnpm sync && cd android && gradlew.bat assembleDebug",
+    "apk:release": "pnpm sync && cd android && gradlew.bat bundleRelease",
+    "core:diff": "node scripts/core-diff.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/filesystem": "^7.0.0",
+    "@capacitor/haptics": "^7.0.0",
+    "@capacitor/preferences": "^7.0.0",
+    "@capacitor/share": "^7.0.0",
+    "@capacitor/status-bar": "^7.0.0",
+    "epubjs": "^0.3.93",
+    "jszip": "^3.10.1",
+    "pdfjs-dist": "^5.6.205",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0",
+    "@vitejs/plugin-react": "^6.0.1",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^3.4.19",
+    "vite": "^8.0.10",
+    "vitest": "^4.1.7"
+  }
+}

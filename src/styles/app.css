@@ -1,0 +1,213 @@
+@import './tokens.css';
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body, #root {
+    height: 100%;
+    margin: 0;
+    overscroll-behavior: none;
+}
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    /* El contenido no se selecciona por defecto: en móvil la selección larga
+       está reservada para subrayar dentro del lector. */
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* ── Armazón de la app ── */
+.app {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.app-main {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-top: var(--safe-top);
+}
+
+.screen {
+    padding: var(--sp-4) var(--sp-4) var(--sp-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+    min-height: 100%;
+}
+
+.screen-title {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0;
+}
+
+.screen-sub {
+    color: var(--text-2);
+    font-size: 13px;
+    margin: 0;
+}
+
+/* ── Barra de navegación inferior ──
+   Fija, dentro de la zona del pulgar, con las zonas seguras de gestos. */
+.tabbar {
+    display: flex;
+    justify-content: space-around;
+    align-items: stretch;
+    background: var(--surface-2);
+    border-top: 1px solid var(--border);
+    padding-bottom: var(--safe-bottom);
+    flex: none;
+}
+
+.tabbar-btn {
+    flex: 1;
+    min-height: var(--touch);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: var(--sp-2) 0;
+    background: none;
+    border: 0;
+    color: var(--text-3);
+    font-family: inherit;
+    font-size: 10px;
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+
+.tabbar-btn[aria-current="page"] {
+    color: var(--accent);
+}
+
+.tabbar-icon {
+    font-size: 20px;
+    line-height: 1;
+}
+
+/* ── Piezas reutilizables ── */
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}
+
+.card-title {
+    font-size: 15px;
+    font-weight: 650;
+    margin: 0;
+}
+
+.card-body {
+    font-size: 13px;
+    color: var(--text-2);
+    margin: 0;
+}
+
+.mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-3);
+    text-align: center;
+    padding: var(--sp-6) var(--sp-4);
+    color: var(--text-2);
+}
+
+.empty-emoji {
+    font-size: 44px;
+    line-height: 1;
+}
+
+.empty-title {
+    font-size: 17px;
+    font-weight: 650;
+    color: var(--text);
+    margin: 0;
+}
+
+.empty-body {
+    font-size: 13px;
+    max-width: 34ch;
+    margin: 0;
+}
+
+.btn {
+    min-height: var(--touch);
+    padding: 0 var(--sp-5);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+}
+
+.btn:active { opacity: 0.75; }
+
+/* Rejilla de diagnóstico de la Fase 0 */
+.kv {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--sp-1) var(--sp-3);
+    font-size: 13px;
+}
+
+.kv dt { color: var(--text-2); margin: 0; }
+.kv dd {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+}
+
+.pill {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    color: var(--text-2);
+}
+
+.pill-ok { color: var(--ok); border-color: var(--ok); }
+
+@media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

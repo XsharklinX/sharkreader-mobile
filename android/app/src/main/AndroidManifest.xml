@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- "Abrir con SharkReader" desde cualquier gestor de archivos,
+                 cliente de correo o navegador. El equivalente móvil de las
+                 asociaciones de fichero del escritorio.
+                 La app aún no procesa el intent: eso llega en la v0.2.0. -->
+            <intent-filter android:label="@string/app_name">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/epub+zip" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"></meta-data>
+        </provider>
+    </application>
+
+    <!-- Permisos.
+         Deliberadamente cortos: la app es local-first y no toca almacenamiento
+         compartido. Los ficheros entran por el Storage Access Framework, que no
+         requiere READ_EXTERNAL_STORAGE ni MANAGE_EXTERNAL_STORAGE — eso es
+         justo lo que hace sencillo el formulario de Seguridad de los Datos.
+
+         INTERNET: solo para portadas de OpenLibrary y sync WebDAV opcional.
+         POST_NOTIFICATIONS: recordatorios y resumen semanal (v0.5.0). -->
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- La app funciona entera sin conexión -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+</manifest>
