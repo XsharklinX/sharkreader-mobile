@@ -17,12 +17,18 @@
  */
 
 export const DEFAULT_TYPOGRAPHY = {
-    fontFamily: 'serif',
+    fontFamily: 'literata',
     fontSize: 18,
     lineHeight: 1.6,
     margin: 20,
     letterSpacing: 0,
     paragraphSpacing: 0.7,
+    // 'space' separa párrafos con aire; 'indent' los pega y sangra la primera
+    // línea, que es como está compuesto cualquier libro en papel.
+    paragraphStyle: 'space',
+    // Idioma para la partición de palabras. 'auto' usa el que declare el EPUB,
+    // que muchos declaran mal o no declaran.
+    hyphenLang: 'auto',
     justify: false,
     hyphens: true,
     // 'paginated' (por defecto) o 'scrolled': hay quien prefiere desplazar
@@ -33,10 +39,20 @@ export const DEFAULT_TYPOGRAPHY = {
     dyslexia: false,
 };
 
+/**
+ * Familias de lectura.
+ *
+ * Las tres primeras viajan dentro del APK: no dependen de lo que traiga el
+ * sistema, así que el libro se ve igual en cualquier dispositivo. Georgia y
+ * Roboto se quedan como respaldo para quien las prefiera, pero ya no son la
+ * opción por defecto — ninguna se diseñó para leer novelas en seis pulgadas.
+ */
 export const FONT_FAMILIES = [
-    { id: 'serif', label: 'Serif', stack: 'Georgia, "Noto Serif", serif' },
+    { id: 'literata', label: 'Literata', stack: 'Literata, Georgia, serif', bundled: true },
+    { id: 'source-serif', label: 'Source Serif', stack: '"Source Serif 4", Georgia, serif', bundled: true },
+    { id: 'atkinson', label: 'Atkinson', stack: '"Atkinson Hyperlegible", Verdana, sans-serif', bundled: true },
+    { id: 'serif', label: 'Georgia', stack: 'Georgia, "Noto Serif", serif' },
     { id: 'sans', label: 'Sans', stack: 'Roboto, "Segoe UI", system-ui, sans-serif' },
-    { id: 'slab', label: 'Slab', stack: '"Roboto Slab", Rockwell, Georgia, serif' },
     { id: 'mono', label: 'Mono', stack: '"Roboto Mono", ui-monospace, monospace' },
 ];
 
@@ -95,10 +111,6 @@ export const buildReaderStyles = (typography, themeId) => {
     // El modo dislexia no es solo una fuente: lo que más ayuda es el aire entre
     // letras, palabras y líneas, no justificar y no partir palabras al final de
     // línea. Esos cuatro ajustes se aplican encima de lo que haya configurado.
-    //
-    // La fuente OpenDyslexic no viaja en el APK — pesaría más que buena parte
-    // del bundle. Se pide por nombre, así que se usa si el usuario la tiene
-    // instalada en el sistema, y si no se cae a una sans de alta legibilidad.
     const settings = base.dyslexia
         ? {
             ...base,
@@ -109,9 +121,18 @@ export const buildReaderStyles = (typography, themeId) => {
         }
         : base;
 
+    // Atkinson Hyperlegible viaja dentro del APK, así que el modo dislexia ya no
+    // depende de que el usuario tenga instalada una fuente concreta. La versión
+    // anterior pedía OpenDyslexic por nombre y casi nadie la tiene: el modo se
+    // quedaba en cambiar espaciados.
     const family = base.dyslexia
-        ? '"OpenDyslexic", "Open Dyslexic", Verdana, Tahoma, sans-serif'
+        ? '"Atkinson Hyperlegible", Verdana, Tahoma, sans-serif'
         : fontStack(settings.fontFamily);
+
+    // Sangría de primera línea frente a espacio entre párrafos. Un libro en
+    // papel usa sangría y párrafos pegados; el espacio es convención de web.
+    // Mezclar las dos cosas es el error de composición más común.
+    const indented = settings.paragraphStyle === 'indent';
 
     // Muchos EPUB traen color y fondo incrustados en su CSS o en atributos en
     // línea. Sin `!important` sobre los elementos concretos, un libro con fondo
@@ -157,11 +178,23 @@ export const buildReaderStyles = (typography, themeId) => {
         },
         'p, div, span, li, td, th, blockquote, section, article, figure': forceColors,
         'p': {
-            'margin': `0 0 ${settings.paragraphSpacing}em 0 !important`,
-            'text-indent': '0 !important',
+            'margin': indented ? '0 !important' : `0 0 ${settings.paragraphSpacing}em 0 !important`,
+            'text-indent': indented ? '1.4em !important' : '0 !important',
             'overflow-wrap': 'break-word',
             'word-wrap': 'break-word',
+            // Evita que una línea suelta quede al principio o al final de la
+            // columna. Es el defecto de composición más visible que existe y
+            // hasta ahora no hacíamos nada por impedirlo.
+            'orphans': '2',
+            'widows': '2',
         },
+        // Con sangría, el primer párrafo de una sección no se sangra: se sangra
+        // para indicar «esto continúa», y después de un título no continúa nada.
+        ...(indented ? {
+            'h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p, hr + p, blockquote + p': {
+                'text-indent': '0 !important',
+            },
+        } : {}),
         'h1, h2, h3, h4, h5, h6': {
             'color': `${theme.text} !important`,
             'background': 'transparent !important',

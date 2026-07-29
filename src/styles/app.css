@@ -1581,3 +1581,160 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     0%, 70% { background: var(--accent-soft); }
     100% { background: transparent; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Lector — Fase B
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Filtro cálido. Va por encima del texto pero por debajo de la interfaz: el
+   objetivo es el papel, no los controles. `multiply` mantiene legible el texto
+   oscuro, cosa que una capa naranja plana no consigue. */
+.reader-warm {
+    position: absolute;
+    inset: 0;
+    background: #FF8A20;
+    mix-blend-mode: multiply;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.warm-slider { accent-color: #E0902F; }
+
+/* Botón de volver al sitio anterior. Solo aparece cuando hay a dónde volver,
+   así que su presencia ya informa. */
+.back-jump {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(var(--safe-bottom) + 26px);
+    z-index: 12;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-4);
+    border: 0;
+    border-radius: var(--r-full);
+    background: var(--sf-3);
+    color: var(--text);
+    font-size: var(--t-tiny);
+    font-weight: 600;
+    box-shadow: var(--el-3);
+    animation: toast-in 0.24s var(--ease) both;
+    max-width: 80%;
+}
+.back-jump span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Nota al pie ── */
+.footnote { gap: var(--sp-3); }
+.footnote-head { display: flex; align-items: center; justify-content: space-between; }
+.footnote-label {
+    font-size: var(--t-micro);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+.footnote-text {
+    font-family: var(--font-read);
+    font-size: var(--t-body);
+    line-height: 1.62;
+    margin: 0;
+    max-height: 42vh;
+    overflow-y: auto;
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+/* ── Visor de imágenes ── */
+.image-viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    background: rgba(3, 5, 8, 0.97);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fade-in 0.16s var(--ease) both;
+}
+
+.image-viewer-stage {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    touch-action: none;
+}
+
+.image-viewer-stage img {
+    max-width: 100%;
+    max-height: 100%;
+    transform-origin: center;
+    will-change: transform;
+}
+
+.image-viewer-close {
+    position: absolute;
+    top: calc(var(--safe-top) + var(--sp-2));
+    right: var(--sp-2);
+    z-index: 2;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.45);
+    border-radius: var(--r-full);
+}
+
+.image-viewer-hint {
+    position: absolute;
+    bottom: calc(var(--safe-bottom) + var(--sp-4));
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 3px 10px;
+    border-radius: var(--r-full);
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: var(--t-micro);
+}
+
+/* ── Arrastre de página ── */
+/* Mientras el dedo está puesto no hay transición: la página tiene que ir
+   pegada al dedo. El rebote al soltar sí se anima. */
+.reader-viewport.dragging { transition: none; }
+.reader-viewport.releasing { transition: transform 0.24s cubic-bezier(0.2, 0.9, 0.3, 1); }
+
+/* Barra de progreso arrastrable. El input va invisible por encima de la pista
+   pintada: así se conserva el comportamiento nativo de un slider —incluida la
+   accesibilidad— con el aspecto que queremos. */
+.prog-track { position: relative; }
+
+.prog-scrub {
+    position: absolute;
+    inset: -12px 0;
+    width: 100%;
+    margin: 0;
+    opacity: 0;
+    -webkit-appearance: none;
+    appearance: none;
+    background: none;
+}
+.prog-scrub::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 32px;
+    height: 32px;
+}
+
+.scrub-preview {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: var(--sp-2);
+    padding: var(--sp-1) 0;
+}
+.scrub-preview b { font-family: var(--font-mono); font-size: var(--t-heading); color: var(--accent); }
+.scrub-preview span {
+    font-size: var(--t-tiny);
+    color: var(--text-3);
+    max-width: 60%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

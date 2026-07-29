@@ -51,6 +51,7 @@ export const createGestureHandlers = (handlers) => {
 
     const onPointerDown = (event) => {
         start = { x: event.clientX, y: event.clientY, time: Date.now() };
+        handlers.onDragDown?.(event);
         clearLongPress();
         if (onLongPress) {
             longPressTimer = setTimeout(() => {
@@ -61,8 +62,18 @@ export const createGestureHandlers = (handlers) => {
         }
     };
 
+    const onPointerMove = (event) => {
+        handlers.onDragMove?.(event);
+    };
+
     const onPointerUp = (event) => {
         clearLongPress();
+
+        // El arrastre se resuelve primero. Si ha consumido el gesto, no se
+        // interpreta además como toque ni como deslizamiento: pasarían dos
+        // páginas de golpe.
+        if (handlers.onDragUp?.(event)) { start = null; return; }
+
         if (!start) return;
 
         const dx = event.clientX - start.x;
@@ -102,13 +113,17 @@ export const createGestureHandlers = (handlers) => {
 
     const onPointerCancel = () => {
         clearLongPress();
+        handlers.onDragCancel?.();
         start = null;
     };
 
     // Se devuelve el mismo objeto que se muta desde fuera (onTapWhileSpeaking),
     // porque los gestos se registran en el iframe durante la carga y no se
     // vuelven a crear.
-    Object.assign(handlers, { onPointerDown, onPointerUp, onPointerCancel, onPointerLeave: onPointerCancel });
+    Object.assign(handlers, {
+        onPointerDown, onPointerMove, onPointerUp, onPointerCancel,
+        onPointerLeave: onPointerCancel,
+    });
     return handlers;
 };
 

@@ -1,0 +1,11 @@
+Fuentes empaquetadas en SharkReader Mobile
+
+Literata — SIL Open Font License 1.1
+Source Serif 4 — SIL Open Font License 1.1
+Atkinson Hyperlegible — SIL Open Font License 1.1
+
+La OFL permite empaquetar y redistribuir estas fuentes dentro de una
+aplicación, incluso comercial, siempre que se conserve este aviso y no
+se vendan las fuentes por separado.
+
+Texto completo: https://scripts.sil.org/OFL

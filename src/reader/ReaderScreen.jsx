@@ -5,6 +5,11 @@ import { buildReaderStyles, DEFAULT_TYPOGRAPHY, READER_THEMES } from './typograp
 import ReaderSettingsSheet from './ReaderSettingsSheet.jsx';
 import DisplaySheet from './DisplaySheet.jsx';
 import { runTransition, DEFAULT_TRANSITION } from './transitions.js';
+import { buildFontFaceCss } from './fontLoader.js';
+import { useHistory } from './useHistory.js';
+import FootnoteSheet from './FootnoteSheet.jsx';
+import ImageViewer from './ImageViewer.jsx';
+import { createPageDrag } from './pageDrag.js';
 import TocDrawer from './TocDrawer.jsx';
 import SelectionToolbar from './SelectionToolbar.jsx';
 import AnnotationsPanel from './AnnotationsPanel.jsx';
@@ -49,6 +54,9 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     const [selection, setSelection] = useState(null);
     const [toc, setToc] = useState([]);
     const [dim, setDim] = useState(0);
+    // Filtro cálido: quitar azul es distinto de atenuar. De madrugada lo que
+    // molesta es el componente azul, no el brillo.
+    const [warm, setWarm] = useState(book.readerPreferences?.warm ?? 0);
     const [location, setLocation] = useState({
         cfi: book.lastLocation || null,
         progress: book.progress || 0,
@@ -99,6 +107,51 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         else engine.prev();
     };
 
+    /**
+     * Arrastre de página: la hoja sigue al dedo y vuelve si sueltas antes del
+     * umbral. Se desactiva con la animación «ninguna», que es la opción para
+     * dispositivos donde 60 fps no es realista.
+     */
+    const dragRef = useRef(null);
+    if (!dragRef.current) {
+        const setShift = (shift) => {
+            const node = viewportRef.current;
+            if (!node) return;
+            node.classList.add('dragging');
+            node.classList.remove('releasing');
+            node.style.transform = `translateX(${shift}px)`;
+        };
+
+        const release = () => {
+            const node = viewportRef.current;
+            if (!node) return;
+            node.classList.remove('dragging');
+            node.classList.add('releasing');
+            node.style.transform = '';
+        };
+
+        dragRef.current = createPageDrag({
+            getWidth: () => viewportRef.current?.clientWidth || window.innerWidth,
+            isEnabled: () => transitionRef.current !== 'none'
+                && !engineRef.current?.selectionText(),
+            onMove: setShift,
+            onCancel: release,
+            onCommit: (direction) => {
+                release();
+                if (direction === 'next') engineRef.current?.next();
+                else engineRef.current?.prev();
+            },
+        });
+
+        // Los gestos de toque y el arrastre comparten los mismos eventos. El
+        // arrastre se evalúa primero y, si ha consumido el gesto, el toque no
+        // llega a interpretarse.
+        gesturesRef.current.onDragDown = dragRef.current.down;
+        gesturesRef.current.onDragMove = dragRef.current.move;
+        gesturesRef.current.onDragUp = dragRef.current.up;
+        gesturesRef.current.onDragCancel = dragRef.current.cancel;
+    }
+
     // ── Carga ────────────────────────────────────────────────────────────────
     useEffect(() => {
         let cancelled = false;
@@ -113,7 +166,15 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
 
                 const savedLocations = await ports.storage.getSetting(LOCATIONS_KEY(book.id));
 
+                // Las fuentes se preparan antes de abrir: el hook de contenido
+                // debe estar registrado cuando epub.js monte el primer capítulo,
+                // igual que los gestos.
+                const fontCss = await buildFontFaceCss().catch(() => '');
+                if (cancelled) return;
+
                 const result = await engine.open(data, viewportRef.current, {
+                    fontCss,
+                    hyphenLang: typography.hyphenLang,
                     styles,
                     savedLocations,
                     startCfi: book.lastLocation || undefined,
@@ -142,6 +203,9 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     if (text) setSelection({ cfiRange, text });
                 });
 
+                engine.registerFootnotes(setFootnote);
+                engine.registerImages(setImage);
+
                 setState('ready');
             } catch (loadError) {
                 if (cancelled) return;
@@ -157,7 +221,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             engineRef.current = null;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [book.id, typography.flow]);
+    }, [book.id, typography.flow, typography.hyphenLang]);
 
     // ── Posición ─────────────────────────────────────────────────────────────
     useEffect(() => {
@@ -195,13 +259,54 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
 
     useEffect(() => {
         if (state !== 'ready') return;
-        progressRef.current?.({ readerPreferences: { typography, theme, transition } });
-    }, [typography, theme, transition, state]);
+        progressRef.current?.({ readerPreferences: { typography, theme, transition, warm } });
+    }, [typography, theme, transition, warm, state]);
 
+    // ── Notas, imágenes e historial ──────────────────────────────────────────
+    const [footnote, setFootnote] = useState(null);
+    const [image, setImage] = useState(null);
+    const history = useHistory();
+
+    const locationRef = useRef(location);
+    locationRef.current = location;
+
+    /**
+     * Salta a otra parte del libro **guardando dónde estabas**.
+     *
+     * Solo los saltos deliberados entran en el historial: si cada página
+     * entrara, «volver» retrocedería una página y dejaría de significar
+     * «llévame de vuelta a donde estaba».
+     */
     const jumpTo = useCallback((target) => {
+        const from = locationRef.current;
+        if (from?.cfi) history.push({ cfi: from.cfi, label: from.chapter || 'donde estabas' });
         engineRef.current?.display(target);
         setPanel(null);
-    }, []);
+        setFootnote(null);
+    }, [history]);
+
+    const goBack = useCallback(() => {
+        const entry = history.pop();
+        if (entry?.cfi) engineRef.current?.display(entry.cfi);
+    }, [history]);
+
+    // ── Barra de progreso arrastrable ────────────────────────────────────────
+    const [scrubAt, setScrubAt] = useState(null);
+
+    /** Capítulo al que se llegaría con la posición que se está arrastrando. */
+    const scrubChapter = useMemo(() => {
+        if (scrubAt === null) return '';
+        return engineRef.current?.chapterAtPercent(scrubAt / 100, toc) || '';
+    }, [scrubAt, toc]);
+
+    const commitScrub = useCallback(() => {
+        if (scrubAt === null) return;
+        const target = engineRef.current?.cfiAtPercent(scrubAt / 100);
+        // Saltar con la barra también es un salto deliberado: entra en el
+        // historial para poder deshacerlo.
+        if (target) jumpTo(target);
+        setScrubAt(null);
+    }, [scrubAt, jumpTo]);
 
     // ── Lectura en voz alta ──────────────────────────────────────────────────
     const speech = useSpeech({
@@ -368,11 +473,21 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             />
 
             {dim > 0 && <div className="reader-dim" style={{ opacity: dim }} aria-hidden="true" />}
+            {warm > 0 && <div className="reader-warm" style={{ opacity: warm }} aria-hidden="true" />}
 
             <DimZone value={dim} onChange={setDim} />
 
-            {!chrome && location.page > 0 && (
+            {!chrome && location.page > 0 && !history.canGoBack && (
                 <span className="page-chip">{location.page} / {location.totalPages}</span>
+            )}
+
+            {/* Solo aparece si hay a dónde volver, así que su presencia ya es la
+                información: acabas de saltar y puedes deshacerlo. */}
+            {history.canGoBack && (
+                <button type="button" className="back-jump" onClick={goBack}>
+                    <IconArrowLeft size={16} />
+                    <span>Volver a {history.peekLabel()}</span>
+                </button>
             )}
 
             <header className={`reader-top${chrome ? '' : ' hidden'}`}>
@@ -408,10 +523,32 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                             {leftInBook ? `quedan ${formatMinutes(leftInBook)}` : `${percent}%`}
                         </span>
                     </div>
+                    {/* Arrastrable: recorrer el libro sin pasar por el índice.
+                        Mientras se arrastra se muestra el capítulo de destino,
+                        para poder soltar sabiendo a dónde vas. */}
                     <div className="prog-track">
-                        <span className="prog-book" style={{ width: `${percent}%` }} />
-                        <span className="prog-chap" style={{ width: `${chapterPercent}%` }} />
+                        <span className="prog-book" style={{ width: `${scrubAt ?? percent}%` }} />
+                        <span className="prog-chap" style={{ width: `${scrubAt === null ? chapterPercent : 0}%` }} />
+                        <input
+                            type="range"
+                            className="prog-scrub"
+                            min={0}
+                            max={100}
+                            step={0.5}
+                            value={scrubAt ?? percent}
+                            onChange={(event) => setScrubAt(Number(event.target.value))}
+                            onPointerUp={commitScrub}
+                            onTouchEnd={commitScrub}
+                            aria-label="Ir a una posición del libro"
+                        />
                     </div>
+
+                    {scrubAt !== null && (
+                        <div className="scrub-preview">
+                            <b>{Math.round(scrubAt)}%</b>
+                            <span>{scrubChapter || 'del libro'}</span>
+                        </div>
+                    )}
                     <div className="prog-row prog-sub">
                         <span className="mono">cap. {chapterPercent}%</span>
                         <span className="mono">libro {percent}%</span>
@@ -478,6 +615,9 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     onChangeTransition={setTransition}
                     dim={dim}
                     onChangeDim={setDim}
+                    warm={warm}
+                    onChangeWarm={setWarm}
+                    transitionMode={transition}
                     autoScroll={autoScroll}
                     onClose={() => setPanel(null)}
                 />
@@ -503,6 +643,19 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
 
             {lookup && (
                 <DictionarySheet word={lookup} book={book} onClose={() => setLookup(null)} />
+            )}
+
+            {footnote && (
+                <FootnoteSheet
+                    note={footnote}
+                    palette={palette}
+                    onGoToNotes={(href) => jumpTo(href)}
+                    onClose={() => setFootnote(null)}
+                />
+            )}
+
+            {image && (
+                <ImageViewer src={image.src} alt={image.alt} onClose={() => setImage(null)} />
             )}
 
             {selection && (

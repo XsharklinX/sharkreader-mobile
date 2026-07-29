@@ -18,6 +18,7 @@ export default function DisplaySheet({
     flow, onChangeFlow,
     transition, onChangeTransition,
     dim, onChangeDim,
+    warm, onChangeWarm,
     autoScroll,
     onClose,
 }) {
@@ -113,6 +114,28 @@ export default function DisplaySheet({
                     <p className="option-desc">
                         Baja el brillo por debajo del mínimo del sistema. También se
                         ajusta deslizando por el borde izquierdo mientras lees.
+                    </p>
+                </div>
+
+                {/* Quitar azul es distinto de atenuar: de madrugada lo que
+                    molesta es el componente azul, no el brillo. Van separados
+                    porque se usan en momentos distintos. */}
+                <div className="setting">
+                    <span className="setting-label">
+                        <span>Filtro cálido</span>
+                        <span className="setting-value">{Math.round((warm / 0.55) * 100)}%</span>
+                    </span>
+                    <input
+                        type="range"
+                        min={0}
+                        max={55}
+                        value={Math.round((warm || 0) * 100)}
+                        onChange={(event) => onChangeWarm(Number(event.target.value) / 100)}
+                        aria-label="Filtro cálido"
+                        className="warm-slider"
+                    />
+                    <p className="option-desc">
+                        Reduce la luz azul para leer de noche sin forzar la vista.
                     </p>
                 </div>
 

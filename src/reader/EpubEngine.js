@@ -27,7 +27,10 @@ export const createEpubEngine = () => {
          * @param {HTMLElement} element
          * @param {Object} options
          */
-        async open(data, element, { styles, savedLocations, startCfi, gestureHandlers, flow = 'paginated' } = {}) {
+        async open(data, element, {
+            styles, savedLocations, startCfi, gestureHandlers,
+            flow = 'paginated', fontCss, hyphenLang,
+        } = {}) {
             book = ePub(data);
             rendition = book.renderTo(element, {
                 // scrolled-doc desplaza en vertical en lugar de paginar.
@@ -50,6 +53,8 @@ export const createEpubEngine = () => {
             // justo el que ve el usuario al abrir el libro, el lector parece
             // colgado — no responde ni al toque ni al deslizamiento.
             if (gestureHandlers) this.registerContentHooks(gestureHandlers);
+            if (fontCss) this.injectFonts(fontCss);
+            if (hyphenLang) this.setHyphenLanguage(hyphenLang);
 
             await rendition.display(startCfi || undefined);
             await book.ready;
@@ -98,8 +103,122 @@ export const createEpubEngine = () => {
             rendition.hooks.content.register((contents) => {
                 const doc = contents.document;
                 doc.addEventListener('pointerdown', handlers.onPointerDown, { passive: true });
+                doc.addEventListener('pointermove', handlers.onPointerMove, { passive: true });
                 doc.addEventListener('pointerup', handlers.onPointerUp, { passive: true });
                 doc.addEventListener('pointercancel', handlers.onPointerCancel, { passive: true });
+            });
+        },
+
+        /**
+         * Inyecta las fuentes empaquetadas dentro del iframe de cada capítulo.
+         *
+         * Las `@font-face` de la aplicación no llegan al documento del libro:
+         * es otro documento, con otra base de URLs. Sin esto, elegir Literata
+         * no cambiaba absolutamente nada en el texto.
+         */
+        injectFonts(css) {
+            if (!rendition || !css) return;
+            rendition.hooks.content.register((contents) => {
+                const doc = contents.document;
+                if (doc.getElementById('sr-fonts')) return;
+                const style = doc.createElement('style');
+                style.id = 'sr-fonts';
+                style.textContent = css;
+                doc.head?.appendChild(style);
+            });
+        },
+
+        /**
+         * Fija el idioma del documento para la partición de palabras.
+         *
+         * `hyphens: auto` no hace nada si el navegador no sabe en qué idioma
+         * está el texto, y muchos EPUB no declaran `lang` o lo declaran mal.
+         * El resultado es un justificado lleno de ríos blancos.
+         */
+        setHyphenLanguage(lang) {
+            if (!rendition || !lang || lang === 'auto') return;
+            rendition.hooks.content.register((contents) => {
+                const html = contents.document?.documentElement;
+                if (html) {
+                    html.setAttribute('lang', lang);
+                    html.setAttribute('xml:lang', lang);
+                }
+            });
+        },
+
+        /**
+         * Hace tocables las imágenes del libro.
+         *
+         * Se ignoran las decorativas —menos de 120 px— para que tocar una
+         * viñeta o un icono de lista no abra el visor a pantalla completa.
+         */
+        registerImages(onImage) {
+            if (!rendition) return;
+            rendition.hooks.content.register((contents) => {
+                contents.document.querySelectorAll('img').forEach((image) => {
+                    image.style.cursor = 'zoom-in';
+                    image.addEventListener('click', (event) => {
+                        const rect = image.getBoundingClientRect();
+                        if (rect.width < 120 && rect.height < 120) return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        onImage({ src: image.currentSrc || image.src, alt: image.alt || '' });
+                    }, true);
+                });
+            });
+        },
+
+        /** Idioma declarado por el EPUB, para poder ofrecerlo como sugerencia. */
+        bookLanguage() {
+            return book?.packaging?.metadata?.language || '';
+        },
+
+        /**
+         * Intercepta los enlaces internos que apuntan a una nota.
+         *
+         * Sin esto, tocar un número volado navega al final del capítulo: pierdes
+         * la página, lees dos líneas y tienes que volver a mano. En un ensayo
+         * con doscientas notas eso hace el libro inservible.
+         *
+         * Se distingue una nota de un enlace normal por dos señales: el atributo
+         * `epub:type` de EPUB 3, y —para los EPUB 2, que son mayoría— que el
+         * destino esté dentro del mismo documento y su texto sea corto.
+         */
+        registerFootnotes(onFootnote) {
+            if (!rendition) return;
+
+            rendition.hooks.content.register((contents) => {
+                const doc = contents.document;
+
+                doc.querySelectorAll('a[href]').forEach((link) => {
+                    const href = link.getAttribute('href') || '';
+                    if (!href.includes('#')) return;
+
+                    const type = (link.getAttribute('epub:type') || link.getAttribute('type') || '').toLowerCase();
+                    const looksLikeNote = type.includes('noteref')
+                        || link.closest('sup, sub')
+                        || /^[[(]?\d{1,3}[\])]?$/.test((link.textContent || '').trim());
+
+                    if (!looksLikeNote) return;
+
+                    link.addEventListener('click', (event) => {
+                        const id = href.split('#')[1];
+                        const target = id && doc.getElementById(id);
+                        // Si el destino no está en este mismo documento se deja
+                        // pasar el enlace: será una referencia cruzada, no una
+                        // nota, y forzar una ventana emergente confundiría.
+                        if (!target) return;
+
+                        event.preventDefault();
+                        event.stopPropagation();
+
+                        onFootnote({
+                            label: (link.textContent || '').trim(),
+                            text: extractNoteText(target),
+                            href,
+                        });
+                    }, true);
+                });
             });
         },
 
@@ -256,6 +375,22 @@ export const createEpubEngine = () => {
             return () => rendition?.off('selected', handler);
         },
 
+        /** CFI correspondiente a un porcentaje del libro, para la barra arrastrable. */
+        cfiAtPercent(percent) {
+            if (!book?.locations?.total) return null;
+            try {
+                return book.locations.cfiFromPercentage(Math.min(1, Math.max(0, percent)));
+            } catch {
+                return null;
+            }
+        },
+
+        /** Capítulo al que corresponde un porcentaje, para la vista previa. */
+        chapterAtPercent(percent, toc = []) {
+            const cfi = this.cfiAtPercent(percent);
+            return cfi ? this.chapterLabel(cfi, toc) : '';
+        },
+
         /** Porcentaje leído (0–1) a partir de un CFI. */
         progressFromCfi(cfi) {
             if (!book?.locations || !cfi) return 0;
@@ -312,6 +447,36 @@ export const createEpubEngine = () => {
             book = null;
         },
     };
+};
+
+/**
+ * Texto de una nota a partir de su ancla.
+ *
+ * Los EPUB no se ponen de acuerdo en cómo marcan las notas: unos ponen el id en
+ * el propio párrafo, otros en un `<aside>`, y otros en un `<li>` de una lista al
+ * final del capítulo. Se sube por los ancestros hasta encontrar un bloque con
+ * texto suficiente, y se limpia el número de vuelta que suele abrirlo.
+ */
+export const extractNoteText = (target) => {
+    let node = target;
+    let text = (node.textContent || '').trim();
+
+    // Si el ancla es solo el número, el contenido está en el bloque que la
+    // contiene.
+    let hops = 0;
+    while (text.length < 20 && node.parentElement && hops < 3) {
+        node = node.parentElement;
+        text = (node.textContent || '').trim();
+        hops += 1;
+    }
+
+    return text
+        // Quita el número de nota y la flecha de retorno del principio.
+        .replace(/^[[(]?\d{1,3}[\])]?[.:\s]*/, '')
+        .replace(/^[↑←⏎]\s*/, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 1200);
 };
 
 /** Aplana el índice anidado conservando el nivel, para poder indentarlo. */

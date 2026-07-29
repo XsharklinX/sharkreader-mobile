@@ -166,16 +166,31 @@ export default function ReaderSettingsSheet({ typography, onChangeTypography, on
                     onChange={(margin) => set({ margin: clampMargin(margin) })}
                 />
 
+                {/* Sangría o espacio, nunca los dos: mezclarlos es el error de
+                    composición más común. Un libro en papel sangra y pega los
+                    párrafos; el espacio es convención de web. */}
                 <Segmented
-                    label="Entre párrafos"
-                    value={typography.paragraphSpacing}
+                    label="Párrafos"
+                    value={typography.paragraphStyle || 'space'}
                     options={[
-                        { value: 0.3, label: 'Poco' },
-                        { value: 0.7, label: 'Normal' },
-                        { value: 1.2, label: 'Mucho' },
+                        { value: 'space', label: 'Separados' },
+                        { value: 'indent', label: 'Con sangría' },
                     ]}
-                    onChange={(paragraphSpacing) => set({ paragraphSpacing })}
+                    onChange={(paragraphStyle) => set({ paragraphStyle })}
                 />
+
+                {typography.paragraphStyle !== 'indent' && (
+                    <Segmented
+                        label="Separación"
+                        value={typography.paragraphSpacing}
+                        options={[
+                            { value: 0.3, label: 'Poca' },
+                            { value: 0.7, label: 'Normal' },
+                            { value: 1.2, label: 'Mucha' },
+                        ]}
+                        onChange={(paragraphSpacing) => set({ paragraphSpacing })}
+                    />
+                )}
 
                 <Switch
                     label="Justificar"
@@ -189,6 +204,22 @@ export default function ReaderSettingsSheet({ typography, onChangeTypography, on
                     checked={typography.hyphens}
                     onChange={(hyphens) => set({ hyphens })}
                 />
+
+                {/* La partición necesita saber el idioma. Muchos EPUB no lo
+                    declaran o lo declaran mal, y entonces el justificado sale
+                    con ríos blancos por mucho que se active la opción. */}
+                {typography.hyphens && (
+                    <Segmented
+                        label="Idioma para partir"
+                        value={typography.hyphenLang || 'auto'}
+                        options={[
+                            { value: 'auto', label: 'Del libro' },
+                            { value: 'es', label: 'Español' },
+                            { value: 'en', label: 'Inglés' },
+                        ]}
+                        onChange={(hyphenLang) => set({ hyphenLang })}
+                    />
+                )}
 
                 <Switch
                     label="Modo dislexia"
