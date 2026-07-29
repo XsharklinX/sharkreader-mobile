@@ -92,6 +92,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     savedLocations,
                     startCfi: book.lastLocation || undefined,
                     gestureHandlers: gesturesRef.current,
+                    flow: typography.flow,
                 });
                 if (cancelled) return;
 
@@ -130,7 +131,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             engineRef.current = null;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [book.id]);
+    }, [book.id, typography.flow]);
 
     // ── Posición ─────────────────────────────────────────────────────────────
     useEffect(() => {
@@ -178,6 +179,8 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
 
     // ── Lectura en voz alta ──────────────────────────────────────────────────
     const speech = useSpeech({
+        title: book.name,
+        chapter: location.chapter,
         // Lee solo lo visible, no el capítulo entero: si no, la voz seguiría
         // leyendo contenido de páginas que el usuario aún no tiene delante.
         getPageText: useCallback(() => engineRef.current?.visibleText() || '', []),
@@ -191,6 +194,30 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             return true;
         }, []),
     });
+
+    // Tocar un párrafo mientras se lee salta a esa parte. Se conecta a través de
+    // una ref porque los gestos se registraron durante la carga, antes de que
+    // `speech` existiera.
+    const speechRef = useRef(speech);
+    speechRef.current = speech;
+
+    useEffect(() => {
+        gesturesRef.current.onTapWhileSpeaking = (point) => {
+            const api = speechRef.current;
+            if (api.state === 'idle') return false;
+
+            const paragraph = engineRef.current?.paragraphAt(point.x, point.y);
+            if (!paragraph) return false;
+
+            // Se busca la primera frase de la cola que aparezca en ese párrafo.
+            const needle = paragraph.slice(0, 40);
+            const target = api.sentences().findIndex((sentence) => paragraph.includes(sentence.slice(0, 30)) || sentence.includes(needle));
+            if (target < 0) return false;
+
+            api.speakFrom(target);
+            return true;
+        };
+    }, []);
 
     // ── Anotaciones ──────────────────────────────────────────────────────────
     const annotationsRef = useRef(book.bookmarks || []);

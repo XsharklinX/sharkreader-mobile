@@ -1,4 +1,11 @@
 import { TextToSpeech } from '@capacitor-community/text-to-speech';
+import { registerPlugin } from '@capacitor/core';
+
+/**
+ * Plugin nativo que mantiene vivo el proceso mientras se lee y publica la
+ * sesión multimedia. La síntesis sigue ocurriendo aquí, en JavaScript.
+ */
+const SharkSpeech = registerPlugin('SharkSpeech');
 
 /**
  * Lectura en voz alta con el motor del sistema Android.
@@ -95,6 +102,36 @@ export const createAndroidTts = () => {
             } catch {
                 return false;
             }
+        },
+
+        // ── Servicio en segundo plano ────────────────────────────────────────
+
+        /** Arranca o actualiza la notificación multimedia. */
+        async startService({ title, chapter, playing = true }) {
+            try {
+                await SharkSpeech.start({ title, chapter, playing });
+            } catch {
+                // Si el sistema rechaza el servicio (permiso de notificaciones
+                // denegado), la lectura sigue funcionando con la app abierta:
+                // solo se pierde el segundo plano. No es motivo para abortar.
+            }
+        },
+
+        async stopService() {
+            try { await SharkSpeech.stop(); } catch { /* no estaba activo */ }
+        },
+
+        /**
+         * Botones de la notificación y de los auriculares.
+         * @param {(command: string) => void} handler
+         * @returns {Promise<() => void>} función para dejar de escuchar
+         */
+        async onCommand(handler) {
+            const subscription = await SharkSpeech.addListener(
+                'speechCommand',
+                ({ command }) => handler(command)
+            );
+            return () => subscription.remove();
         },
     };
 };

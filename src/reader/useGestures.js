@@ -32,15 +32,13 @@ const LONG_PRESS_MS = 480;
  * @param {() => number} [handlers.getWidth]
  *   Ancho de referencia para decidir la zona. Necesario cuando los eventos se
  *   escuchan en el documento de un iframe, que no tiene `clientWidth`.
+ * @param {(point: {x: number, y: number}) => boolean} [handlers.onTapWhileSpeaking]
+ *   Se puede asignar después de crear los manejadores: el objeto devuelto es el
+ *   mismo que se recibe, porque los gestos se registran dentro del iframe
+ *   durante la carga y ya no se vuelven a crear.
  */
-export const createGestureHandlers = ({
-    onNext,
-    onPrev,
-    onToggleChrome,
-    onLongPress,
-    shouldIgnore,
-    getWidth,
-}) => {
+export const createGestureHandlers = (handlers) => {
+    const { onNext, onPrev, onToggleChrome, onLongPress, shouldIgnore, getWidth } = handlers;
     let start = null;
     let longPressTimer = null;
 
@@ -91,6 +89,11 @@ export const createGestureHandlers = ({
         // pasar página al intentar seleccionar texto.
         if (movement > TAP_MAX_MOVEMENT) return;
 
+        // Mientras se lee en voz alta, un toque salta a ese párrafo en lugar de
+        // pasar página: es el gesto que se espera de un lector con voz, y sin él
+        // habría que parar, buscar y volver a empezar.
+        if (handlers.onTapWhileSpeaking?.({ x: event.clientX, y: event.clientY })) return;
+
         const ratio = event.clientX / width;
         if (ratio < TAP_ZONE) onPrev();
         else if (ratio > 1 - TAP_ZONE) onNext();
@@ -102,7 +105,11 @@ export const createGestureHandlers = ({
         start = null;
     };
 
-    return { onPointerDown, onPointerUp, onPointerCancel, onPointerLeave: onPointerCancel };
+    // Se devuelve el mismo objeto que se muta desde fuera (onTapWhileSpeaking),
+    // porque los gestos se registran en el iframe durante la carga y no se
+    // vuelven a crear.
+    Object.assign(handlers, { onPointerDown, onPointerUp, onPointerCancel, onPointerLeave: onPointerCancel });
+    return handlers;
 };
 
 /** Zona en la que cae un punto — se usa para pintar las ayudas visuales. */

@@ -25,6 +25,12 @@ export const DEFAULT_TYPOGRAPHY = {
     paragraphSpacing: 0.7,
     justify: false,
     hyphens: true,
+    // 'paginated' (por defecto) o 'scrolled': hay quien prefiere desplazar
+    // en vez de pasar página, y epub.js soporta las dos formas de flujo.
+    flow: 'paginated',
+    // Ajustes de accesibilidad para dislexia: más aire entre letras, palabras
+    // y líneas, sin justificar y sin partir palabras.
+    dyslexia: false,
 };
 
 export const FONT_FAMILIES = [
@@ -83,8 +89,29 @@ export const clampMargin = (value) =>
  * @param {keyof typeof READER_THEMES} themeId
  */
 export const buildReaderStyles = (typography, themeId) => {
-    const settings = { ...DEFAULT_TYPOGRAPHY, ...typography };
+    const base = { ...DEFAULT_TYPOGRAPHY, ...typography };
     const theme = READER_THEMES[themeId] || READER_THEMES.dark;
+
+    // El modo dislexia no es solo una fuente: lo que más ayuda es el aire entre
+    // letras, palabras y líneas, no justificar y no partir palabras al final de
+    // línea. Esos cuatro ajustes se aplican encima de lo que haya configurado.
+    //
+    // La fuente OpenDyslexic no viaja en el APK — pesaría más que buena parte
+    // del bundle. Se pide por nombre, así que se usa si el usuario la tiene
+    // instalada en el sistema, y si no se cae a una sans de alta legibilidad.
+    const settings = base.dyslexia
+        ? {
+            ...base,
+            letterSpacing: Math.max(base.letterSpacing, 1.2),
+            lineHeight: Math.max(base.lineHeight, 1.9),
+            justify: false,
+            hyphens: false,
+        }
+        : base;
+
+    const family = base.dyslexia
+        ? '"OpenDyslexic", "Open Dyslexic", Verdana, Tahoma, sans-serif'
+        : fontStack(settings.fontFamily);
 
     // Muchos EPUB traen color y fondo incrustados en su CSS o en atributos en
     // línea. Sin `!important` sobre los elementos concretos, un libro con fondo
@@ -110,7 +137,7 @@ export const buildReaderStyles = (typography, themeId) => {
             'margin': '0 !important',
             'background': `${theme.bg} !important`,
             'color': `${theme.text} !important`,
-            'font-family': `${fontStack(settings.fontFamily)} !important`,
+            'font-family': `${family} !important`,
             'font-size': `${settings.fontSize}px !important`,
             'line-height': `${settings.lineHeight} !important`,
             'letter-spacing': `${settings.letterSpacing}px !important`,
@@ -119,6 +146,7 @@ export const buildReaderStyles = (typography, themeId) => {
             'hyphens': settings.hyphens ? 'auto' : 'manual',
             '-webkit-text-size-adjust': '100% !important',
             'text-size-adjust': '100% !important',
+            'word-spacing': settings.dyslexia ? '0.16em !important' : 'normal',
             '-webkit-tap-highlight-color': 'transparent',
         },
         // Nada puede ser más ancho que la columna. Es la otra mitad del arreglo

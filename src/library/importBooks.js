@@ -1,7 +1,8 @@
 import { extractEpubMeta } from '../core/epubMeta.js';
 import { resizeCoverDataUrl } from '../core/coverResize.js';
 import { toStoredBookRecord, getBookDedupKey, getBookTitleDedupKey } from '../core/bookModel.js';
-import { readBookBlob } from '../adapters/SafPicker.js';
+import { readBookBlob, writeConvertedBook } from '../adapters/SafPicker.js';
+import { textToEpub, listComicPages, readComicPage, extensionOf, bookTypeOf } from './formats.js';
 
 /**
  * Pipeline de importación.
@@ -79,14 +80,34 @@ const extractPdfMeta = async (blob) => {
  * @param {import('../adapters/SafPicker.js').PickedBook} picked
  */
 export const buildBookRecord = async (picked) => {
-    const blob = await readBookBlob(picked.path);
+    let blob = await readBookBlob(picked.path);
+    const extension = extensionOf(picked.name);
 
     let title = '';
     let author = '';
     let cover = null;
     let extra = {};
 
-    if (picked.type === 'pdf') {
+    // TXT y Markdown se convierten a EPUB aquí mismo, así heredan todo el
+    // lector: paginación, temas, subrayados, voz y progreso por CFI. A partir de
+    // este punto son un EPUB más para el resto de la app.
+    if (['txt', 'md', 'markdown'].includes(extension)) {
+        const text = await blob.text();
+        title = titleFromFileName(picked.name);
+        blob = await textToEpub(text, {
+            title,
+            markdown: extension !== 'txt',
+        });
+        await writeConvertedBook(picked.path, blob);
+    }
+
+    if (extension === 'cbz') {
+        const pages = await listComicPages(blob);
+        if (pages.length === 0) throw new Error('El CBZ no contiene imágenes.');
+        cover = await readComicPage(blob, pages[0]);
+        title = titleFromFileName(picked.name);
+        extra = { pageCount: pages.length };
+    } else if (picked.type === 'pdf') {
         const meta = await extractPdfMeta(blob);
         title = meta.title;
         author = meta.author;
@@ -114,7 +135,7 @@ export const buildBookRecord = async (picked) => {
     return toStoredBookRecord(
         {
             id: picked.id,
-            type: picked.type,
+            type: bookTypeOf(picked.name),
             originalTitle: title || titleFromFileName(picked.name),
             originalAuthor: author,
             coverBase64,

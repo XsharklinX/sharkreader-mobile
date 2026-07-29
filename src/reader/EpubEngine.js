@@ -27,10 +27,11 @@ export const createEpubEngine = () => {
          * @param {HTMLElement} element
          * @param {Object} options
          */
-        async open(data, element, { styles, savedLocations, startCfi, gestureHandlers } = {}) {
+        async open(data, element, { styles, savedLocations, startCfi, gestureHandlers, flow = 'paginated' } = {}) {
             book = ePub(data);
             rendition = book.renderTo(element, {
-                flow: 'paginated',
+                // scrolled-doc desplaza en vertical en lugar de paginar.
+                flow: flow === 'scrolled' ? 'scrolled-doc' : 'paginated',
                 width: '100%',
                 height: '100%',
                 spread: 'none',
@@ -167,6 +168,27 @@ export const createEpubEngine = () => {
                     }
                 }
             });
+        },
+
+        /**
+         * Texto del párrafo que hay bajo un punto de la pantalla.
+         *
+         * Sirve para que tocar un párrafo mientras se lee en voz alta salte a
+         * esa parte. Las coordenadas llegan del documento del iframe, así que se
+         * usan tal cual con `elementFromPoint`.
+         */
+        paragraphAt(x, y) {
+            const contents = [].concat(rendition?.getContents?.() || []);
+            for (const content of contents) {
+                const doc = content?.document;
+                if (!doc?.elementFromPoint) continue;
+                const element = doc.elementFromPoint(x, y);
+                if (!element) continue;
+                const block = element.closest?.('p, li, blockquote, h1, h2, h3, h4, h5, h6, td');
+                const text = (block?.textContent || '').trim();
+                if (text) return text;
+            }
+            return '';
         },
 
         /** Texto seleccionado ahora mismo dentro del capítulo visible. */

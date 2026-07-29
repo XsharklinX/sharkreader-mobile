@@ -17,7 +17,7 @@ export const DEFAULT_SPEECH = { rate: 1, voiceId: null };
  * Frases y no párrafos: cortar fino es lo que permite cambiar de velocidad o de
  * voz y retomar cerca de donde ibas, en vez de volver al principio del párrafo.
  */
-export const useSpeech = ({ getPageText, onSentence, onNextPage }) => {
+export const useSpeech = ({ getPageText, onSentence, onNextPage, title = '', chapter = '' }) => {
     const ports = usePorts();
     const [state, setState] = useState('idle'); // idle | speaking | paused
     const [settings, setSettings] = useState(DEFAULT_SPEECH);
@@ -49,11 +49,31 @@ export const useSpeech = ({ getPageText, onSentence, onNextPage }) => {
     }, [ports]);
 
     // Parar al desmontar es obligatorio: si no, la voz sigue sonando después de
-    // salir del libro.
+    // salir del libro, y el servicio en primer plano dejaría una notificación
+    // huérfana.
     useEffect(() => () => {
         running.current = false;
         ports.tts.stop().catch(() => {});
+        ports.tts.stopService?.().catch?.(() => {});
     }, [ports]);
+
+    // La notificación refleja lo que suena. Se actualiza al cambiar de estado o
+    // de capítulo, no en cada frase: reescribirla cien veces por página haría
+    // parpadear la notificación en la pantalla de bloqueo.
+    const metaRef = useRef({ title, chapter });
+    metaRef.current = { title, chapter };
+
+    useEffect(() => {
+        if (state === 'idle') {
+            ports.tts.stopService?.().catch?.(() => {});
+            return;
+        }
+        ports.tts.startService?.({
+            title: metaRef.current.title,
+            chapter: metaRef.current.chapter,
+            playing: state === 'speaking',
+        }).catch?.(() => {});
+    }, [state, chapter, ports]);
 
     const runLoop = useCallback(async () => {
         while (running.current) {
@@ -145,6 +165,30 @@ export const useSpeech = ({ getPageText, onSentence, onNextPage }) => {
         runLoop();
     }, [ports, runLoop]);
 
+    const toggle = useCallback(
+        () => (state === 'speaking' ? pause() : state === 'paused' ? resume() : start()),
+        [state, pause, resume, start]
+    );
+
+    // Botones de la notificación y de los auriculares. Se registran una sola vez
+    // y leen el estado a través de las funciones más recientes, que van en una
+    // ref para no volver a suscribirse en cada render.
+    const commandsRef = useRef({});
+    commandsRef.current = { toggle, pause, resume, stop };
+
+    useEffect(() => {
+        let unsubscribe;
+        ports.tts.onCommand?.((command) => {
+            const api = commandsRef.current;
+            if (command === 'toggle') api.toggle();
+            else if (command === 'play') api.resume();
+            else if (command === 'pause') api.pause();
+            else if (command === 'stop') api.stop();
+        }).then((remove) => { unsubscribe = remove; }).catch(() => {});
+
+        return () => unsubscribe?.();
+    }, [ports]);
+
     return {
         state,
         settings,
@@ -157,6 +201,9 @@ export const useSpeech = ({ getPageText, onSentence, onNextPage }) => {
         stop,
         updateSettings,
         speakFrom,
-        toggle: () => (state === 'speaking' ? pause() : state === 'paused' ? resume() : start()),
+        /** Índice de la frase que suena, para poder saltar tocando un párrafo. */
+        currentIndex: () => index.current,
+        sentences: () => queue.current,
+        toggle,
     };
 };

@@ -157,6 +157,31 @@ export default function ReaderSettingsSheet({ typography, theme, onChangeTypogra
                     onChange={(paragraphSpacing) => set({ paragraphSpacing })}
                 />
 
+                <Segmented
+                    label="Modo de lectura"
+                    value={typography.flow || 'paginated'}
+                    options={[
+                        { value: 'paginated', label: 'Páginas' },
+                        { value: 'scrolled', label: 'Scroll' },
+                    ]}
+                    onChange={(flow) => set({ flow })}
+                />
+
+                <div className="setting setting-row">
+                    <span className="setting-label">
+                        Modo dislexia
+                        <span className="setting-value">más aire entre letras</span>
+                    </span>
+                    <button
+                        type="button"
+                        className={`switch${typography.dyslexia ? ' on' : ''}`}
+                        onClick={() => set({ dyslexia: !typography.dyslexia })}
+                        role="switch"
+                        aria-checked={!!typography.dyslexia}
+                        aria-label="Modo dislexia"
+                    />
+                </div>
+
                 <div className="setting setting-row">
                     <span className="setting-label">Justificar el texto</span>
                     <button

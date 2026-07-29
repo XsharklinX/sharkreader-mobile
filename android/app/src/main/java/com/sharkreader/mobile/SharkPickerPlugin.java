@@ -52,7 +52,12 @@ public class SharkPickerPlugin extends Plugin {
     private static final String[] BOOK_MIME_TYPES = {
         "application/epub+zip",
         "application/pdf",
-        "application/octet-stream" // algunos proveedores no etiquetan bien los EPUB
+        "application/x-cbz",
+        "application/vnd.comicbook+zip",
+        "text/plain",
+        "text/markdown",
+        "application/zip",
+        "application/octet-stream" // muchos proveedores no etiquetan bien EPUB ni CBZ
     };
 
     /** Profundidad máxima al recorrer una carpeta, para no perderse en un árbol enorme. */
@@ -101,6 +106,80 @@ public class SharkPickerPlugin extends Plugin {
         startActivityForResult(call, intent, "handlePickedFolder");
     }
 
+    // ── Apertura desde otras apps ────────────────────────────────────────────
+
+    /** URI pendiente de un intent ACTION_VIEW, a la espera de que JavaScript la pida. */
+    private static Uri pendingUri;
+
+    /**
+     * Guarda la URI de un "Abrir con SharkReader". No se procesa aquí porque el
+     * puente con JavaScript todavía no existe cuando llega el intent: se deja
+     * pendiente y la app la reclama al arrancar.
+     */
+    public static void setPendingIntent(Intent intent) {
+        if (intent == null) return;
+        if (!Intent.ACTION_VIEW.equals(intent.getAction())) return;
+        Uri data = intent.getData();
+        if (data != null) pendingUri = data;
+    }
+
+    /**
+     * Devuelve el libro que se pidió abrir desde otra app, ya copiado al
+     * almacenamiento privado, o `null` si no había ninguno.
+     */
+    @PluginMethod
+    public void consumePendingOpen(PluginCall call) {
+        Uri uri = pendingUri;
+        pendingUri = null;
+
+        JSObject result = new JSObject();
+        if (uri == null) {
+            result.put("book", null);
+            call.resolve(result);
+            return;
+        }
+
+        try {
+            JSObject book = copyToPrivateStorage(uri);
+            result.put("book", book);
+            call.resolve(result);
+        } catch (Exception error) {
+            call.reject("No se pudo abrir el fichero: " + error.getMessage());
+        }
+    }
+
+    /**
+     * Sobrescribe un fichero ya copiado. Se usa al convertir un TXT o un
+     * Markdown en EPUB durante la importación.
+     */
+    @PluginMethod
+    public void writeBookFile(PluginCall call) {
+        String path = call.getString("path");
+        String data = call.getString("data");
+        if (path == null || data == null) {
+            call.reject("Faltan los parámetros 'path' o 'data'.");
+            return;
+        }
+
+        File file = new File(path);
+        if (!isInsideBooksDir(file)) {
+            call.reject("La ruta está fuera del almacenamiento de libros.");
+            return;
+        }
+
+        try (OutputStream output = new FileOutputStream(file)) {
+            output.write(android.util.Base64.decode(data, android.util.Base64.DEFAULT));
+            call.resolve();
+        } catch (Exception error) {
+            call.reject("No se pudo escribir el fichero: " + error.getMessage());
+        }
+    }
+
+    /** El almacenamiento privado es la única zona en la que el plugin escribe o borra. */
+    private boolean isInsideBooksDir(File file) {
+        return file.getAbsolutePath().startsWith(booksDir().getAbsolutePath() + File.separator);
+    }
+
     /** Borra el fichero copiado de un libro que se elimina de la biblioteca. */
     @PluginMethod
     public void deleteBookFile(PluginCall call) {
@@ -110,9 +189,7 @@ public class SharkPickerPlugin extends Plugin {
             return;
         }
         File file = new File(path);
-        boolean insideBooksDir = file.getAbsolutePath()
-            .startsWith(booksDir().getAbsolutePath() + File.separator);
-        if (!insideBooksDir) {
+        if (!isInsideBooksDir(file)) {
             call.reject("La ruta está fuera del almacenamiento de libros.");
             return;
         }
@@ -225,7 +302,9 @@ public class SharkPickerPlugin extends Plugin {
         }
         if (name == null) return false;
         String lower = name.toLowerCase(Locale.ROOT);
-        return lower.endsWith(".epub") || lower.endsWith(".pdf");
+        return lower.endsWith(".epub") || lower.endsWith(".pdf")
+            || lower.endsWith(".cbz") || lower.endsWith(".txt")
+            || lower.endsWith(".md") || lower.endsWith(".markdown");
     }
 
     /** Copia cada URI al almacenamiento privado y devuelve la lista de resultados. */
@@ -294,6 +373,9 @@ public class SharkPickerPlugin extends Plugin {
         if (lower.endsWith(".pdf")) return "pdf";
         if (lower.endsWith(".json")) return "json";
         if (lower.endsWith(".zip")) return "zip";
+        if (lower.endsWith(".cbz")) return "cbz";
+        if (lower.endsWith(".txt")) return "txt";
+        if (lower.endsWith(".md") || lower.endsWith(".markdown")) return "md";
         return "epub";
     }
 

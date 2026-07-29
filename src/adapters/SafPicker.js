@@ -37,6 +37,29 @@ export const readBookBlob = async (path) => {
     return response.blob();
 };
 
+/**
+ * Sobrescribe el fichero copiado con su versión convertida.
+ *
+ * Se usa cuando un TXT o un Markdown se transforma en EPUB durante la
+ * importación: a partir de ahí lo que hay en disco ya es el EPUB, y el resto de
+ * la app no necesita saber de dónde vino.
+ *
+ * @param {string} path Ruta absoluta dentro del almacenamiento privado.
+ * @param {Blob} blob
+ */
+export const writeConvertedBook = async (path, blob) => {
+    const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+    });
+
+    // El plugin escribe por ruta absoluta porque el fichero vive donde él lo
+    // dejó, fuera de los directorios que expone @capacitor/filesystem.
+    await SharkPicker.writeBookFile({ path, data: base64 });
+};
+
 export const createSafPicker = () => ({
     /** @returns {Promise<{books: PickedBook[], failed: number, cancelled?: boolean}>} */
     pickBooks: () => SharkPicker.pickBooks(),
@@ -46,6 +69,12 @@ export const createSafPicker = () => ({
 
     /** Selector con filtro de backup (.json y .zip), no de libro. */
     pickBackup: () => SharkPicker.pickBackup(),
+
+    /**
+     * Reclama el libro que otra app pidió abrir con «Abrir con SharkReader».
+     * Devuelve `{ book: null }` si no hay ninguno pendiente.
+     */
+    consumePendingOpen: () => SharkPicker.consumePendingOpen(),
 
     /** @param {string} path */
     deleteBookFile: (path) => SharkPicker.deleteBookFile({ path }),

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import TabBar from './ui/TabBar.jsx';
 import LibraryScreen from './screens/LibraryScreen.jsx';
@@ -6,6 +6,7 @@ import ProgressScreen from './screens/ProgressScreen.jsx';
 import SettingsScreen from './screens/SettingsScreen.jsx';
 import ReaderScreen from './reader/ReaderScreen.jsx';
 import PdfReaderScreen from './reader/PdfReaderScreen.jsx';
+import ComicReaderScreen from './reader/ComicReaderScreen.jsx';
 import AchievementToast from './ui/AchievementToast.jsx';
 import { useLibrary } from './library/useLibrary.js';
 import { useReadingClock } from './library/useReadingClock.js';
@@ -36,6 +37,29 @@ export default function App() {
         // progreso y los logros reflejen la sesión que acaba de terminar.
         stats.refresh();
     }, [stats]);
+
+    // «Abrir con SharkReader» desde otra app. Se comprueba al arrancar y cada
+    // vez que la app vuelve al primer plano, porque un segundo intent llega a
+    // una actividad que ya existe y no reinicia nada.
+    const openExternalRef = useRef(library.openExternal);
+    openExternalRef.current = library.openExternal;
+
+    useEffect(() => {
+        if (library.status !== 'ready') return undefined;
+
+        let listener;
+        const claim = async () => {
+            const id = await openExternalRef.current().catch(() => null);
+            if (id) setReadingId(id);
+        };
+
+        claim();
+        CapApp.addListener('appStateChange', ({ isActive }) => {
+            if (isActive) claim();
+        }).then((handle) => { listener = handle; });
+
+        return () => { listener?.remove(); };
+    }, [library.status]);
 
     // El botón atrás de Android: dentro del lector vuelve a la biblioteca; fuera
     // de la pestaña principal vuelve a ella; en la raíz, sale de la app.
@@ -89,7 +113,9 @@ export default function App() {
     }, [library]);
 
     if (reading) {
-        const Reader = reading.type === 'pdf' ? PdfReaderScreen : ReaderScreen;
+        const Reader = reading.type === 'pdf' ? PdfReaderScreen
+            : reading.type === 'comic' ? ComicReaderScreen
+            : ReaderScreen;
         return (
             <Reader
                 key={reading.id}

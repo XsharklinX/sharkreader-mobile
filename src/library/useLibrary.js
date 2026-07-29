@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { hydrateStoredBook, toStoredBookRecord, getBookSearchIndex } from '../core/bookModel.js';
+import { hydrateStoredBook, toStoredBookRecord, getBookSearchIndex, getBookTitleDedupKey } from '../core/bookModel.js';
 import { usePorts } from '../ports/index.js';
 import { importPickedBooks } from './importBooks.js';
 
@@ -80,6 +80,37 @@ export const useLibrary = () => {
         }
     }, [ports, books]);
 
+    /**
+     * Importa el libro que otra app pidió abrir y devuelve su id.
+     *
+     * Si ya está en la biblioteca no se duplica: se devuelve el que hay. Esto es
+     * lo que hace que abrir dos veces el mismo fichero desde el gestor de
+     * archivos no llene la biblioteca de copias.
+     */
+    const openExternal = useCallback(async () => {
+        const pending = await ports.filePicker.consumePendingOpen().catch(() => null);
+        const picked = pending?.book;
+        if (!picked) return null;
+
+        const result = await importPickedBooks([picked], books);
+
+        if (result.duplicates.length) {
+            const key = getBookTitleDedupKey({
+                originalTitle: result.duplicates[0].title,
+                type: picked.type,
+            });
+            const existing = books.find((book) => getBookTitleDedupKey(book) === key);
+            if (existing) return existing.id;
+        }
+
+        if (!result.imported.length) return null;
+
+        const record = { ...result.imported[0], fileSize: picked.size };
+        await ports.storage.putBooks([record]);
+        setBooks((current) => [hydrateStoredBook(record), ...current]);
+        return record.id;
+    }, [ports, books]);
+
     const updateBook = useCallback(async (id, changes) => {
         let updated = null;
         setBooks((current) => current.map((book) => {
@@ -123,6 +154,7 @@ export const useLibrary = () => {
         updateBook,
         removeBook,
         replaceAll,
+        openExternal,
         setError,
         clearError: () => setError(null),
         exportNotes: async (book) => {
