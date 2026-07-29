@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Variante monocroma para los iconos temáticos de Android 13+: el sistema la
+    recolorea con la paleta del fondo de pantalla, así que solo puede haber
+    silueta, sin color propio ni sombras.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108"
+    android:tint="#FFFFFF">
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M33,72
+                          C41,57 53,39 67,29
+                          C68,45 66,60 77,72
+                          C62,67 48,67 33,72
+                          Z" />
+
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M22,80
+                          C28,76 34,76 40,80
+                          C46,84 52,84 58,80
+                          C64,76 70,76 76,80
+                          C80,83 84,83 87,81" />
+</vector>

@@ -1,21 +1,43 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Reglas de R8 para SharkReader Mobile.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# ── Capacitor ────────────────────────────────────────────────────────────────
+# Los plugins se localizan por reflexión desde el puente de JavaScript: si R8
+# renombra las clases o borra los métodos anotados, las llamadas desde el
+# WebView dejan de encontrar nada y fallan en tiempo de ejecución, no al compilar.
+-keep class com.getcapacitor.** { *; }
+-keep @com.getcapacitor.annotation.CapacitorPlugin class * { *; }
+-keepclassmembers class * extends com.getcapacitor.Plugin {
+    @com.getcapacitor.PluginMethod <methods>;
+    @com.getcapacitor.annotation.ActivityCallback <methods>;
+    @com.getcapacitor.annotation.PermissionCallback <methods>;
+}
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Nuestro plugin de selección de ficheros entra por la misma vía.
+-keep class com.sharkreader.mobile.SharkPickerPlugin { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# ── SQLite ───────────────────────────────────────────────────────────────────
+-keep class com.getcapacitor.community.database.sqlite.** { *; }
+-keep class io.requery.android.database.** { *; }
+
+# El plugin de SQLite incluye Google Tink para el modo cifrado, aunque aquí se
+# use 'no-encryption'. Tink referencia anotaciones de errorprone que no viajan
+# en el APK — son de tiempo de compilación. R8 avisa de que faltan; no es un
+# problema real, así que se silencian en lugar de añadir una dependencia que
+# nadie va a ejecutar.
+-dontwarn com.google.errorprone.annotations.**
+-dontwarn javax.annotation.**
+-dontwarn com.google.j2objc.annotations.**
+-keep class com.google.crypto.tink.** { *; }
+
+# Tink trae además un descargador de claves remoto (KeysDownloader) que depende
+# del cliente HTTP de Google y de Joda-Time. Esa ruta no se ejecuta nunca: la
+# base de datos se abre sin cifrado y no hay claves que descargar de ningún
+# servidor. Se silencian las referencias en vez de arrastrar esas librerías.
+-dontwarn com.google.api.client.http.**
+-dontwarn org.joda.time.**
+
+# ── Depuración ───────────────────────────────────────────────────────────────
+# Conservar líneas hace legibles los informes de fallos de Play Console; el
+# nombre de fichero original se oculta igualmente.
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
