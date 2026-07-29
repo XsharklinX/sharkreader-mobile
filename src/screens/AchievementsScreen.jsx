@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ACHIEVEMENTS, RARITY, isAchievementVisible } from '../core/achievements.js';
+import { buildAchievementContext } from '../stats/achievementContext.js';
 
 const RARITY_ORDER = ['common', 'rare', 'epic', 'legendary'];
 
@@ -20,7 +21,7 @@ export default function AchievementsScreen({ library, stats: statsApi }) {
     const books = library?.books || [];
     const { achievements, stats } = statsApi;
 
-    const context = useMemo(() => ({ books, stats }), [books, stats]);
+    const context = useMemo(() => buildAchievementContext(books, stats), [books, stats]);
 
     const groups = useMemo(() => {
         const visible = ACHIEVEMENTS.filter(

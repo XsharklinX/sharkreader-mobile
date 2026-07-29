@@ -3,6 +3,7 @@ import { readerXp, readerLevelFromXp } from '../core/readingProgress.js';
 import { checkNewAchievements } from '../core/achievements.js';
 import { usePorts } from '../ports/index.js';
 import { levelName } from './derive.js';
+import { buildAchievementContext } from './achievementContext.js';
 
 const STATS_KEY = 'stats';
 const ACHIEVEMENTS_KEY = 'achievements';
@@ -87,7 +88,17 @@ export const useStats = (books) => {
      */
     useEffect(() => {
         if (!loaded) return;
-        const unlocked = checkNewAchievements({ books, stats }, achievements);
+
+        let unlocked;
+        try {
+            unlocked = checkNewAchievements(buildAchievementContext(books, stats), achievements);
+        } catch (error) {
+            // Una condición que falle no puede tumbar la aplicación: es
+            // exactamente lo que pasaba cuando el contexto iba incompleto.
+            console.warn('[stats] fallo al evaluar los logros:', error);
+            return;
+        }
+
         if (!unlocked.length) return;
 
         const now = Date.now();
