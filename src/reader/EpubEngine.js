@@ -1,4 +1,5 @@
 import ePub from 'epubjs';
+import { SECTION_PAUSE_MS } from './locationMap.js';
 
 /**
  * Envoltorio sobre epub.js.
@@ -59,27 +60,70 @@ export const createEpubEngine = () => {
             await rendition.display(startCfi || undefined);
             await book.ready;
 
-            // El mapa de localizaciones es lo caro. Si ya se calculó en una
-            // sesión anterior se restaura al instante; si no, se genera y el
-            // llamante decide guardarlo.
-            let generatedLocations = null;
+            // El mapa de posiciones NO se espera aquí. Ver `locationMap.js`: la
+            // primera página ya está pintada detrás de la pantalla de carga, y
+            // hacer esperar al usuario varios segundos por un dato que no hace
+            // falta para leerla era el verdadero coste. Si ya se calculó en una
+            // sesión anterior se restaura al instante, que sí es gratis.
+            let hasLocations = false;
             if (savedLocations) {
                 try {
                     book.locations.load(savedLocations);
+                    hasLocations = (book.locations.total || 0) > 0;
                 } catch {
-                    generatedLocations = await book.locations.generate(LOCATIONS_CHARS);
+                    hasLocations = false;
                 }
-            } else {
-                generatedLocations = await book.locations.generate(LOCATIONS_CHARS);
             }
 
             const navigation = await book.loaded.navigation;
 
             return {
                 toc: flattenToc(navigation?.toc || []),
-                generatedLocations: generatedLocations ? book.locations.save() : null,
+                hasLocations,
                 totalLocations: book.locations.total || 0,
             };
+        },
+
+        /**
+         * Construye el mapa de posiciones en segundo plano.
+         *
+         * Se llama después de abrir, con el libro ya en pantalla. Devuelve el
+         * mapa serializado para guardarlo, o null si se canceló.
+         *
+         * @param {(done: number, total: number) => void} [onProgress]
+         */
+        async buildLocations(onProgress) {
+            if (!book || destroyed) return null;
+            if ((book.locations.total || 0) > 0) return null;
+
+            // Los 100 ms de serie entre capítulos son cuatro segundos muertos en
+            // un libro de cuarenta. 24 ms sigue dejando hueco para pintar.
+            book.locations.pause = SECTION_PAUSE_MS;
+
+            const total = book.spine?.spineItems?.filter((item) => item.linear).length || 0;
+            let done = 0;
+
+            // El progreso se cuenta enganchándose a cada capítulo procesado.
+            // `generate()` no informa por sí solo, y sin cuenta atrás el aviso
+            // sería un indicador indeterminado eterno.
+            const original = book.locations.process.bind(book.locations);
+            book.locations.process = (section) => original(section).then((result) => {
+                done += 1;
+                if (!destroyed) onProgress?.(done, total);
+                return result;
+            });
+
+            try {
+                await book.locations.generate(LOCATIONS_CHARS);
+                if (destroyed) return null;
+                return book.locations.save();
+            } catch {
+                // Un libro con un capítulo ilegible se queda sin mapa: se puede
+                // leer igual, solo sin porcentaje global.
+                return null;
+            } finally {
+                book.locations.process = original;
+            }
         },
 
         next: () => rendition?.next(),
@@ -164,6 +208,61 @@ export const createEpubEngine = () => {
                         event.stopPropagation();
                         onImage({ src: image.currentSrc || image.src, alt: image.alt || '' });
                     }, true);
+                });
+            });
+        },
+
+        /**
+         * Precarga el capítulo siguiente.
+         *
+         * epub.js no carga un capítulo hasta que hace falta mostrarlo, así que
+         * la última página de un capítulo tiene siempre un tirón: se pasa
+         * página y hay que esperar a que se descomprima, se parsee y se
+         * pagine el siguiente. Es el único momento en que pasar página no es
+         * instantáneo, y como pasa en el sitio más previsible del libro —el
+         * final del capítulo— se nota más.
+         *
+         * Se carga y se deja cargado. `unload` lo hará epub.js cuando toque;
+         * forzarlo aquí devolvería el tirón.
+         */
+        prefetchNext(cfi) {
+            if (!book || !cfi) return;
+            try {
+                const current = book.spine.get(cfi);
+                if (!current) return;
+                const next = book.spine.get(current.index + 1);
+                // `loaded` lo marca epub.js al terminar: no se repite trabajo
+                // aunque se llame en cada cambio de página.
+                if (!next || next.document) return;
+                next.load(book.load.bind(book)).catch(() => {});
+            } catch {
+                // La precarga es una optimización: si falla, se lee igual.
+            }
+        },
+
+        /**
+         * Cuelga la puntuación de apertura fuera del margen.
+         *
+         * Cuando un párrafo empieza por comilla o raya de diálogo, el bloque de
+         * texto se ve mellado: esos signos son casi todo espacio en blanco y el
+         * ojo lee el borde izquierdo por donde empieza la *letra*, no por donde
+         * empieza el carácter. En una página de diálogo, con una raya por
+         * párrafo, el margen izquierdo parece torcido.
+         *
+         * `hanging-punctuation` en CSS haría esto solo, pero solo lo implementa
+         * Safari: en el WebView de Android no haría nada y el ajuste sería una
+         * promesa vacía. Así que se marca cada párrafo afectado y se compensa
+         * con una sangría negativa proporcional al signo.
+         */
+        registerHangingPunctuation(enabled) {
+            if (!rendition) return;
+            rendition.hooks.content.register((contents) => {
+                const doc = contents.document;
+                doc.querySelectorAll('p, blockquote > p, li').forEach((element) => {
+                    element.classList.remove('sr-hang-quote', 'sr-hang-dash');
+                    if (!enabled) return;
+                    const hang = hangingClassFor(element.textContent || '');
+                    if (hang) element.classList.add(hang);
                 });
             });
         },
@@ -535,6 +634,26 @@ export const createEpubEngine = () => {
             book = null;
         },
     };
+};
+
+/**
+ * Qué compensación necesita un párrafo según el signo con el que abre.
+ *
+ * Dos clases y no una porque los signos no ocupan lo mismo: una raya de diálogo
+ * es casi un cuadratín y una comilla simple apenas un tercio. Colgarlas por
+ * igual dejaría el margen torcido en el otro sentido, que es peor que no hacer
+ * nada porque además parece intencionado.
+ *
+ * @returns {'sr-hang-quote'|'sr-hang-dash'|null}
+ */
+export const hangingClassFor = (text) => {
+    const first = String(text || '').trimStart()[0];
+    if (!first) return null;
+    // Rayas y guiones largos: diálogo. Son los anchos.
+    if ('—–-'.includes(first)) return 'sr-hang-dash';
+    // Comillas de todo tipo: latinas, inglesas, rectas y simples.
+    if ('«"“”\'‘’'.includes(first)) return 'sr-hang-quote';
+    return null;
 };
 
 // ── Resaltado de la frase hablada ────────────────────────────────────────────

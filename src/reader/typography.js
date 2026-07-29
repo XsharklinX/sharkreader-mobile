@@ -43,6 +43,12 @@ export const DEFAULT_TYPOGRAPHY = {
     // Letra capitular al empezar capítulo. Detalle pequeño que hace que un
     // capítulo parezca un capítulo.
     dropCap: false,
+    // Cuelga comillas y rayas de diálogo fuera del margen para que el borde
+    // izquierdo del texto se vea recto.
+    hangingPunctuation: false,
+    // Modo tinta electrónica: contraste máximo, sin animaciones ni capas de
+    // color. Ver READER_THEMES.eink.
+    eink: false,
 };
 
 /**
@@ -94,6 +100,31 @@ export const READER_THEMES = {
     cream: { label: 'Crema',  bg: '#FBF7F0', text: '#2E2A24', link: '#7A5416', ui: 'light' },
     paper: { label: 'Papel',  bg: '#FFFFFF', text: '#1A1A1A', link: '#1064A8', ui: 'light' },
     night: { label: 'Noche',  bg: '#0F1B2A', text: '#A9BCCB', link: '#5FA8D8', ui: 'dark' },
+    // Tinta electrónica: negro sobre blanco puros. En un panel reflectante el
+    // contraste real ya es bajo de por sí, así que cualquier gris —de los que
+    // en un móvil se agradecen— se vuelve ilegible. Aquí no se suaviza nada.
+    eink:  { label: 'E-Ink',  bg: '#FFFFFF', text: '#000000', link: '#000000', ui: 'light' },
+};
+
+/**
+ * Ajustes que impone el modo tinta electrónica.
+ *
+ * No es solo un tema. Un panel e-ink refresca por partículas: cualquier
+ * animación deja rastro de la imagen anterior, y las capas semitransparentes
+ * —el atenuador, el filtro cálido— se convierten en tramas de puntos porque el
+ * panel no tiene niveles intermedios que dar. Lo que en un móvil son detalles
+ * agradables, ahí son defectos visibles.
+ *
+ * Y el trazo fino desaparece: la tinta se expande un poco al asentarse y una
+ * fuente de peso normal sale lavada, así que se sube el peso.
+ */
+export const EINK_OVERRIDES = {
+    theme: 'eink',
+    transition: 'none',
+    dim: 0,
+    warm: 0,
+    drag: false,
+    fontWeight: 500,
 };
 
 const fontStack = (id) =>
@@ -175,6 +206,9 @@ export const buildReaderStyles = (typography, themeId) => {
             'text-size-adjust': '100% !important',
             'word-spacing': settings.dyslexia ? '0.16em !important' : 'normal',
             '-webkit-tap-highlight-color': 'transparent',
+            // En tinta electrónica el trazo fino se pierde: la tinta se expande
+            // al asentarse y un peso normal sale lavado.
+            ...(base.eink ? { 'font-weight': `${EINK_OVERRIDES.fontWeight} !important` } : {}),
         },
         // Nada puede ser más ancho que la columna. Es la otra mitad del arreglo
         // del desbordamiento: una tabla o una imagen grande empujaba el texto.
@@ -259,6 +293,24 @@ export const buildReaderStyles = (typography, themeId) => {
             'border-radius': '3px',
             'box-shadow': '0 0 0 4px rgba(56,189,248,.16)',
         },
+        // Puntuación colgada. La sangría negativa saca el signo fuera de la
+        // caja de texto; `text-indent` sirve porque solo afecta a la primera
+        // línea, que es justo donde está el signo. Los anchos salen de medir
+        // los propios caracteres: una raya ronda el cuadratín, una comilla
+        // latina la mitad.
+        //
+        // Con sangría de primera línea las dos cosas se suman en el mismo
+        // `text-indent`: la clase gana en especificidad y borraría la sangría
+        // si se pusiera el valor negativo a secas, y un diálogo aparecería
+        // sacado de la caja mientras el resto de párrafos van sangrados.
+        ...(base.hangingPunctuation ? {
+            '.sr-hang-dash': {
+                'text-indent': `${(indented ? 1.4 : 0) - 0.62}em !important`,
+            },
+            '.sr-hang-quote': {
+                'text-indent': `${(indented ? 1.4 : 0) - 0.34}em !important`,
+            },
+        } : {}),
         // Letra capitular. Solo en el primer párrafo de un capítulo y solo si
         // no es el que sigue a otro texto: una capitular a mitad de página no
         // señala nada y parece un error de composición.

@@ -1,4 +1,5 @@
 import React from 'react';
+import Switch from '../ui/Switch.jsx';
 import {
     FONT_FAMILIES, TYPOGRAPHY_PRESETS,
     applyPreset, matchingPreset, clampFontSize, clampMargin,
@@ -61,25 +62,6 @@ const Segmented = ({ label, value, options, onChange }) => (
                 </button>
             ))}
         </div>
-    </div>
-);
-
-const Switch = ({ label, hint, checked, onChange }) => (
-    <div className="setting setting-row">
-        <span className="setting-label">
-            <span>
-                {label}
-                {hint && <span className="option-desc" style={{ display: 'block' }}>{hint}</span>}
-            </span>
-        </span>
-        <button
-            type="button"
-            className={`switch${checked ? ' on' : ''}`}
-            onClick={() => onChange(!checked)}
-            role="switch"
-            aria-checked={!!checked}
-            aria-label={label}
-        />
     </div>
 );
 
@@ -233,6 +215,16 @@ export default function ReaderSettingsSheet({ typography, onChangeTypography, on
                         onChange={(dropCap) => set({ dropCap })}
                     />
                 )}
+
+                {/* Colgar la puntuación solo se nota cuando hay puntuación que
+                    colgar, que en una novela con diálogo es en casi cada
+                    párrafo, y en un ensayo casi nunca. Por eso va apagada. */}
+                <Switch
+                    label="Colgar comillas y rayas"
+                    hint="Deja recto el margen izquierdo en los diálogos"
+                    checked={Boolean(typography.hangingPunctuation)}
+                    onChange={(hangingPunctuation) => set({ hangingPunctuation })}
+                />
 
                 <Switch
                     label="Modo dislexia"

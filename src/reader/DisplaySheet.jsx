@@ -2,7 +2,9 @@ import React from 'react';
 import { READER_THEMES } from './typography.js';
 import { PAGE_TRANSITIONS } from './transitions.js';
 import { AUTOSCROLL_SPEEDS } from './useAutoScroll.js';
+import Switch from '../ui/Switch.jsx';
 import { SPREAD_MODES } from './spread.js';
+import { RULER_MODES } from './ruler.js';
 import { ORIENTATION_MODES } from '../adapters/ScreenOrientation.js';
 import { IconSun, IconColumns, IconRotate } from '../ui/icons.jsx';
 
@@ -23,6 +25,8 @@ export default function DisplaySheet({
     warm, onChangeWarm,
     spread, onChangeSpread, columns,
     orientation, onChangeOrientation,
+    ruler, onChangeRuler,
+    eink, onChangeEink,
     autoScroll,
     onClose,
 }) {
@@ -35,6 +39,18 @@ export default function DisplaySheet({
                 aria-label="Pantalla y lectura"
             >
                 <span className="grip" aria-hidden="true" />
+
+                {/* El modo tinta va el primero porque anula la mitad de lo que
+                    hay debajo: enseñarlo al final, después de que el usuario
+                    haya elegido tema y animación, sería quitárselo sin avisar. */}
+                {onChangeEink && (
+                    <Switch
+                        label="Modo tinta electrónica"
+                        hint="Blanco y negro puros, sin animaciones ni capas de color"
+                        checked={Boolean(eink)}
+                        onChange={onChangeEink}
+                    />
+                )}
 
                 <div className="setting">
                     <span className="setting-label">Tema</span>
@@ -131,6 +147,29 @@ export default function DisplaySheet({
                             En horizontal, una sola columna da noventa caracteres por
                             línea y el ojo pierde el salto de línea. Por eso los libros
                             apaisados van siempre a dos columnas.
+                        </p>
+                    </div>
+                )}
+
+                {onChangeRuler && (
+                    <div className="setting">
+                        <span className="setting-label">Regla de lectura</span>
+                        <div className="segmented">
+                            {Object.entries(RULER_MODES).map(([id, option]) => (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    className={(ruler || 'off') === id ? 'on' : ''}
+                                    onClick={() => onChangeRuler(id)}
+                                >
+                                    {option.label}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="option-desc">
+                            Como poner una cuartilla bajo el renglón. Se arrastra con
+                            el dedo y salta de línea en línea, para que nunca corte
+                            las letras por la mitad.
                         </p>
                     </div>
                 )}

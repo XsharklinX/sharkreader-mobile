@@ -1846,3 +1846,126 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     opacity: .07;
     pointer-events: none;
 }
+
+/* ═══ Lector — Fase D ═══════════════════════════════════════════════════════ */
+
+/* Regla de lectura. La capa no captura el toque: si lo hiciera, el modo regla
+   convertiría el libro en una imagen —no se podría pasar página ni seleccionar
+   texto—. Solo la banda es interactiva. */
+.ruler-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 3;
+}
+
+.ruler-shade {
+    position: absolute;
+    left: 0;
+    right: 0;
+    background: var(--reader-bg);
+    opacity: .62;
+    /* Sin transición: la banda salta de línea en línea y una animación la haría
+       parecer imprecisa justo cuando su valor está en ser exacta. */
+}
+
+.ruler-band {
+    position: absolute;
+    left: 0;
+    right: 0;
+    pointer-events: auto;
+    touch-action: none;
+    cursor: grab;
+}
+
+.ruler-band.band {
+    box-shadow:
+        inset 0 1px 0 rgba(56, 189, 248, .35),
+        inset 0 -1px 0 rgba(56, 189, 248, .35);
+}
+
+/* Modo subrayado: solo el filete inferior, para quien la banda le agobia. */
+.ruler-band.line { box-shadow: inset 0 -2px 0 rgba(56, 189, 248, .5); }
+
+.ruler-band:active { cursor: grabbing; }
+
+.ruler-band:focus-visible { outline: 2px solid var(--accent); }
+
+/* Asa a la derecha: indica que se arrastra sin tapar el texto, que está a la
+   izquierda en cualquier idioma que soportemos. */
+.ruler-grip {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--accent);
+    opacity: .55;
+}
+
+/* Modo tinta electrónica. Se apaga toda animación de la interfaz, no solo la
+   del pase de página: en un panel e-ink cualquier movimiento deja rastro de la
+   imagen anterior hasta el siguiente refresco completo. */
+.reader.eink *,
+.reader.eink *::before,
+.reader.eink *::after {
+    animation: none !important;
+    transition: none !important;
+}
+
+.reader.eink .reader-dim,
+.reader.eink .reader-warm {
+    display: none;
+}
+
+/* Los bordes tenues que en un móvil separan la barra del texto, en e-ink no se
+   ven: el panel no tiene niveles intermedios que dar. Se pasan a línea sólida. */
+.reader.eink .reader-top,
+.reader.eink .reader-bottom {
+    border-color: #000;
+    background: #fff;
+    color: #000;
+}
+
+.reader.eink .prog-book,
+.reader.eink .prog-chap {
+    background: #000;
+}
+
+/* Aviso de cálculo del mapa de posiciones. Discreto: el libro ya se puede leer,
+   esto solo explica por qué todavía no hay porcentaje. */
+.map-progress {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(var(--safe-bottom) + 12px);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: var(--chrome-bg);
+    color: var(--chrome-text);
+    font-size: var(--t-micro);
+    opacity: .8;
+    pointer-events: none;
+    z-index: 4;
+}
+
+.map-progress-track {
+    width: 46px;
+    height: 3px;
+    border-radius: 2px;
+    background: currentColor;
+    opacity: .25;
+    overflow: hidden;
+}
+
+.map-progress-fill {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    opacity: 1;
+}

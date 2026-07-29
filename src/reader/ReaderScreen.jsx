@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createEpubEngine } from './EpubEngine.js';
 import { createGestureHandlers } from './useGestures.js';
-import { buildReaderStyles, DEFAULT_TYPOGRAPHY, READER_THEMES } from './typography.js';
+import { buildReaderStyles, DEFAULT_TYPOGRAPHY, READER_THEMES, EINK_OVERRIDES } from './typography.js';
+import { mapStatus, progressLabel } from './locationMap.js';
+import ReadingRuler from './ReadingRuler.jsx';
 import ReaderSettingsSheet from './ReaderSettingsSheet.jsx';
 import DisplaySheet from './DisplaySheet.jsx';
 import { runTransition, DEFAULT_TRANSITION } from './transitions.js';
@@ -83,8 +85,25 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     const [columns, setColumns] = useState(1);
     const columnsRef = useRef(1);
 
-    const styles = useMemo(() => buildReaderStyles(typography, theme), [typography, theme]);
-    const palette = READER_THEMES[theme] || READER_THEMES.dark;
+    // Mapa de posiciones: se construye en segundo plano tras abrir el libro.
+    const [locationsReady, setLocationsReady] = useState(false);
+    const [mapProgress, setMapProgress] = useState(null);
+
+    const [ruler, setRuler] = useState(book.readerPreferences?.ruler || 'off');
+
+    // El modo tinta electrónica impone tema y animación: no son preferencias
+    // que convivan con él, son consecuencias del panel. Se calcula aquí en vez
+    // de escribirlas en el estado para que al apagarlo vuelvan las de antes en
+    // lugar de quedarse las impuestas.
+    const eink = Boolean(typography.eink);
+    const effectiveTheme = eink ? EINK_OVERRIDES.theme : theme;
+    const effectiveTransition = eink ? EINK_OVERRIDES.transition : transition;
+
+    const styles = useMemo(
+        () => buildReaderStyles(typography, effectiveTheme),
+        [typography, effectiveTheme]
+    );
+    const palette = READER_THEMES[effectiveTheme] || READER_THEMES.dark;
 
     const progressRef = useRef(onProgress);
     progressRef.current = onProgress;
@@ -107,8 +126,8 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
      * dentro del iframe: epub.js repinta el iframe entero al cambiar de página,
      * así que animar su contenido daría un parpadeo.
      */
-    const transitionRef = useRef(transition);
-    transitionRef.current = transition;
+    const transitionRef = useRef(effectiveTransition);
+    transitionRef.current = effectiveTransition;
     const cleanupRef = useRef(null);
 
     const turnPage = (direction) => {
@@ -197,8 +216,22 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 if (cancelled) return;
 
                 setToc(result.toc);
-                if (result.generatedLocations) {
-                    ports.storage.setSetting(LOCATIONS_KEY(book.id), result.generatedLocations).catch(() => {});
+                setLocationsReady(result.hasLocations);
+
+                // El mapa de posiciones se construye **después** de dar el
+                // libro por listo. Antes se esperaba a tenerlo entero antes de
+                // quitar la pantalla de «Abriendo…», con la primera página ya
+                // pintada detrás: varios segundos de espera por un dato que no
+                // hace falta para leerla.
+                if (!result.hasLocations) {
+                    engine.buildLocations((done, total) => {
+                        if (!cancelled) setMapProgress({ done, total });
+                    }).then((saved) => {
+                        if (cancelled || !saved) return;
+                        setLocationsReady(true);
+                        setMapProgress(null);
+                        ports.storage.setSetting(LOCATIONS_KEY(book.id), saved).catch(() => {});
+                    }).catch(() => {});
                 }
 
                 // Los subrayados son overlays de epub.js: no viven en el EPUB y
@@ -218,6 +251,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
 
                 engine.registerFootnotes(setFootnote);
                 engine.registerImages(setImage);
+                engine.registerHangingPunctuation(Boolean(typography.hangingPunctuation));
 
                 setState('ready');
             } catch (loadError) {
@@ -233,8 +267,10 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             engine.destroy();
             engineRef.current = null;
         };
+        // La puntuación colgada entra aquí porque se aplica en el hook de
+        // contenido, que solo se puede registrar antes de montar los capítulos.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [book.id, typography.flow, typography.hyphenLang]);
+    }, [book.id, typography.flow, typography.hyphenLang, typography.hangingPunctuation]);
 
     // ── Posición ─────────────────────────────────────────────────────────────
     useEffect(() => {
@@ -257,6 +293,11 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 totalPages: total,
             });
             progressRef.current?.({ cfi, progress });
+
+            // El capítulo siguiente se carga por adelantado: es el único
+            // momento en que pasar página no es instantáneo, y ocurre siempre
+            // en el mismo sitio previsible —el final del capítulo—.
+            engine.prefetchNext(cfi);
         });
     }, [state, toc]);
 
@@ -273,9 +314,9 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     useEffect(() => {
         if (state !== 'ready') return;
         progressRef.current?.({
-            readerPreferences: { typography, theme, transition, warm, spread, orientation },
+            readerPreferences: { typography, theme, transition, warm, spread, orientation, ruler },
         });
-    }, [typography, theme, transition, warm, spread, orientation, state]);
+    }, [typography, theme, transition, warm, spread, orientation, ruler, state]);
 
     // ── Columnas y orientación ───────────────────────────────────────────────
 
@@ -592,6 +633,16 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     const totalLocations = engineRef.current?.totalLocations() || 0;
     const currentLocationIndex = engineRef.current?.currentLocation(location.cfi) || 0;
 
+    const mapStatusView = mapStatus({ ...(mapProgress || {}), ready: locationsReady });
+    // Sin mapa no se sabe por dónde vas en el libro, solo en el capítulo.
+    // Enseñar «0 %» durante diez segundos sería mentir sobre justo el dato que
+    // se mira para orientarse.
+    const progressText = progressLabel({
+        ready: locationsReady,
+        bookPercent: percent,
+        chapterPercent,
+    });
+
     // La interfaz del lector se adapta al tema de lectura: en sepia o papel una
     // barra oscura encima del texto claro sería un golpe visual.
     const chromeVars = palette.ui === 'light'
@@ -600,7 +651,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
 
     return (
         <div
-            className="reader"
+            className={`reader${eink ? ' eink' : ''}`}
             style={{
                 '--reader-bg': palette.bg,
                 '--reader-text': palette.text,
@@ -623,10 +674,35 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 ref={viewportRef}
             />
 
-            {dim > 0 && <div className="reader-dim" style={{ opacity: dim }} aria-hidden="true" />}
-            {warm > 0 && <div className="reader-warm" style={{ opacity: warm }} aria-hidden="true" />}
+            {/* Atenuador y filtro cálido no se pintan en tinta electrónica: el
+                panel no tiene niveles intermedios y una capa semitransparente
+                se convierte en una trama de puntos. */}
+            {!eink && dim > 0 && <div className="reader-dim" style={{ opacity: dim }} aria-hidden="true" />}
+            {!eink && warm > 0 && <div className="reader-warm" style={{ opacity: warm }} aria-hidden="true" />}
 
-            <DimZone value={dim} onChange={setDim} />
+            {!eink && <DimZone value={dim} onChange={setDim} />}
+
+            {ruler !== 'off' && state === 'ready' && (
+                <ReadingRuler
+                    mode={ruler}
+                    typography={typography}
+                    onClose={() => setRuler('off')}
+                />
+            )}
+
+            {/* El libro ya se lee; esto solo explica por qué aún no hay
+                porcentaje del total. */}
+            {mapStatusView.visible && (
+                <div className="map-progress" role="status">
+                    <span className="map-progress-track">
+                        <span
+                            className="map-progress-fill"
+                            style={{ width: `${mapStatusView.percent}%` }}
+                        />
+                    </span>
+                    <span>{mapStatusView.label}</span>
+                </div>
+            )}
 
             {!chrome && location.page > 0 && !history.canGoBack && (
                 <span className="page-chip">{location.page} / {location.totalPages}</span>
@@ -671,7 +747,9 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                             {location.chapter || 'Capítulo'}
                         </span>
                         <span className="prog-left mono">
-                            {leftInBook ? `quedan ${formatMinutes(leftInBook)}` : `${percent}%`}
+                            {leftInBook && locationsReady
+                                ? `quedan ${formatMinutes(leftInBook)}`
+                                : `${progressText.text} ${progressText.of}`}
                         </span>
                     </div>
                     {/* Arrastrable: recorrer el libro sin pasar por el índice.
@@ -690,6 +768,11 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                             onChange={(event) => setScrubAt(Number(event.target.value))}
                             onPointerUp={commitScrub}
                             onTouchEnd={commitScrub}
+                            // Sin mapa no hay forma de traducir un porcentaje a
+                            // una posición del libro: arrastrar no llevaría a
+                            // ninguna parte, y una barra que no responde es peor
+                            // que una barra desactivada.
+                            disabled={!locationsReady}
                             aria-label="Ir a una posición del libro"
                         />
                     </div>
@@ -796,6 +879,10 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     columns={columns}
                     orientation={orientation}
                     onChangeOrientation={setOrientation}
+                    ruler={ruler}
+                    onChangeRuler={setRuler}
+                    eink={eink}
+                    onChangeEink={(value) => setTypography({ ...typography, eink: value })}
                     transitionMode={transition}
                     autoScroll={autoScroll}
                     onClose={() => setPanel(null)}
