@@ -8,6 +8,8 @@ import './styles/app.css';
 // La barra del lector vive en su propio fichero: `app.css` pasaba de las 1800
 // líneas y el bloque del lector estaba repartido en tres sitios distintos.
 import './styles/reader-chrome.css';
+// Anatomía común de las hojas de opciones del lector.
+import './styles/sheets.css';
 
 // Los puertos se instalan antes de montar React: ninguna pantalla debe poder
 // ejecutarse contra un registro vacío.

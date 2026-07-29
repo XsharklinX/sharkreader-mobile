@@ -18,6 +18,7 @@ import SelectionToolbar from './SelectionToolbar.jsx';
 import AnnotationsPanel from './AnnotationsPanel.jsx';
 import DimZone from './DimZone.jsx';
 import SpeechBar from './SpeechBar.jsx';
+import SpeechSheet from './SpeechSheet.jsx';
 import { useSpeech } from './useSpeech.js';
 import { useAutoScroll } from './useAutoScroll.js';
 import DictionarySheet from './DictionarySheet.jsx';
@@ -483,6 +484,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     }, [scrubAt, jumpTo]);
 
     // ── Lectura en voz alta ──────────────────────────────────────────────────
+    const [spokenSentence, setSpokenSentence] = useState('');
     const speech = useSpeech({
         title: book.name,
         chapter: location.chapter,
@@ -491,6 +493,9 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         getPageText: useCallback(() => engineRef.current?.visibleText() || '', []),
         onSentence: useCallback((sentence) => {
             engineRef.current?.highlightSpoken(sentence);
+            // Se guarda también en estado: la hoja de voz la enseña escrita, que
+            // es lo que permite seguir la lectura sin volver a la página.
+            setSpokenSentence(sentence || '');
         }, []),
         onNextPage: useCallback(async () => {
             const engine = engineRef.current;
@@ -959,10 +964,13 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     </button>
                     <button
                         type="button"
-                        className={`dock-btn${speech.isSpeaking ? ' on' : ''}`}
-                        onClick={speech.toggle}
+                        className={`dock-btn${speech.state !== 'idle' ? ' on' : ''}`}
+                        // Sonando, el botón abre los controles en vez de parar:
+                        // pararla de un toque en el mismo sitio donde se arrancó
+                        // es la forma más fácil de perder la posición sin querer.
+                        onClick={() => (speech.state === 'idle' ? speech.start() : setPanel('speech'))}
                         disabled={!speech.supported}
-                        aria-label={speech.isSpeaking ? 'Parar la lectura' : 'Leer en voz alta'}
+                        aria-label={speech.state !== 'idle' ? 'Controles de voz' : 'Leer en voz alta'}
                     >
                         <IconVolume size={23} />
                     </button>
@@ -970,7 +978,20 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             </footer>
 
             {speech.state !== 'idle' && (
-                <SpeechBar speech={speech} onClose={speech.stop} />
+                <SpeechBar
+                    speech={speech}
+                    onExpand={() => setPanel('speech')}
+                    onClose={speech.stop}
+                />
+            )}
+
+            {panel === 'speech' && (
+                <SpeechSheet
+                    speech={speech}
+                    sentence={spokenSentence}
+                    chapter={location.chapter}
+                    onClose={() => setPanel(null)}
+                />
             )}
 
             {(panel === 'toc' || panel === 'search') && (
@@ -1044,6 +1065,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             {panel === 'settings' && (
                 <ReaderSettingsSheet
                     typography={typography}
+                    theme={effectiveTheme}
                     onChangeTypography={setTypography}
                     onClose={() => setPanel(null)}
                 />
@@ -1052,6 +1074,10 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             {panel === 'annotations' && (
                 <AnnotationsPanel
                     bookmarks={annotationsRef.current}
+                    // El capítulo y la posición de cada anotación se resuelven
+                    // aquí porque solo el motor sabe traducir un CFI.
+                    chapterOf={(cfi) => engineRef.current?.chapterLabel(cfi, toc) || ''}
+                    progressOf={(cfi) => engineRef.current?.progressFromCfi(cfi)}
                     onJump={jumpTo}
                     onDelete={deleteAnnotation}
                     onEdit={(cfi) => { setPanel(null); setEditing(cfi); }}

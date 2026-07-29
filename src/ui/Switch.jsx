@@ -3,19 +3,21 @@ import React from 'react';
 /**
  * Interruptor de ajuste, con etiqueta y explicación opcional.
  *
- * Vivía dentro de `ReaderSettingsSheet` y ahora lo usan también el panel de
- * pantalla y los ajustes generales. Es un `button` con `role="switch"` y no un
- * `<input type="checkbox">` porque así el área tocable es el propio control
- * dibujado, sin la casilla nativa debajo que Android pinta a su manera.
+ * Usa la misma maqueta que `Row` de `Sheet.jsx` —`.sheet-row`— y no una propia.
+ * Antes tenía la suya (`.setting.setting-row`) y dentro de las hojas quedaba con
+ * otro alto y otra alineación que las filas de al lado: dos controles que hacen
+ * lo mismo, sentados de forma distinta.
+ *
+ * Es un `button` con `role="switch"` y no un `<input type="checkbox">` porque así
+ * el área tocable es el control dibujado, sin la casilla nativa debajo que
+ * Android pinta a su manera.
  */
 export default function Switch({ label, hint, checked, onChange }) {
     return (
-        <div className="setting setting-row">
-            <span className="setting-label">
-                <span>
-                    {label}
-                    {hint && <span className="option-desc" style={{ display: 'block' }}>{hint}</span>}
-                </span>
+        <div className="sheet-row">
+            <span className="sheet-row-txt">
+                <span className="sheet-row-label">{label}</span>
+                {hint && <span className="sheet-row-hint">{hint}</span>}
             </span>
             <button
                 type="button"

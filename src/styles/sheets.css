@@ -1,0 +1,427 @@
+/* ═══ Hojas del lector ══════════════════════════════════════════════════════
+ *
+ * Anatomía común de las cuatro —Texto, Pantalla, Notas, Voz—. Antes cada una
+ * repetía el asa, el título y el cierre por su cuenta y con el tiempo habían
+ * derivado: una tenía botón «Listo» y otra no, y los altos de fila no coincidían.
+ *
+ * La regla del sistema: asa, barra de título, cuerpo. Siempre en ese orden y con
+ * los mismos valores.
+ */
+
+.sheet-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+    padding-bottom: var(--sp-2);
+}
+
+.sheet-titles { display: flex; flex-direction: column; min-width: 0; }
+
+.sheet-title {
+    font-size: var(--t-heading);
+    font-weight: 650;
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sheet-sub { font-size: var(--t-micro); color: var(--text-3); margin: 0; }
+
+/* El cuerpo desplaza, no la hoja: así el asa y el título se quedan fijos al
+   recorrer una lista larga y siempre se sabe en qué nivel estás. */
+.sheet-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* Tope alto para que la hoja nunca tape el libro entero: sigue siendo una
+       capa sobre la lectura, no una pantalla. */
+    max-height: 74dvh;
+    padding-bottom: var(--sp-2);
+    /* Espacio para la sombra del último control al hacer foco. */
+    margin-bottom: calc(var(--safe-bottom) * -0.5);
+}
+
+.sheet-group { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+/* Etiqueta de grupo: es un rótulo de datos, no un título de sección. Va en
+   versalitas pequeñas para que no compita con el título de la hoja. */
+.sheet-group-label {
+    font-size: var(--t-micro);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    font-family: var(--font-mono);
+}
+
+/* ── Filas ────────────────────────────────────────────────────────────────── */
+
+.sheet-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    width: 100%;
+    /* 56 px de alto efectivo: por encima de los 48 que necesita un dedo. */
+    padding: var(--sp-3) 0;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    color: inherit;
+    text-align: left;
+    font: inherit;
+}
+
+.rows > .sheet-row:last-child,
+.sheet-row:last-child { border-bottom: 0; }
+
+.sheet-row.tappable { cursor: pointer; }
+
+/* El realce ocupa el ancho completo aunque la fila no tenga fondo: sin los
+   márgenes negativos, el toque se resalta con un recorte a media fila. */
+.sheet-row.tappable:active {
+    background: var(--surface-2);
+    margin-inline: calc(var(--sp-3) * -1);
+    padding-inline: var(--sp-3);
+    border-radius: var(--r-sm);
+}
+
+.sheet-row-icon { color: var(--text-3); flex: none; display: flex; }
+.sheet-row-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sheet-row-label { font-size: var(--t-tiny); font-weight: 550; }
+.sheet-row-hint { font-size: var(--t-micro); color: var(--text-3); line-height: 1.35; }
+
+/* El valor actual, para no tener que entrar a comprobarlo. */
+.sheet-row-value {
+    font-size: var(--t-micro);
+    color: var(--accent);
+    flex: none;
+    font-family: var(--font-mono);
+    max-width: 40%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sheet-row-chev { color: var(--text-3); flex: none; }
+.sheet-row.danger .sheet-row-label { color: var(--danger, #E4695C); }
+
+.slider-row { display: flex; align-items: center; gap: var(--sp-3); }
+.slider-row input[type="range"] { flex: 1; }
+.slider-row > svg { color: var(--text-3); flex: none; }
+
+.slider-val {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    color: var(--text-3);
+    flex: none;
+    min-width: 3.2em;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ═══ Hoja de Texto ═════════════════════════════════════════════════════════ */
+
+/* Muestra en vivo. Va arriba y es lo primero que se ve: estás componiendo texto,
+   hay que ver texto. Antes lo único visible era una «Aa» de 22 px dentro del
+   selector de tamaño, y cada cambio había que confirmarlo cerrando la hoja. */
+.type-preview {
+    border-radius: var(--r-md);
+    border: 1px solid var(--line);
+    padding-block: var(--sp-3);
+    /* Alto fijo: si creciera con el cuerpo de letra, subir el tamaño empujaría
+       los controles fuera de la pantalla justo mientras se usan. */
+    height: 116px;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
+    mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
+}
+
+.preview-cap {
+    float: left;
+    font-size: 3.05em;
+    line-height: .86;
+    padding-right: .06em;
+    padding-top: .06em;
+    font-weight: 600;
+}
+
+/* Marca de fuente incluida en el APK: se ve igual en cualquier móvil, a
+   diferencia de las que dependen de lo que traiga el sistema. */
+.font-badge {
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-left: 5px;
+    vertical-align: middle;
+}
+
+.stepper-val {
+    flex: 1;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: var(--t-tiny);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ═══ Hoja de Pantalla ══════════════════════════════════════════════════════ */
+
+/* Muestras de tema con texto de libro. Lo que se elige es cómo se verá una
+   página, y eso una «Aa» sobre un rectángulo de color no lo dice: no se ve el
+   contraste real del cuerpo de texto, que es lo único que importa aquí. */
+.theme-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--sp-2);
+}
+
+.theme-card {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: var(--sp-2) 9px;
+    min-height: 62px;
+    border: 2px solid transparent;
+    border-radius: var(--r-md);
+    cursor: pointer;
+    overflow: hidden;
+    text-align: left;
+    font: inherit;
+}
+
+.theme-card.on { border-color: var(--accent); }
+.theme-card:disabled { opacity: .45; cursor: default; }
+
+.theme-card-name {
+    font-size: var(--t-micro);
+    font-weight: 650;
+    font-family: var(--font-sans);
+}
+
+/* Con la fuente de lectura, no con la de la interfaz: es una muestra del libro. */
+.theme-card-text {
+    font-family: Literata, Georgia, serif;
+    font-size: 9.5px;
+    line-height: 1.35;
+    opacity: .82;
+}
+
+/* ═══ Hoja de Notas ═════════════════════════════════════════════════════════ */
+
+/* Tipo y color en una sola fila. Eran dos filas apiladas de filtros y ocupaban
+   más alto que los propios resultados. */
+.annot-filters {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+    padding: 0 var(--sp-3) var(--sp-3);
+}
+
+.annot-sep {
+    width: 1px;
+    height: 20px;
+    background: var(--line);
+    flex: none;
+}
+
+.swatch.sm { width: 26px; height: 26px; }
+
+.annot {
+    padding: var(--sp-3);
+    border-bottom: 1px solid var(--line);
+}
+
+.annot-body {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 100%;
+    background: none;
+    border: 0;
+    padding: 0;
+    text-align: left;
+    color: inherit;
+    cursor: pointer;
+}
+
+/* Dónde está: capítulo y posición. La fecha no distinguía nada —todas las
+   anotaciones de un libro se hacen el mismo día leyendo el mismo capítulo— y
+   era lo único que se mostraba. */
+.annot-where {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--t-micro);
+    min-width: 0;
+}
+
+.annot-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+.annot-chapter {
+    color: var(--accent);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.annot-pct {
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    flex: none;
+    font-variant-numeric: tabular-nums;
+}
+
+/* El fragmento con la tipografía de lectura y el comentario con la de la
+   interfaz: son dos voces distintas —el libro y tú— y con la misma fuente había
+   que leerlas para saber cuál era cuál. */
+.annot-text {
+    font-family: Literata, Georgia, serif;
+    font-size: var(--t-small);
+    line-height: 1.5;
+    color: var(--text);
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.annot-comment {
+    font-size: var(--t-micro);
+    color: var(--text-2);
+    font-style: italic;
+    padding-left: var(--sp-2);
+    border-left: 2px solid var(--line);
+}
+
+/* Acciones con palabra y no con icono: un cubo de basura de 18 px al lado de un
+   rotulador de 18 px se confunden, y borrar una nota no se deshace. */
+.annot-actions {
+    display: flex;
+    gap: var(--sp-2);
+    margin-top: var(--sp-2);
+}
+
+.annot-act {
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: none;
+    color: var(--text-2);
+    font-size: var(--t-micro);
+    cursor: pointer;
+}
+
+.annot-act:active { background: var(--surface-2); }
+.annot-act.danger { color: var(--danger, #E4695C); border-color: color-mix(in srgb, var(--danger, #E4695C) 35%, transparent); }
+
+/* ═══ Hoja de Voz ═══════════════════════════════════════════════════════════ */
+
+.voice-hero { display: flex; align-items: center; gap: var(--sp-3); }
+
+/* 56 px: es el 90 % de los toques de esta hoja y antes medía lo mismo que el
+   botón de cerrar. */
+.voice-play {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 0;
+    background: var(--accent);
+    color: var(--accent-ink, #04121B);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    cursor: pointer;
+}
+
+.voice-play:active { background: var(--accent-deep); }
+
+.voice-txt { flex: 1; min-width: 0; }
+.voice-txt b { display: block; font-size: var(--t-tiny); font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.voice-txt span { font-size: var(--t-micro); color: var(--text-3); }
+
+/* La frase que suena, escrita. Es el motivo por el que alguien mira la pantalla
+   mientras escucha: el resaltado dentro del libro ya existe, pero no sirve si
+   has bajado el brillo o has salido a otra página. */
+.voice-line {
+    background: var(--surface-2);
+    border-radius: var(--r-md);
+    padding: var(--sp-3);
+    /* Alto fijo de tres líneas: si creciera y encogiera con cada frase, los
+       controles de debajo bailarían mientras se lee. */
+    min-height: 68px;
+    display: flex;
+    align-items: center;
+}
+
+.voice-line p {
+    margin: 0;
+    font-family: Literata, Georgia, serif;
+    font-size: var(--t-small);
+    line-height: 1.45;
+    color: var(--text);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.voice-line-empty { color: var(--text-3) !important; font-style: italic; }
+
+/* Onda. No mide el audio —ni el motor de Android ni un MP3 ya renderizado dan
+   la amplitud sin coste— sino que indica que algo suena, como un indicador de
+   carga. Lo informativo es que se para en seco al pausar. */
+.waveform {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 26px;
+}
+
+.waveform i {
+    flex: 1;
+    background: var(--accent);
+    border-radius: 1px;
+    opacity: .3;
+    transform-origin: bottom;
+}
+
+.waveform.on i {
+    opacity: 1;
+    animation: wave 1.05s ease-in-out infinite alternate;
+}
+
+@keyframes wave {
+    from { transform: scaleY(.35); }
+    to   { transform: scaleY(1); }
+}
+
+/* La barra estrecha: toda la zona de información abre los controles. Antes solo
+   lo hacía un enlace de texto de dos palabras. */
+.speech-open {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex: 1;
+    min-width: 0;
+    background: none;
+    border: 0;
+    padding: 0;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.speech-info { display: flex; flex-direction: column; min-width: 0; }
+.speech-cfg { font-size: var(--t-micro); color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+    /* La onda se queda quieta: el estado lo dice el texto de al lado. */
+    .waveform.on i { animation: none; transform: scaleY(.7); }
+}

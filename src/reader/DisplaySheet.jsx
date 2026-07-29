@@ -1,23 +1,39 @@
 import React from 'react';
+import Sheet, { Row, Group, Segmented } from '../ui/Sheet.jsx';
+import Switch from '../ui/Switch.jsx';
 import { READER_THEMES } from './typography.js';
 import { PAGE_TRANSITIONS } from './transitions.js';
 import { AUTOSCROLL_SPEEDS } from './useAutoScroll.js';
-import Switch from '../ui/Switch.jsx';
 import { SPREAD_MODES } from './spread.js';
 import { RULER_MODES } from './ruler.js';
 import { REFRESH_INTERVALS, intervalLabel } from './einkRefresh.js';
 import { ORIENTATION_MODES } from '../adapters/ScreenOrientation.js';
-import { IconSun, IconColumns, IconRotate } from '../ui/icons.jsx';
+import { IconSun, IconColumns, IconRotate, IconEink, IconRuler } from '../ui/icons.jsx';
 
 /**
- * Ajustes de pantalla y de lectura.
+ * Pantalla y lectura.
  *
- * Va aparte del botón «Aa» a propósito: bajo la Aa solo debe haber cosas del
- * texto —fuente, tamaño, espaciado—. El tema, el modo de paginación, la
- * animación al pasar página y el brillo no son tipografía, y meterlo todo en el
- * mismo sitio obligaba a bajar por una lista larguísima para cambiar algo tan
- * frecuente como el fondo.
+ * ## El problema que resuelve el rediseño
+ *
+ * Esta hoja había llegado a **once secciones apiladas**: tinta electrónica,
+ * tema, modo de lectura, animación, columnas, gestos, regla, orientación,
+ * brillo, filtro cálido y avance automático. Cambiar el fondo —que es lo que más
+ * se hace aquí— obligaba a recorrer la lista entera, y las opciones frecuentes
+ * competían por atención con las que se tocan una vez en la vida.
+ *
+ * Ahora hay dos niveles. Arriba **el tema y el brillo**, que son el motivo por
+ * el que se abre esta hoja el 90 % de las veces. Debajo, cuatro filas que llevan
+ * a lo demás. El reparto no es por parentesco técnico sino por momento de uso:
+ * gestos y orientación van juntos porque los dos se configuran una vez y no se
+ * vuelven a mirar.
+ *
+ * Las muestras de tema llevan **texto de libro**, no una «Aa» sobre un
+ * rectángulo de color: lo que se está eligiendo es cómo se verá una página.
  */
+
+/** Fragmento para las muestras. Corto, con acentos y una palabra larga. */
+const SWATCH_TEXT = 'Del libro que nunca';
+
 export default function DisplaySheet({
     theme, onChangeTheme,
     flow, onChangeFlow,
@@ -28,308 +44,306 @@ export default function DisplaySheet({
     orientation, onChangeOrientation,
     ruler, onChangeRuler,
     eink, onChangeEink,
-    onOpenGestures,
     refreshEvery, onChangeRefreshEvery, onFlashNow,
+    onOpenGestures,
     autoScroll,
     onClose,
 }) {
-    return (
-        <div className="scrim" onClick={onClose} role="presentation">
-            <section
-                className="sheet"
-                onClick={(event) => event.stopPropagation()}
-                role="dialog"
-                aria-label="Pantalla y lectura"
-            >
-                <span className="grip" aria-hidden="true" />
+    // En tinta electrónica el tema lo impone el modo, así que enseñar el
+    // selector sería ofrecer algo que no va a surtir efecto.
+    const themeLocked = Boolean(eink);
 
-                {/* El modo tinta va el primero porque anula la mitad de lo que
-                    hay debajo: enseñarlo al final, después de que el usuario
-                    haya elegido tema y animación, sería quitárselo sin avisar. */}
-                {onChangeEink && (
+    const pages = {
+        paging: {
+            title: 'Paginación',
+            render: () => (
+                <>
+                    <Segmented
+                        label="Modo de lectura"
+                        value={flow === 'scrolled' ? 'scrolled' : 'paginated'}
+                        options={[
+                            { value: 'paginated', label: 'Páginas' },
+                            { value: 'scrolled', label: 'Desplazamiento' },
+                        ]}
+                        onChange={onChangeFlow}
+                    />
+
+                    {/* Ni animación ni columnas tienen sentido desplazando: ahí
+                        no hay página que pasar ni que repartir. */}
+                    {flow !== 'scrolled' && (
+                        <>
+                            <Group label="Al pasar página">
+                                <div className="option-list">
+                                    {Object.entries(PAGE_TRANSITIONS).map(([id, option]) => (
+                                        <button
+                                            key={id}
+                                            type="button"
+                                            className={`option${transition === id ? ' on' : ''}`}
+                                            onClick={() => onChangeTransition(id)}
+                                            aria-pressed={transition === id}
+                                        >
+                                            <span className="option-txt">
+                                                <span className="option-name">{option.label}</span>
+                                                <span className="option-desc">{option.description}</span>
+                                            </span>
+                                            <span className="option-mark" aria-hidden="true" />
+                                        </button>
+                                    ))}
+                                </div>
+                            </Group>
+
+                            <Segmented
+                                label="Columnas"
+                                value={spread || 'auto'}
+                                options={Object.entries(SPREAD_MODES)
+                                    .map(([id, option]) => ({ value: id, label: option.label }))}
+                                onChange={onChangeSpread}
+                                hint={`Ahora mismo ${columns === 2 ? 'dos' : 'una'}. En horizontal, una sola
+                                       columna da noventa caracteres por línea y el ojo pierde el
+                                       salto de línea.`}
+                            />
+                        </>
+                    )}
+                </>
+            ),
+        },
+
+        gestures: {
+            title: 'Gestos y orientación',
+            render: () => (
+                <>
+                    <Group
+                        label="Zonas de la pantalla"
+                        hint="Nueve zonas con acción propia. Sirve para invertir los lados o
+                              para apagar la de abajo, donde se apoya el pulgar."
+                    >
+                        <button type="button" className="btn btn-block" onClick={onOpenGestures}>
+                            Configurar los gestos
+                        </button>
+                    </Group>
+
+                    <Segmented
+                        label="Orientación"
+                        value={orientation || 'auto'}
+                        options={Object.entries(ORIENTATION_MODES)
+                            .map(([id, option]) => ({ value: id, label: option.label }))}
+                        onChange={onChangeOrientation}
+                        hint="Bloquearla evita que la página gire al leer tumbado, que es justo
+                              cuando el sensor más molesta."
+                    />
+                </>
+            ),
+        },
+
+        aids: {
+            title: 'Ayudas de lectura',
+            render: () => (
+                <>
+                    <Segmented
+                        label="Regla de lectura"
+                        value={ruler || 'off'}
+                        options={Object.entries(RULER_MODES)
+                            .map(([id, option]) => ({ value: id, label: option.label }))}
+                        onChange={onChangeRuler}
+                        hint="Como poner una cuartilla bajo el renglón. Se arrastra con el dedo y
+                              salta de línea en línea, para no cortar las letras por la mitad."
+                    />
+
+                    {/* Quitar azul es distinto de atenuar: de madrugada lo que
+                        molesta es el componente azul, no el brillo. */}
+                    <Group
+                        label="Filtro cálido"
+                        hint="Reduce la luz azul para leer de noche sin forzar la vista."
+                    >
+                        <div className="slider-row">
+                            <input
+                                type="range"
+                                min={0}
+                                max={55}
+                                value={Math.round((warm || 0) * 100)}
+                                onChange={(event) => onChangeWarm(Number(event.target.value) / 100)}
+                                aria-label="Filtro cálido"
+                                className="warm-slider"
+                            />
+                            <span className="slider-val">{Math.round((warm / 0.55) * 100)}%</span>
+                        </div>
+                    </Group>
+
+                    {autoScroll && (
+                        <Group
+                            label="Avance automático"
+                            hint={`${autoScroll.secondsPerPage} segundos por página.`}
+                        >
+                            <div className="stepper">
+                                <button
+                                    type="button"
+                                    onClick={autoScroll.slower}
+                                    disabled={!autoScroll.canGoSlower}
+                                    aria-label="Más lento"
+                                >
+                                    <span aria-hidden="true">−</span>
+                                </button>
+                                <span className="stepper-val">
+                                    {AUTOSCROLL_SPEEDS.length - autoScroll.speedIndex} de {AUTOSCROLL_SPEEDS.length}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={autoScroll.faster}
+                                    disabled={!autoScroll.canGoFaster}
+                                    aria-label="Más rápido"
+                                >
+                                    <span aria-hidden="true">+</span>
+                                </button>
+                            </div>
+                            <button
+                                type="button"
+                                className={`btn btn-block${autoScroll.running ? '' : ' btn-primary'}`}
+                                onClick={autoScroll.toggle}
+                            >
+                                {autoScroll.running ? 'Detener el avance' : 'Empezar avance automático'}
+                            </button>
+                        </Group>
+                    )}
+                </>
+            ),
+        },
+
+        eink: {
+            title: 'Tinta electrónica',
+            render: () => (
+                <>
                     <Switch
                         label="Modo tinta electrónica"
                         hint="Blanco y negro puros, sin animaciones ni capas de color"
                         checked={Boolean(eink)}
                         onChange={onChangeEink}
                     />
-                )}
 
-                {/* Solo con el modo tinta activado: en una pantalla normal un
-                    parpadeo negro cada diez páginas no tendría ningún sentido. */}
-                {eink && onChangeRefreshEvery && (
-                    <div className="setting">
-                        <span className="setting-label">
-                            <span>Limpiar la pantalla</span>
-                            <span className="setting-value">{intervalLabel(refreshEvery)}</span>
-                        </span>
-                        <div className="segmented">
-                            {REFRESH_INTERVALS.map((value) => (
-                                <button
-                                    key={value}
-                                    type="button"
-                                    className={refreshEvery === value ? 'on' : ''}
-                                    onClick={() => onChangeRefreshEvery(value)}
-                                >
-                                    {value === 0 ? 'Nunca' : value}
-                                </button>
-                            ))}
-                        </div>
-                        <p className="option-desc">
-                            En tinta electrónica el texto va dejando rastro de las
-                            páginas anteriores. Un parpadeo cada tantas páginas deja la
-                            pantalla limpia.
-                        </p>
-                        <button type="button" className="btn btn-block" onClick={onFlashNow}>
-                            Limpiar ahora
-                        </button>
-                    </div>
-                )}
+                    <p className="option-desc">
+                        Un panel e-ink no tiene niveles intermedios: cualquier capa
+                        semitransparente se convierte en una trama de puntos y cualquier
+                        animación deja rastro. Este modo apaga las dos cosas, sube el peso
+                        del trazo —que en tinta se pierde— e impone negro sobre blanco.
+                    </p>
 
-                <div className="setting">
-                    <span className="setting-label">Tema</span>
-                    <div className="themes">
-                        {Object.entries(READER_THEMES).map(([id, option]) => (
-                            <div className="theme-item" key={id}>
-                                <button
-                                    type="button"
-                                    className={`theme-swatch${theme === id ? ' on' : ''}`}
-                                    style={{ background: option.bg, color: option.text }}
-                                    onClick={() => onChangeTheme(id)}
-                                    aria-label={option.label}
-                                    aria-pressed={theme === id}
-                                >
-                                    Aa
-                                </button>
-                                <span className="theme-name">{option.label}</span>
+                    {eink && (
+                        <Group
+                            label="Limpiar la pantalla"
+                            hint="En tinta electrónica el texto va dejando rastro de las páginas
+                                  anteriores. Un parpadeo cada tantas páginas la deja limpia."
+                        >
+                            <div className="segmented">
+                                {REFRESH_INTERVALS.map((value) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        className={refreshEvery === value ? 'on' : ''}
+                                        onClick={() => onChangeRefreshEvery(value)}
+                                        aria-label={intervalLabel(value)}
+                                    >
+                                        {value === 0 ? 'Nunca' : value}
+                                    </button>
+                                ))}
                             </div>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="setting">
-                    <span className="setting-label">Modo de lectura</span>
-                    <div className="segmented">
-                        <button
-                            type="button"
-                            className={flow !== 'scrolled' ? 'on' : ''}
-                            onClick={() => onChangeFlow('paginated')}
-                        >
-                            Páginas
-                        </button>
-                        <button
-                            type="button"
-                            className={flow === 'scrolled' ? 'on' : ''}
-                            onClick={() => onChangeFlow('scrolled')}
-                        >
-                            Desplazamiento
-                        </button>
-                    </div>
-                </div>
-
-                {/* La animación no tiene sentido en modo desplazamiento: ahí no
-                    se pasa página, se desplaza. */}
-                {flow !== 'scrolled' && (
-                    <div className="setting">
-                        <span className="setting-label">Al pasar página</span>
-                        <div className="option-list">
-                            {Object.entries(PAGE_TRANSITIONS).map(([id, option]) => (
-                                <button
-                                    key={id}
-                                    type="button"
-                                    className={`option${transition === id ? ' on' : ''}`}
-                                    onClick={() => onChangeTransition(id)}
-                                    aria-pressed={transition === id}
-                                >
-                                    <span className="option-txt">
-                                        <span className="option-name">{option.label}</span>
-                                        <span className="option-desc">{option.description}</span>
-                                    </span>
-                                    <span className="option-mark" aria-hidden="true" />
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Las columnas solo tienen sentido paginando: desplazando no
-                    hay página que repartir, hay una tira continua. */}
-                {flow !== 'scrolled' && onChangeSpread && (
-                    <div className="setting">
-                        <span className="setting-label">
-                            <span>
-                                <IconColumns size={15} style={{ verticalAlign: -3, marginRight: 5 }} />
-                                Columnas
-                            </span>
-                            <span className="setting-value">
-                                {columns === 2 ? 'Dos ahora mismo' : 'Una ahora mismo'}
-                            </span>
-                        </span>
-                        <div className="segmented">
-                            {Object.entries(SPREAD_MODES).map(([id, option]) => (
-                                <button
-                                    key={id}
-                                    type="button"
-                                    className={(spread || 'auto') === id ? 'on' : ''}
-                                    onClick={() => onChangeSpread(id)}
-                                >
-                                    {option.label}
-                                </button>
-                            ))}
-                        </div>
-                        <p className="option-desc">
-                            En horizontal, una sola columna da noventa caracteres por
-                            línea y el ojo pierde el salto de línea. Por eso los libros
-                            apaisados van siempre a dos columnas.
-                        </p>
-                    </div>
-                )}
-
-                {onOpenGestures && (
-                    <div className="setting">
-                        <span className="setting-label">Gestos</span>
-                        <button type="button" className="btn btn-block" onClick={onOpenGestures}>
-                            Configurar las zonas de la pantalla
-                        </button>
-                        <p className="option-desc">
-                            Nueve zonas con acción propia. Sirve para invertir los
-                            lados o para apagar la de abajo, donde se apoya el pulgar.
-                        </p>
-                    </div>
-                )}
-
-                {onChangeRuler && (
-                    <div className="setting">
-                        <span className="setting-label">Regla de lectura</span>
-                        <div className="segmented">
-                            {Object.entries(RULER_MODES).map(([id, option]) => (
-                                <button
-                                    key={id}
-                                    type="button"
-                                    className={(ruler || 'off') === id ? 'on' : ''}
-                                    onClick={() => onChangeRuler(id)}
-                                >
-                                    {option.label}
-                                </button>
-                            ))}
-                        </div>
-                        <p className="option-desc">
-                            Como poner una cuartilla bajo el renglón. Se arrastra con
-                            el dedo y salta de línea en línea, para que nunca corte
-                            las letras por la mitad.
-                        </p>
-                    </div>
-                )}
-
-                {onChangeOrientation && (
-                    <div className="setting">
-                        <span className="setting-label">
-                            <span>
-                                <IconRotate size={15} style={{ verticalAlign: -3, marginRight: 5 }} />
-                                Orientación
-                            </span>
-                        </span>
-                        <div className="segmented">
-                            {Object.entries(ORIENTATION_MODES).map(([id, option]) => (
-                                <button
-                                    key={id}
-                                    type="button"
-                                    className={(orientation || 'auto') === id ? 'on' : ''}
-                                    onClick={() => onChangeOrientation(id)}
-                                >
-                                    {option.label}
-                                </button>
-                            ))}
-                        </div>
-                        <p className="option-desc">
-                            Bloquearla evita que la página gire al leer tumbado, que es
-                            justo cuando el sensor más molesta.
-                        </p>
-                    </div>
-                )}
-
-                <div className="setting">
-                    <span className="setting-label">
-                        <span><IconSun size={15} style={{ verticalAlign: -3, marginRight: 5 }} />Atenuar pantalla</span>
-                        <span className="setting-value">{Math.round((dim / 0.72) * 100)}%</span>
-                    </span>
-                    <input
-                        type="range"
-                        min={0}
-                        max={72}
-                        value={Math.round(dim * 100)}
-                        onChange={(event) => onChangeDim(Number(event.target.value) / 100)}
-                        aria-label="Atenuar la pantalla"
-                    />
-                    <p className="option-desc">
-                        Baja el brillo por debajo del mínimo del sistema. También se
-                        ajusta deslizando por el borde izquierdo mientras lees.
-                    </p>
-                </div>
-
-                {/* Quitar azul es distinto de atenuar: de madrugada lo que
-                    molesta es el componente azul, no el brillo. Van separados
-                    porque se usan en momentos distintos. */}
-                <div className="setting">
-                    <span className="setting-label">
-                        <span>Filtro cálido</span>
-                        <span className="setting-value">{Math.round((warm / 0.55) * 100)}%</span>
-                    </span>
-                    <input
-                        type="range"
-                        min={0}
-                        max={55}
-                        value={Math.round((warm || 0) * 100)}
-                        onChange={(event) => onChangeWarm(Number(event.target.value) / 100)}
-                        aria-label="Filtro cálido"
-                        className="warm-slider"
-                    />
-                    <p className="option-desc">
-                        Reduce la luz azul para leer de noche sin forzar la vista.
-                    </p>
-                </div>
-
-                {autoScroll && (
-                    <div className="setting">
-                        <span className="setting-label">
-                            Avance automático
-                            <span className="setting-value">{autoScroll.secondsPerPage} s por página</span>
-                        </span>
-                        <div className="stepper">
-                            <button
-                                type="button"
-                                onClick={autoScroll.slower}
-                                disabled={!autoScroll.canGoSlower}
-                                aria-label="Más lento"
-                            >
-                                <span style={{ fontSize: 17, fontWeight: 600 }}>−</span>
+                            <button type="button" className="btn btn-block" onClick={onFlashNow}>
+                                Limpiar ahora
                             </button>
-                            <span className="stepper-val">
-                                {AUTOSCROLL_SPEEDS.length - autoScroll.speedIndex} de {AUTOSCROLL_SPEEDS.length}
-                            </span>
-                            <button
-                                type="button"
-                                onClick={autoScroll.faster}
-                                disabled={!autoScroll.canGoFaster}
-                                aria-label="Más rápido"
-                            >
-                                <span style={{ fontSize: 17, fontWeight: 600 }}>+</span>
-                            </button>
-                        </div>
-                        <button
-                            type="button"
-                            className={`btn btn-block${autoScroll.running ? '' : ' btn-primary'}`}
-                            onClick={autoScroll.toggle}
-                        >
-                            {autoScroll.running ? 'Detener el avance' : 'Empezar avance automático'}
-                        </button>
-                    </div>
-                )}
+                        </Group>
+                    )}
+                </>
+            ),
+        },
+    };
 
-                <button type="button" className="btn btn-primary btn-block" onClick={onClose}>
-                    Listo
-                </button>
-            </section>
-        </div>
+    return (
+        <Sheet title="Pantalla" onClose={onClose} pages={pages}>
+            {({ openPage }) => (
+                <>
+                    {/* El tema primero: es el motivo por el que se abre esta hoja
+                        casi siempre. Con texto de libro en cada muestra, porque
+                        lo que se elige es cómo se verá una página. */}
+                    <Group label="Tema">
+                        <div className="theme-grid">
+                            {Object.entries(READER_THEMES)
+                                // El tema e-ink no se ofrece aquí: lo impone su
+                                // modo, y elegirlo a mano dejaría la interfaz sin
+                                // los demás ajustes que ese modo necesita.
+                                .filter(([id]) => id !== 'eink')
+                                .map(([id, option]) => (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        className={`theme-card${theme === id && !themeLocked ? ' on' : ''}`}
+                                        style={{ background: option.bg, color: option.text }}
+                                        onClick={() => onChangeTheme(id)}
+                                        disabled={themeLocked}
+                                        aria-pressed={theme === id}
+                                    >
+                                        <span className="theme-card-name">{option.label}</span>
+                                        <span className="theme-card-text">{SWATCH_TEXT}</span>
+                                    </button>
+                                ))}
+                        </div>
+                        {themeLocked && (
+                            <p className="option-desc">
+                                El modo tinta electrónica impone negro sobre blanco.
+                            </p>
+                        )}
+                    </Group>
+
+                    <Group
+                        label="Brillo"
+                        hint="Baja por debajo del mínimo del sistema. También se ajusta deslizando
+                              por el borde izquierdo mientras lees."
+                    >
+                        <div className="slider-row">
+                            <IconSun size={16} />
+                            <input
+                                type="range"
+                                min={0}
+                                max={72}
+                                value={Math.round(dim * 100)}
+                                onChange={(event) => onChangeDim(Number(event.target.value) / 100)}
+                                aria-label="Atenuar la pantalla"
+                            />
+                            <span className="slider-val">{Math.round((dim / 0.72) * 100)}%</span>
+                        </div>
+                    </Group>
+
+                    <div className="rows">
+                        <Row
+                            icon={<IconColumns size={18} />}
+                            label="Paginación"
+                            hint="Páginas o desplazamiento, animación, columnas"
+                            value={flow === 'scrolled'
+                                ? 'Desplazamiento'
+                                : columns === 2 ? '2 columnas' : PAGE_TRANSITIONS[transition]?.label}
+                            onClick={() => openPage('paging')}
+                        />
+                        <Row
+                            icon={<IconRotate size={18} />}
+                            label="Gestos y orientación"
+                            hint="Nueve zonas, bloqueo de giro"
+                            value={orientation !== 'auto' ? ORIENTATION_MODES[orientation]?.label : null}
+                            onClick={() => openPage('gestures')}
+                        />
+                        <Row
+                            icon={<IconRuler size={18} />}
+                            label="Ayudas de lectura"
+                            hint="Regla, filtro cálido, avance automático"
+                            value={ruler !== 'off' ? RULER_MODES[ruler]?.label : null}
+                            onClick={() => openPage('aids')}
+                        />
+                        <Row
+                            icon={<IconEink size={18} />}
+                            label="Tinta electrónica"
+                            hint="Para lectores de e-ink"
+                            value={eink ? 'Activado' : null}
+                            onClick={() => openPage('eink')}
+                        />
+                    </div>
+                </>
+            )}
+        </Sheet>
     );
 }

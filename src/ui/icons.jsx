@@ -256,3 +256,19 @@ export const IconCloud = (p) => (
         <path d="M7 18.5h9.8a3.7 3.7 0 0 0 .5-7.4 5.5 5.5 0 0 0-10.5-1.3A4.1 4.1 0 0 0 7 18.5z" />
     </Svg>
 );
+
+export const IconEink = (p) => (
+    <Svg {...p}>
+        <rect x="4" y="3.5" width="16" height="17" rx="2" />
+        <path d="M8 8h8M8 12h8M8 16h5" />
+    </Svg>
+);
+
+// La regla de lectura: la banda que ilumina el renglón, no un objeto de medir.
+// Un icono de escuadra habría prometido otra función.
+export const IconRuler = (p) => (
+    <Svg {...p}>
+        <path d="M4 7.5h16M4 16.5h16" />
+        <rect x="2.6" y="10.3" width="18.8" height="3.4" rx="1.2" />
+    </Svg>
+);
