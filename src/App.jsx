@@ -3,8 +3,6 @@ import { App as CapApp } from '@capacitor/app';
 import TabBar from './ui/TabBar.jsx';
 import LibraryScreen from './screens/LibraryScreen.jsx';
 import ProgressScreen from './screens/ProgressScreen.jsx';
-import AchievementsScreen from './screens/AchievementsScreen.jsx';
-import WorkshopScreen from './screens/WorkshopScreen.jsx';
 import SettingsScreen from './screens/SettingsScreen.jsx';
 import ReaderScreen from './reader/ReaderScreen.jsx';
 import PdfReaderScreen from './reader/PdfReaderScreen.jsx';
@@ -14,11 +12,10 @@ import { useReadingClock } from './library/useReadingClock.js';
 import { useStats } from './stats/useStats.js';
 import { exportAnnotations } from './library/backup.js';
 
+// Tres pantallas. Logros vive dentro de Progreso y Workshop dentro de Ajustes.
 const SCREENS = {
     library: LibraryScreen,
     progress: ProgressScreen,
-    achievements: AchievementsScreen,
-    workshop: WorkshopScreen,
     settings: SettingsScreen,
 };
 

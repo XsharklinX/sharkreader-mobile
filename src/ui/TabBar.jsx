@@ -1,26 +1,32 @@
 import React from 'react';
+import { IconLibrary, IconChart, IconSettings } from './icons.jsx';
 
+/**
+ * Tres pestañas, no cinco.
+ *
+ * Logros vive dentro de Progreso y Workshop dentro de Ajustes. La barra
+ * inferior es el espacio más valioso de la pantalla y no puede repartirse a
+ * partes iguales entre lo que se usa cada día y lo que se mira una vez al mes.
+ */
 const TABS = [
-    { id: 'library',      icon: '📚', label: 'Biblioteca' },
-    { id: 'progress',     icon: '📊', label: 'Progreso' },
-    { id: 'achievements', icon: '🏆', label: 'Logros' },
-    { id: 'workshop',     icon: '🔧', label: 'Workshop' },
-    { id: 'settings',     icon: '⚙️', label: 'Ajustes' },
+    { id: 'library', icon: IconLibrary, label: 'Biblioteca' },
+    { id: 'progress', icon: IconChart, label: 'Progreso' },
+    { id: 'settings', icon: IconSettings, label: 'Ajustes' },
 ];
 
 export default function TabBar({ active, onChange }) {
     return (
         <nav className="tabbar" aria-label="Navegación principal">
-            {TABS.map((tab) => (
+            {TABS.map(({ id, icon: Icon, label }) => (
                 <button
-                    key={tab.id}
+                    key={id}
                     type="button"
-                    className="tabbar-btn"
-                    aria-current={active === tab.id ? 'page' : undefined}
-                    onClick={() => onChange(tab.id)}
+                    className="tab"
+                    aria-current={active === id ? 'page' : undefined}
+                    onClick={() => onChange(id)}
                 >
-                    <span className="tabbar-icon" aria-hidden="true">{tab.icon}</span>
-                    <span>{tab.label}</span>
+                    <Icon size={22} />
+                    <span>{label}</span>
                 </button>
             ))}
         </nav>

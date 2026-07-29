@@ -10,6 +10,9 @@ import {
 } from './annotations.js';
 import { normalizeAnnotationKind } from '../core/annotationExport.js';
 import { readBookBlob } from '../adapters/SafPicker.js';
+import {
+    IconArrowLeft, IconBookmark, IconList, IconHighlight, IconSun, IconClose,
+} from '../ui/icons.jsx';
 
 /**
  * Lector PDF sobre pdf.js.
@@ -190,7 +193,7 @@ export default function PdfReaderScreen({
         return (
             <div className="reader">
                 <div className="empty">
-                    <span className="empty-emoji" aria-hidden="true">📄</span>
+                    <span className="empty-art" aria-hidden="true" style={{fontSize:32}}>📄</span>
                     <h2 className="empty-title">No se pudo abrir</h2>
                     <p className="empty-body">{error}</p>
                     <button type="button" className="btn btn-primary" onClick={onClose}>
@@ -204,10 +207,10 @@ export default function PdfReaderScreen({
     const dark = theme === 'dark' || theme === 'black';
 
     return (
-        <div className="reader reader-pdf" style={{ background: READER_THEMES[theme]?.bg }}>
+        <div className="reader reader-pdf" style={{ '--reader-bg': READER_THEMES[theme]?.bg }}>
             {state === 'loading' && (
                 <div className="reader-loading">
-                    <span className="empty-emoji" aria-hidden="true">🦈</span>
+                    <span className="empty-art" aria-hidden="true" style={{fontSize:32}}>🦈</span>
                     <p className="empty-body">Abriendo {book.name}…</p>
                 </div>
             )}
@@ -217,49 +220,31 @@ export default function PdfReaderScreen({
             </div>
 
             <header className={`reader-top${chromeVisible ? '' : ' hidden'}`}>
-                <button type="button" className="icon-btn ghost" onClick={onClose} aria-label="Volver a la biblioteca">←</button>
-                <span className="reader-chapter">{book.name}</span>
+                <button type="button" className="icon-btn" onClick={onClose} aria-label="Volver a la biblioteca">
+                    <IconArrowLeft size={22} />
+                </button>
+                <div className="reader-title">
+                    <span className="reader-book">{book.name}</span>
+                    <span className="reader-chapter">página {page} de {total}</span>
+                </div>
                 <button
                     type="button"
-                    className="icon-btn ghost"
+                    className={`icon-btn${pageIsBookmarked ? ' on' : ''}`}
                     onClick={toggleBookmark}
                     aria-label={pageIsBookmarked ? 'Quitar marcador' : 'Marcar esta página'}
                     aria-pressed={pageIsBookmarked}
                 >
-                    {pageIsBookmarked ? '🔖' : '🏷'}
-                </button>
-                <button
-                    type="button"
-                    className="icon-btn ghost"
-                    onClick={() => setShowAnnotations(true)}
-                    aria-label="Anotaciones"
-                >
-                    🖍{annotations.length > 0 && <span className="badge mono">{annotations.length}</span>}
-                </button>
-                <button
-                    type="button"
-                    className="icon-btn ghost"
-                    onClick={() => setShowOutline(true)}
-                    aria-label="Índice"
-                    disabled={outline.length === 0}
-                >
-                    ☰
+                    <IconBookmark size={21} filled={pageIsBookmarked} />
                 </button>
             </header>
 
             <footer className={`reader-bottom${chromeVisible ? '' : ' hidden'}`}>
-                <div className="reader-actions">
-                    <button type="button" className="icon-btn ghost" onClick={() => setScale((s) => Math.max(MIN_SCALE, s - 0.2))} aria-label="Alejar">−</button>
-                    <span className="mono reader-percent">{Math.round(scale * 100)}%</span>
-                    <button type="button" className="icon-btn ghost" onClick={() => setScale((s) => Math.min(MAX_SCALE, s + 0.2))} aria-label="Acercar">+</button>
-                    <button
-                        type="button"
-                        className="icon-btn ghost"
-                        onClick={() => setTheme(dark ? 'light' : 'dark')}
-                        aria-label={dark ? 'Modo claro' : 'Modo oscuro'}
-                    >
-                        {dark ? '☀' : '☾'}
-                    </button>
+                <div className="progress-line">
+                    <div className="progress-label">
+                        <b>Página {page}</b>
+                        <span>de {total}</span>
+                    </div>
+                    <span className="bar thin chapter"><i style={{ width: `${total ? (page / total) * 100 : 0}%` }} /></span>
                 </div>
 
                 <input
@@ -271,7 +256,43 @@ export default function PdfReaderScreen({
                     onChange={(event) => setPage(Number(event.target.value))}
                     aria-label="Ir a página"
                 />
-                <span className="reader-page mono">página {page} de {total}</span>
+
+                <div className="reader-tools">
+                    <button type="button" className="icon-btn" onClick={() => setScale((s) => Math.max(MIN_SCALE, s - 0.2))} aria-label="Alejar">
+                        <span style={{ fontSize: 20, fontWeight: 600 }}>−</span>
+                    </button>
+                    <span className="mono" style={{ fontSize: 'var(--t-tiny)', color: 'var(--text-3)' }}>
+                        {Math.round(scale * 100)}%
+                    </span>
+                    <button type="button" className="icon-btn" onClick={() => setScale((s) => Math.min(MAX_SCALE, s + 0.2))} aria-label="Acercar">
+                        <span style={{ fontSize: 20, fontWeight: 600 }}>+</span>
+                    </button>
+                    <button
+                        type="button"
+                        className="icon-btn"
+                        onClick={() => setTheme(dark ? 'paper' : 'dark')}
+                        aria-label={dark ? 'Fondo claro' : 'Fondo oscuro'}
+                    >
+                        <IconSun size={21} />
+                    </button>
+                    <button
+                        type="button"
+                        className="icon-btn"
+                        onClick={() => setShowOutline(true)}
+                        aria-label="Índice"
+                        disabled={outline.length === 0}
+                    >
+                        <IconList size={22} />
+                    </button>
+                    <button
+                        type="button"
+                        className={`icon-btn${annotations.length ? ' on' : ''}`}
+                        onClick={() => setShowAnnotations(true)}
+                        aria-label={`Anotaciones (${annotations.length})`}
+                    >
+                        <IconHighlight size={22} />
+                    </button>
+                </div>
             </footer>
 
             {showAnnotations && (
@@ -289,11 +310,11 @@ export default function PdfReaderScreen({
             )}
 
             {showOutline && (
-                <div className="sheet-backdrop" onClick={() => setShowOutline(false)} role="presentation">
+                <div className="scrim" onClick={() => setShowOutline(false)} role="presentation">
                     <aside className="drawer" onClick={(event) => event.stopPropagation()} role="dialog" aria-label="Índice del PDF">
-                        <div className="drawer-tabs">
-                            <span className="setting-label">Índice</span>
-                            <button type="button" className="icon-btn ghost" onClick={() => setShowOutline(false)} aria-label="Cerrar">×</button>
+                        <div className="drawer-head">
+                            <span className="section-title">Índice</span>
+                            <button type="button" className="icon-btn" onClick={() => setShowOutline(false)} aria-label="Cerrar"><IconClose size={20} /></button>
                         </div>
                         <div className="drawer-list">
                             {outline.map((entry, index) => (

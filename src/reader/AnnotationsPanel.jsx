@@ -1,23 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import {
-    ANNOTATION_FILTERS,
-    HIGHLIGHT_SWATCHES,
-    HIGHLIGHT_LABEL_DEFAULTS,
-    selectAnnotations,
-    countByKind,
-    highlightComment,
+    ANNOTATION_FILTERS, HIGHLIGHT_SWATCHES, HIGHLIGHT_LABEL_DEFAULTS,
+    selectAnnotations, countByKind, highlightComment,
 } from './annotations.js';
 import { normalizeAnnotationKind, normalizeAnnotationText } from '../core/annotationExport.js';
+import { IconShare, IconClose, IconTrash, IconHighlight } from '../ui/icons.jsx';
 
-const KIND_ICON = { highlight: '🖍', note: '📝', bookmark: '🔖' };
-
-/**
- * Panel de anotaciones del libro abierto.
- *
- * Filtrable por tipo y por color, igual que en escritorio. Tocar una entrada
- * salta a esa posición del libro; el botón de borrar está separado para que no
- * se pulse sin querer al saltar.
- */
 export default function AnnotationsPanel({ bookmarks, onJump, onDelete, onExport, onClose }) {
     const [kind, setKind] = useState('all');
     const [color, setColor] = useState(null);
@@ -29,25 +17,27 @@ export default function AnnotationsPanel({ bookmarks, onJump, onDelete, onExport
     );
 
     return (
-        <div className="sheet-backdrop" onClick={onClose} role="presentation">
+        <div className="scrim" onClick={onClose} role="presentation">
             <aside
                 className="drawer"
                 onClick={(event) => event.stopPropagation()}
                 role="dialog"
                 aria-label="Anotaciones"
             >
-                <div className="drawer-tabs">
-                    <span className="setting-label">Anotaciones</span>
+                <div className="drawer-head">
+                    <h2 className="section-title">Anotaciones</h2>
                     <button
                         type="button"
-                        className="icon-btn ghost"
+                        className="icon-btn"
                         onClick={onExport}
                         disabled={bookmarks.length === 0}
                         aria-label="Exportar a Markdown"
                     >
-                        ↗
+                        <IconShare size={20} />
                     </button>
-                    <button type="button" className="icon-btn ghost" onClick={onClose} aria-label="Cerrar">×</button>
+                    <button type="button" className="icon-btn" onClick={onClose} aria-label="Cerrar">
+                        <IconClose size={20} />
+                    </button>
                 </div>
 
                 <div className="pills">
@@ -55,30 +45,30 @@ export default function AnnotationsPanel({ bookmarks, onJump, onDelete, onExport
                         <button
                             key={id}
                             type="button"
-                            className={`pill-btn${kind === id ? ' on' : ''}`}
+                            className={`pill${kind === id ? ' on' : ''}`}
                             onClick={() => setKind(id)}
                             aria-pressed={kind === id}
                         >
                             {filter.label}
-                            {counts[id] > 0 && <span className="mono"> {counts[id]}</span>}
+                            {counts[id] > 0 && <span className="pill-count">{counts[id]}</span>}
                         </button>
                     ))}
                 </div>
 
-                <div className="pills">
+                <div className="swatches" style={{ justifyContent: 'flex-start', gap: 'var(--sp-2)' }}>
                     <button
                         type="button"
-                        className={`pill-btn${color === null ? ' on' : ''}`}
+                        className={`pill${color === null ? ' on' : ''}`}
                         onClick={() => setColor(null)}
                     >
-                        Todos los colores
+                        Todos
                     </button>
                     {Object.entries(HIGHLIGHT_SWATCHES).map(([id, swatch]) => (
                         <button
                             key={id}
                             type="button"
                             className={`swatch${color === id ? ' on' : ''}`}
-                            style={{ background: swatch }}
+                            style={{ background: swatch, width: 36, height: 36 }}
                             onClick={() => setColor(color === id ? null : id)}
                             aria-label={HIGHLIGHT_LABEL_DEFAULTS[id]}
                             aria-pressed={color === id}
@@ -88,24 +78,24 @@ export default function AnnotationsPanel({ bookmarks, onJump, onDelete, onExport
 
                 <div className="drawer-list">
                     {visible.length === 0 ? (
-                        <p className="drawer-empty">
-                            {bookmarks.length === 0
-                                ? 'Todavía no has subrayado nada. Mantén pulsado sobre el texto para empezar.'
-                                : 'Ninguna anotación coincide con el filtro.'}
-                        </p>
+                        <div className="empty" style={{ padding: 'var(--sp-6) var(--sp-4)' }}>
+                            <span className="empty-art" style={{ width: 64, height: 64 }}>
+                                <IconHighlight size={28} />
+                            </span>
+                            <p className="empty-body">
+                                {bookmarks.length === 0
+                                    ? 'Mantén pulsado sobre el texto para subrayar o añadir una nota.'
+                                    : 'Ninguna anotación coincide con el filtro.'}
+                            </p>
+                        </div>
                     ) : (
                         visible.map((bookmark, index) => {
                             const entryKind = normalizeAnnotationKind(bookmark);
                             const comment = highlightComment(bookmark);
                             return (
                                 <article className="annotation" key={`${bookmark.cfi}-${entryKind}-${index}`}>
-                                    <button
-                                        type="button"
-                                        className="annotation-body"
-                                        onClick={() => onJump(bookmark.cfi)}
-                                    >
+                                    <button type="button" className="annotation-body" onClick={() => onJump(bookmark.cfi)}>
                                         <span className="annotation-head">
-                                            <span aria-hidden="true">{KIND_ICON[entryKind]}</span>
                                             {bookmark.color && (
                                                 <span
                                                     className="annotation-dot"
@@ -113,7 +103,8 @@ export default function AnnotationsPanel({ bookmarks, onJump, onDelete, onExport
                                                     aria-hidden="true"
                                                 />
                                             )}
-                                            <span className="annotation-date mono">{bookmark.date}</span>
+                                            <span>{ANNOTATION_FILTERS[entryKind]?.label || 'Marcador'}</span>
+                                            <span className="mono">· {bookmark.date}</span>
                                         </span>
                                         <span className="annotation-text">
                                             {normalizeAnnotationText(bookmark) || '(sin texto)'}
@@ -122,11 +113,12 @@ export default function AnnotationsPanel({ bookmarks, onJump, onDelete, onExport
                                     </button>
                                     <button
                                         type="button"
-                                        className="icon-btn ghost"
+                                        className="icon-btn"
+                                        style={{ minWidth: 40 }}
                                         onClick={() => onDelete(bookmark.cfi, entryKind)}
                                         aria-label="Borrar anotación"
                                     >
-                                        🗑
+                                        <IconTrash size={18} />
                                     </button>
                                 </article>
                             );

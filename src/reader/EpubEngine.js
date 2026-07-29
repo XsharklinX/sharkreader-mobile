@@ -139,6 +139,15 @@ export const createEpubEngine = () => {
             try { rendition?.annotations.remove(cfiRange, 'highlight'); } catch { /* ya no estaba */ }
         },
 
+        /**
+         * Vuelve a medir el contenedor. Hace falta al cambiar los márgenes de
+         * lectura: como el relleno vive en el contenedor y no en el documento,
+         * epub.js tiene que recalcular el ancho de columna.
+         */
+        resize() {
+            try { rendition?.resize(); } catch { /* aún no hay vista */ }
+        },
+
         applyStyles(styles) {
             if (!rendition) return;
             rendition.themes.default(styles);

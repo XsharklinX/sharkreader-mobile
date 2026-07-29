@@ -125,6 +125,14 @@ export const useLibrary = () => {
         replaceAll,
         setError,
         clearError: () => setError(null),
+        exportNotes: async (book) => {
+            const { exportAnnotations } = await import('./backup.js');
+            try {
+                await exportAnnotations(books, book?.id);
+            } catch (exportError) {
+                setError(exportError?.message || 'No se pudieron exportar las anotaciones.');
+            }
+        },
     };
 };
 

@@ -1,85 +1,113 @@
 /* Tokens de SharkReader Mobile.
-   Heredados de styles/main.css del escritorio para que las dos apps se
-   reconozcan como la misma marca. Lo que cambia es la escala: aquí las medidas
-   parten de un pulgar, no de un ratón. */
+   Reescritos para el rediseño: el sistema pasa de "cajas con borde" a
+   superficies con elevación, que es lo que separa una app de lectura de un
+   panel de configuración. */
 
 :root {
-    /* Superficies — tema oscuro por defecto, que es como se lee de noche */
-    --bg: #0f172a;
-    --surface: #1e293b;
-    --surface-2: #142433;
-    --border: #24405480;
-    --border-strong: #334155;
+    /* ── Superficies ──────────────────────────────────────────────────────
+       Cuatro niveles de profundidad en lugar de un borde de 1 px. Cada nivel
+       es un poco más claro que el anterior: así se lee la jerarquía sin
+       dibujar líneas. */
+    --bg: #0B1017;
+    --sf-1: #141A22;
+    --sf-2: #1B222C;
+    --sf-3: #232C38;
 
-    --text: #f1f5f9;
-    --text-2: #9db4c4;
-    --text-3: #6f8899;
+    --text: #F2F6F9;
+    --text-2: #A5B4C0;
+    --text-3: #6C7D8B;
 
-    --accent: #38bdf8;
-    --accent-ink: #04121b;
-    --accent-deep: #0369a1;
+    /* Los bordes quedan para separar, no para encajonar */
+    --line: #212A35;
+    --line-strong: #2E3A48;
 
-    --warn: #f5a524;
-    --ok: #3dd68c;
-    --risk: #f2617a;
+    --accent: #38BDF8;
+    --accent-soft: rgba(56, 189, 248, 0.14);
+    --accent-ink: #04121B;
+    --accent-deep: #0C7FB5;
 
-    /* Colores de subrayado — mismos cuatro que en escritorio */
-    --hl-yellow: #fde047;
-    --hl-green: #4ade80;
-    --hl-blue: #60a5fa;
-    --hl-pink: #f472b6;
+    --warn: #F5A524;
+    --ok: #3DD68C;
+    --risk: #F2617A;
 
-    /* Escala de espaciado */
+    /* Colores de subrayado — los mismos cuatro que en escritorio */
+    --hl-yellow: #FACC15;
+    --hl-green: #22C55E;
+    --hl-blue: #3B82F6;
+    --hl-pink: #F472B6;
+
+    /* ── Espaciado ───────────────────────────────────────────────────────── */
     --sp-1: 4px;
     --sp-2: 8px;
     --sp-3: 12px;
     --sp-4: 16px;
     --sp-5: 24px;
     --sp-6: 32px;
+    --sp-7: 48px;
 
-    --radius: 10px;
-    --radius-sm: 6px;
+    --r-sm: 8px;
+    --r-md: 14px;
+    --r-lg: 20px;
+    --r-full: 999px;
+
+    /* ── Elevación ───────────────────────────────────────────────────────── */
+    --el-1: 0 1px 2px rgba(0, 0, 0, 0.28);
+    --el-2: 0 4px 14px -4px rgba(0, 0, 0, 0.45);
+    --el-3: 0 12px 32px -8px rgba(0, 0, 0, 0.6);
+    --el-4: 0 -8px 40px -12px rgba(0, 0, 0, 0.75);
+
+    /* ── Tipografía ──────────────────────────────────────────────────────── */
+    --font: Roboto, "Segoe UI", system-ui, -apple-system, sans-serif;
+    --font-read: Georgia, "Noto Serif", serif;
+    --font-mono: "Roboto Mono", ui-monospace, monospace;
+
+    /* Escala fija: en móvil no hay viewport que escalar y las medidas
+       relativas solo introducen ruido. */
+    --t-display: 28px;
+    --t-title: 21px;
+    --t-heading: 17px;
+    --t-body: 15px;
+    --t-small: 13px;
+    --t-tiny: 11px;
+    --t-micro: 9.5px;
 
     /* Objetivo táctil mínimo. Ningún control interactivo baja de aquí. */
     --touch: 48px;
 
-    /* Zonas seguras del sistema (barra de estado, gestos de navegación) */
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
 
-    --font: "Segoe UI", Roboto, system-ui, -apple-system, sans-serif;
-    --font-read: Georgia, "Times New Roman", serif;
-    --font-mono: "Roboto Mono", ui-monospace, monospace;
+    --nav-h: 58px;
+
+    --ease: cubic-bezier(0.22, 0.7, 0.3, 1);
 }
 
+/* Tema claro de la interfaz. Independiente del tema del lector: se puede leer
+   en sepia con la interfaz oscura, o al revés. */
 :root.theme-light {
-    --bg: #f8fafc;
-    --surface: #ffffff;
-    --surface-2: #eef2f6;
-    --border: #e2e8f0;
-    --border-strong: #cbd5e1;
+    --bg: #F1F4F7;
+    --sf-1: #FFFFFF;
+    --sf-2: #F7F9FB;
+    --sf-3: #E8EDF2;
 
-    --text: #0f172a;
-    --text-2: #475569;
-    --text-3: #64748b;
+    --text: #0D1620;
+    --text-2: #4A5C6B;
+    --text-3: #7A8B99;
 
-    --accent: #0284c7;
-    --accent-ink: #ffffff;
-    --accent-deep: #0369a1;
-}
+    --line: #DDE4EA;
+    --line-strong: #C7D1DA;
 
-:root.theme-sepia {
-    --bg: #fef3c7;
-    --surface: #fde68a;
-    --surface-2: #fcefc0;
-    --border: #d3c6aa;
-    --border-strong: #b8a684;
+    --accent: #0B84C4;
+    --accent-soft: rgba(11, 132, 196, 0.1);
+    --accent-ink: #FFFFFF;
+    --accent-deep: #076797;
 
-    --text: #451a03;
-    --text-2: #7c4a12;
-    --text-3: #8b6b4a;
+    --warn: #B4700A;
+    --ok: #14805A;
+    --risk: #C8455F;
 
-    --accent: #92400e;
-    --accent-ink: #fef3c7;
-    --accent-deep: #78350f;
+    --el-1: 0 1px 2px rgba(13, 22, 32, 0.06);
+    --el-2: 0 4px 14px -4px rgba(13, 22, 32, 0.14);
+    --el-3: 0 12px 32px -8px rgba(13, 22, 32, 0.18);
+    --el-4: 0 -8px 40px -12px rgba(13, 22, 32, 0.22);
 }

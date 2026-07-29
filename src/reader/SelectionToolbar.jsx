@@ -4,8 +4,8 @@ import { HIGHLIGHT_SWATCHES, HIGHLIGHT_LABEL_DEFAULTS } from './annotations.js';
 /**
  * Barra que aparece al seleccionar texto.
  *
- * Los cuatro colores van como botones grandes en fila, no en un menú
- * contextual: en escritorio un menú está a un clic de precisión, aquí cada
+ * Los cuatro colores van como círculos de 46 px en fila. En escritorio un menú
+ * contextual con cuadraditos de 16 px funciona porque hay puntero; aquí cada
  * opción tiene que ser un objetivo cómodo para el pulgar.
  */
 export default function SelectionToolbar({ text, onHighlight, onCancel, onCopy }) {
@@ -13,21 +13,19 @@ export default function SelectionToolbar({ text, onHighlight, onCancel, onCopy }
     const [comment, setComment] = useState('');
     const [color, setColor] = useState('yellow');
 
-    const preview = text.length > 140 ? `${text.slice(0, 140)}…` : text;
-
     if (writing) {
         return (
-            <div className="sheet-backdrop" onClick={onCancel} role="presentation">
+            <div className="scrim" onClick={onCancel} role="presentation">
                 <section
                     className="sheet"
                     onClick={(event) => event.stopPropagation()}
                     role="dialog"
                     aria-label="Añadir nota al subrayado"
                 >
-                    <div className="sheet-grip" aria-hidden="true" />
-                    <blockquote className="selection-quote">{preview}</blockquote>
+                    <span className="grip" aria-hidden="true" />
+                    <blockquote className="selbar-quote" style={{ WebkitLineClamp: 5 }}>{text}</blockquote>
 
-                    <div className="pills">
+                    <div className="swatches">
                         {Object.entries(HIGHLIGHT_SWATCHES).map(([id, swatch]) => (
                             <button
                                 key={id}
@@ -53,11 +51,7 @@ export default function SelectionToolbar({ text, onHighlight, onCancel, onCopy }
 
                     <div className="sheet-actions">
                         <button type="button" className="btn" onClick={onCancel}>Cancelar</button>
-                        <button
-                            type="button"
-                            className="btn btn-primary"
-                            onClick={() => onHighlight(color, comment)}
-                        >
+                        <button type="button" className="btn btn-primary" onClick={() => onHighlight(color, comment)}>
                             Guardar
                         </button>
                     </div>
@@ -67,8 +61,10 @@ export default function SelectionToolbar({ text, onHighlight, onCancel, onCopy }
     }
 
     return (
-        <div className="selection-bar" role="dialog" aria-label="Acciones de selección">
-            <div className="selection-colors">
+        <div className="selbar" role="dialog" aria-label="Acciones de selección">
+            <blockquote className="selbar-quote">{text}</blockquote>
+
+            <div className="swatches">
                 {Object.entries(HIGHLIGHT_SWATCHES).map(([id, swatch]) => (
                     <button
                         key={id}
@@ -80,8 +76,9 @@ export default function SelectionToolbar({ text, onHighlight, onCancel, onCopy }
                     />
                 ))}
             </div>
-            <div className="selection-actions">
-                <button type="button" className="link-btn" onClick={() => setWriting(true)}>Nota</button>
+
+            <div className="selbar-actions">
+                <button type="button" className="link-btn" onClick={() => setWriting(true)}>Añadir nota</button>
                 <button type="button" className="link-btn" onClick={onCopy}>Copiar</button>
                 <button type="button" className="link-btn" onClick={onCancel}>Cerrar</button>
             </div>

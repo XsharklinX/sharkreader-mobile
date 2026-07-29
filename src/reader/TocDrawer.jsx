@@ -1,14 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { IconSearch, IconClose } from '../ui/icons.jsx';
 
 /**
- * Índice y búsqueda dentro del libro, en un panel deslizante.
+ * Índice y búsqueda dentro del libro.
  *
- * Las dos cosas comparten panel porque responden a la misma intención — "llévame
- * a otro sitio del libro" — y en una pantalla de móvil no hay hueco para dos
- * paneles distintos.
+ * Comparten panel porque responden a la misma intención —«llévame a otro sitio
+ * del libro»— y en móvil no hay hueco para dos paneles distintos. El capítulo
+ * actual va marcado, que es lo primero que se busca al abrir un índice.
  */
-export default function TocDrawer({ toc, onSelect, onClose, onSearch }) {
-    const [tab, setTab] = useState('toc');
+export default function TocDrawer({ toc, initialTab = 'toc', currentChapter, onSelect, onClose, onSearch }) {
+    const [tab, setTab] = useState(initialTab);
     const [query, setQuery] = useState('');
     const [results, setResults] = useState([]);
     const [searching, setSearching] = useState(false);
@@ -23,8 +24,7 @@ export default function TocDrawer({ toc, onSelect, onClose, onSearch }) {
         const needle = query.trim();
         if (needle.length < 2) return;
         setSearching(true);
-        const found = await onSearch(needle);
-        setResults(found);
+        setResults(await onSearch(needle));
         setSearching(false);
     };
 
@@ -33,36 +33,32 @@ export default function TocDrawer({ toc, onSelect, onClose, onSearch }) {
         : toc;
 
     return (
-        <div className="sheet-backdrop" onClick={onClose} role="presentation">
+        <div className="scrim" onClick={onClose} role="presentation">
             <aside
                 className="drawer"
                 onClick={(event) => event.stopPropagation()}
                 role="dialog"
                 aria-label="Índice y búsqueda"
             >
-                <div className="drawer-tabs">
-                    <button
-                        type="button"
-                        className={`pill-btn${tab === 'toc' ? ' on' : ''}`}
-                        onClick={() => setTab('toc')}
-                    >
-                        Índice
+                <div className="drawer-head">
+                    <div className="segmented" style={{ flex: 1 }}>
+                        <button type="button" className={tab === 'toc' ? 'on' : ''} onClick={() => setTab('toc')}>
+                            Índice
+                        </button>
+                        <button type="button" className={tab === 'search' ? 'on' : ''} onClick={() => setTab('search')}>
+                            Buscar
+                        </button>
+                    </div>
+                    <button type="button" className="icon-btn" onClick={onClose} aria-label="Cerrar">
+                        <IconClose size={20} />
                     </button>
-                    <button
-                        type="button"
-                        className={`pill-btn${tab === 'search' ? ' on' : ''}`}
-                        onClick={() => setTab('search')}
-                    >
-                        Buscar
-                    </button>
-                    <button type="button" className="icon-btn ghost" onClick={onClose} aria-label="Cerrar">×</button>
                 </div>
 
-                <form onSubmit={runSearch}>
+                <form onSubmit={runSearch} className="search">
+                    <IconSearch size={18} />
                     <input
                         ref={inputRef}
                         type="search"
-                        className="search"
                         placeholder={tab === 'toc' ? 'Filtrar capítulos…' : 'Buscar en el libro…'}
                         value={query}
                         onChange={(event) => setQuery(event.target.value)}
@@ -81,7 +77,7 @@ export default function TocDrawer({ toc, onSelect, onClose, onSearch }) {
                                 <button
                                     key={entry.id}
                                     type="button"
-                                    className="drawer-item"
+                                    className={`drawer-item${entry.label === currentChapter ? ' current' : ''}`}
                                     style={{ paddingLeft: `${12 + entry.depth * 14}px` }}
                                     onClick={() => onSelect(entry.href)}
                                 >
@@ -90,7 +86,7 @@ export default function TocDrawer({ toc, onSelect, onClose, onSearch }) {
                             ))
                         )
                     ) : searching ? (
-                        <p className="drawer-empty">Buscando…</p>
+                        <p className="drawer-empty">Buscando en todo el libro…</p>
                     ) : results.length === 0 ? (
                         <p className="drawer-empty">
                             {query.trim().length < 2
@@ -99,7 +95,9 @@ export default function TocDrawer({ toc, onSelect, onClose, onSearch }) {
                         </p>
                     ) : (
                         <>
-                            <p className="drawer-count mono">{results.length} resultados</p>
+                            <p className="drawer-empty" style={{ padding: 'var(--sp-2) var(--sp-3)' }}>
+                                {results.length} resultado{results.length === 1 ? '' : 's'}
+                            </p>
                             {results.map((result, index) => (
                                 <button
                                     key={`${result.cfi}-${index}`}

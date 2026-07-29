@@ -1,48 +1,104 @@
 import React, { useMemo, useState } from 'react';
 import BookCard from '../library/BookCard.jsx';
+import ContinueCard from '../library/ContinueCard.jsx';
+import BookSheet from '../library/BookSheet.jsx';
 import Sharky from '../ui/Sharky.jsx';
 import { selectBooks, FILTERS, SORTS } from '../library/useLibrary.js';
 import { minutesToday } from '../stats/derive.js';
+import {
+    IconSearch, IconSort, IconPlus, IconClose, IconBook, IconFolder, IconGrid,
+} from '../ui/icons.jsx';
 
-/**
- * Biblioteca: rejilla de portadas con búsqueda, filtros y orden.
- *
- * El estado vive en `useLibrary`, que se instancia una sola vez en App para que
- * cambiar de pestaña no vuelva a leer la base de datos.
- */
+const greeting = (hour = new Date().getHours()) => {
+    if (hour < 6) return 'Buenas noches';
+    if (hour < 13) return 'Buenos días';
+    if (hour < 21) return 'Buenas tardes';
+    return 'Buenas noches';
+};
+
 export default function LibraryScreen({ library, stats: statsApi, onOpenBook }) {
     const { books, status, error, importing, importFiles, importFolder, clearError } = library;
-    const sharkyEnabled = statsApi?.preferences?.sharky ?? false;
 
     const [query, setQuery] = useState('');
+    const [searching, setSearching] = useState(false);
     const [filter, setFilter] = useState('all');
     const [sort, setSort] = useState('recent');
     const [showSort, setShowSort] = useState(false);
+    const [compact, setCompact] = useState(false);
+    const [detail, setDetail] = useState(null);
     const [notice, setNotice] = useState(null);
+
+    const browsing = Boolean(query.trim()) || filter !== 'all';
 
     const visible = useMemo(
         () => selectBooks(books, { query, filter, sort }),
         [books, query, filter, sort]
     );
 
+    // El libro activo es el último tocado que no esté terminado.
+    const current = useMemo(
+        () => books
+            .filter((book) => (book.progress || 0) > 0 && !book.isFinished && book.sourcePath)
+            .sort((a, b) => (b.lastReadDate || 0) - (a.lastReadDate || 0))[0] || null,
+        [books]
+    );
+
+    const started = useMemo(
+        () => books
+            .filter((book) => (book.progress || 0) > 0 && !book.isFinished && book.id !== current?.id)
+            .sort((a, b) => (b.lastReadDate || 0) - (a.lastReadDate || 0)),
+        [books, current]
+    );
+
     const runImport = async (mode) => {
         const result = mode === 'folder' ? await importFolder() : await importFiles();
         if (result.cancelled || result.error) return;
-
         const parts = [];
         if (result.imported) parts.push(`${result.imported} importado${result.imported === 1 ? '' : 's'}`);
         if (result.duplicates) parts.push(`${result.duplicates} ya estaban`);
         if (result.failed) parts.push(`${result.failed} con error`);
         setNotice(parts.length ? parts.join(' · ') : 'No se encontraron libros.');
-        setTimeout(() => setNotice(null), 4000);
+        setTimeout(() => setNotice(null), 4500);
     };
+
+    const sharkyOn = statsApi?.preferences?.sharky ?? false;
 
     if (status === 'loading') {
         return (
             <div className="screen">
                 <div className="empty">
-                    <span className="empty-emoji" aria-hidden="true">🦈</span>
+                    <span className="empty-art"><IconBook size={38} /></span>
                     <p className="empty-body">Abriendo la biblioteca…</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (books.length === 0) {
+        return (
+            <div className="screen">
+                <div className="empty">
+                    <span className="empty-art"><IconBook size={38} /></span>
+                    <h2 className="empty-title">Tu biblioteca está vacía</h2>
+                    <p className="empty-body">
+                        Importa los EPUB y PDF que ya tengas en el móvil. Se copian dentro de
+                        la app, así que siguen funcionando aunque muevas los originales.
+                    </p>
+                    <div className="empty-actions">
+                        <button type="button" className="btn btn-primary" onClick={() => runImport('files')} disabled={!!importing}>
+                            <IconBook size={18} /> Elegir libros
+                        </button>
+                        <button type="button" className="btn" onClick={() => runImport('folder')} disabled={!!importing}>
+                            <IconFolder size={18} /> Importar una carpeta
+                        </button>
+                    </div>
+                    {importing && (
+                        <div className="banner" style={{ marginTop: 'var(--sp-4)' }} role="status">
+                            {importing.phase === 'picking'
+                                ? 'Esperando a que elijas…'
+                                : `Importando ${importing.done} de ${importing.total}`}
+                        </div>
+                    )}
                 </div>
             </div>
         );
@@ -50,58 +106,118 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook }) 
 
     return (
         <div className="screen">
-            <header className="lib-head">
-                <div>
-                    <h1 className="screen-title">Biblioteca</h1>
-                    <p className="screen-sub">
-                        {books.length === 0 ? 'Sin libros todavía' :
-                            `${books.length} libro${books.length === 1 ? '' : 's'}` +
-                            (visible.length !== books.length ? ` · ${visible.length} visible${visible.length === 1 ? '' : 's'}` : '')}
-                    </p>
-                </div>
-                <button
-                    type="button"
-                    className="icon-btn"
-                    onClick={() => setShowSort((open) => !open)}
-                    aria-expanded={showSort}
-                    aria-label="Cambiar orden"
-                >
-                    ⇅
-                </button>
+            <header className="head">
+                {searching ? (
+                    <div className="search" style={{ flex: 1 }}>
+                        <IconSearch size={19} />
+                        <input
+                            type="search"
+                            placeholder="Título, autor o etiqueta…"
+                            value={query}
+                            onChange={(event) => setQuery(event.target.value)}
+                            aria-label="Buscar en la biblioteca"
+                            autoFocus
+                        />
+                        <button
+                            type="button"
+                            className="icon-btn"
+                            style={{ minWidth: 32, minHeight: 32 }}
+                            onClick={() => { setQuery(''); setSearching(false); }}
+                            aria-label="Cerrar búsqueda"
+                        >
+                            <IconClose size={18} />
+                        </button>
+                    </div>
+                ) : (
+                    <>
+                        <div className="head-txt">
+                            <h1 className="head-title">{greeting()}</h1>
+                            <p className="head-sub">
+                                {statsApi?.stats?.streak > 0
+                                    ? `Llevas ${statsApi.stats.streak} ${statsApi.stats.streak === 1 ? 'día' : 'días'} seguidos leyendo`
+                                    : `${books.length} libro${books.length === 1 ? '' : 's'} en tu biblioteca`}
+                            </p>
+                        </div>
+                        <div className="head-actions">
+                            <button type="button" className="icon-btn" onClick={() => setSearching(true)} aria-label="Buscar">
+                                <IconSearch size={21} />
+                            </button>
+                            <button
+                                type="button"
+                                className={`icon-btn${showSort ? ' on' : ''}`}
+                                onClick={() => setShowSort((open) => !open)}
+                                aria-expanded={showSort}
+                                aria-label="Ordenar y ver"
+                            >
+                                <IconSort size={21} />
+                            </button>
+                        </div>
+                    </>
+                )}
             </header>
 
             {showSort && (
-                <div className="sortbar" role="group" aria-label="Ordenar por">
-                    {Object.entries(SORTS).map(([id, option]) => (
+                <div className="section">
+                    <div className="pills" role="group" aria-label="Ordenar por">
+                        {Object.entries(SORTS).map(([id, option]) => (
+                            <button
+                                key={id}
+                                type="button"
+                                className={`pill${sort === id ? ' on' : ''}`}
+                                onClick={() => setSort(id)}
+                                aria-pressed={sort === id}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
                         <button
-                            key={id}
                             type="button"
-                            className={`pill-btn${sort === id ? ' on' : ''}`}
-                            onClick={() => { setSort(id); setShowSort(false); }}
+                            className={`pill${compact ? ' on' : ''}`}
+                            onClick={() => setCompact((value) => !value)}
+                            aria-pressed={compact}
                         >
-                            {option.label}
+                            <IconGrid size={14} /> Compacta
                         </button>
-                    ))}
+                    </div>
                 </div>
             )}
 
-            {books.length > 0 && (
-                <>
-                    <input
-                        type="search"
-                        className="search"
-                        placeholder="Buscar título, autor o etiqueta…"
-                        value={query}
-                        onChange={(event) => setQuery(event.target.value)}
-                        aria-label="Buscar en la biblioteca"
-                    />
+            {error && (
+                <div className="banner banner-error" role="alert">
+                    <span style={{ flex: 1 }}>{error}</span>
+                    <button type="button" className="icon-btn" style={{ minWidth: 32, minHeight: 32 }} onClick={clearError} aria-label="Cerrar">
+                        <IconClose size={17} />
+                    </button>
+                </div>
+            )}
 
+            {notice && <div className="banner" role="status">{notice}</div>}
+
+            {importing && (
+                <div className="banner" role="status">
+                    <span style={{ flex: 1 }}>
+                        {importing.phase === 'picking'
+                            ? 'Esperando a que elijas…'
+                            : `Importando ${importing.done} de ${importing.total}${importing.name ? ` — ${importing.name}` : ''}`}
+                    </span>
+                    {importing.total > 0 && (
+                        <span className="bar thin banner-bar">
+                            <i style={{ width: `${Math.round((importing.done / importing.total) * 100)}%` }} />
+                        </span>
+                    )}
+                </div>
+            )}
+
+            {/* Mientras se busca o se filtra, la pantalla se convierte en una
+                rejilla de resultados: los estantes solo estorbarían. */}
+            {browsing ? (
+                <>
                     <div className="pills" role="group" aria-label="Filtrar biblioteca">
                         {Object.entries(FILTERS).map(([id, option]) => (
                             <button
                                 key={id}
                                 type="button"
-                                className={`pill-btn${filter === id ? ' on' : ''}`}
+                                className={`pill${filter === id ? ' on' : ''}`}
                                 onClick={() => setFilter(id)}
                                 aria-pressed={filter === id}
                             >
@@ -109,86 +225,92 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook }) 
                             </button>
                         ))}
                     </div>
+
+                    {visible.length === 0 ? (
+                        <div className="empty">
+                            <span className="empty-art"><IconSearch size={34} /></span>
+                            <h2 className="empty-title">Nada coincide</h2>
+                            <p className="empty-body">Prueba con otra búsqueda o quita el filtro.</p>
+                            <button type="button" className="btn" onClick={() => { setQuery(''); setFilter('all'); setSearching(false); }}>
+                                Limpiar
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="section">
+                            <div className="section-head">
+                                <h2 className="section-title">Resultados</h2>
+                                <span className="section-meta">{visible.length}</span>
+                            </div>
+                            <div className={`grid-books${compact ? ' compact' : ''}`}>
+                                {visible.map((book) => (
+                                    <BookCard key={book.id} book={book} onOpen={setDetail} />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </>
+            ) : (
+                <>
+                    {current && <ContinueCard book={current} onResume={onOpenBook} />}
+
+                    {sharkyOn && (
+                        <Sharky
+                            context={{
+                                streak: statsApi?.stats?.streak || 0,
+                                reading: started.length + (current ? 1 : 0),
+                                minutesToday: minutesToday(statsApi?.stats?.minutesByDay),
+                            }}
+                            onDisable={() => statsApi?.savePreferences?.({ sharky: false })}
+                        />
+                    )}
+
+                    {started.length > 0 && (
+                        <div className="section">
+                            <div className="section-head">
+                                <h2 className="section-title">Empezados</h2>
+                                <span className="section-meta">{started.length}</span>
+                            </div>
+                            <div className="rail">
+                                {started.map((book) => (
+                                    <BookCard key={book.id} book={book} onOpen={setDetail} />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="section">
+                        <div className="section-head">
+                            <h2 className="section-title">Toda la biblioteca</h2>
+                            <span className="section-meta">{books.length}</span>
+                        </div>
+                        <div className={`grid-books${compact ? ' compact' : ''}`}>
+                            {selectBooks(books, { sort }).map((book) => (
+                                <BookCard key={book.id} book={book} onOpen={setDetail} />
+                            ))}
+                        </div>
+                    </div>
                 </>
             )}
 
-            {error && (
-                <div className="banner banner-error" role="alert">
-                    <span>{error}</span>
-                    <button type="button" className="banner-close" onClick={clearError} aria-label="Cerrar">×</button>
-                </div>
-            )}
+            <button
+                type="button"
+                className="fab"
+                onClick={() => runImport('files')}
+                disabled={!!importing}
+                aria-label="Importar libros"
+            >
+                <IconPlus size={24} />
+            </button>
 
-            {notice && <div className="banner" role="status">{notice}</div>}
-
-            {sharkyEnabled && books.length > 0 && (
-                <Sharky
-                    context={{
-                        streak: statsApi?.stats?.streak || 0,
-                        reading: books.filter((book) => book.progress > 0 && !book.isFinished).length,
-                        minutesToday: minutesToday(statsApi?.stats?.minutesByDay),
-                    }}
-                    onDisable={() => statsApi?.savePreferences?.({ sharky: false })}
+            {detail && (
+                <BookSheet
+                    book={books.find((book) => book.id === detail.id) || detail}
+                    onClose={() => setDetail(null)}
+                    onOpen={(book) => { setDetail(null); onOpenBook(book); }}
+                    onUpdate={library.updateBook}
+                    onDelete={library.removeBook}
+                    onExportNotes={library.exportNotes}
                 />
-            )}
-
-            {importing && (
-                <div className="banner" role="status">
-                    {importing.phase === 'picking'
-                        ? 'Esperando a que elijas…'
-                        : `Importando ${importing.done} de ${importing.total}${importing.name ? ` — ${importing.name}` : ''}`}
-                    {importing.total > 0 && (
-                        <span className="banner-bar" aria-hidden="true">
-                            <i style={{ width: `${Math.round((importing.done / importing.total) * 100)}%` }} />
-                        </span>
-                    )}
-                </div>
-            )}
-
-            {books.length === 0 ? (
-                <div className="empty">
-                    <span className="empty-emoji" aria-hidden="true">🦈</span>
-                    <h2 className="empty-title">Tu biblioteca está vacía</h2>
-                    <p className="empty-body">
-                        Importa los EPUB y PDF que ya tengas en el móvil. Se copian dentro
-                        de la app, así que siguen funcionando aunque muevas los originales.
-                    </p>
-                    <div className="empty-actions">
-                        <button type="button" className="btn btn-primary" onClick={() => runImport('files')} disabled={!!importing}>
-                            Elegir libros
-                        </button>
-                        <button type="button" className="btn" onClick={() => runImport('folder')} disabled={!!importing}>
-                            Importar carpeta
-                        </button>
-                    </div>
-                </div>
-            ) : visible.length === 0 ? (
-                <div className="empty">
-                    <span className="empty-emoji" aria-hidden="true">🔍</span>
-                    <h2 className="empty-title">Nada coincide</h2>
-                    <p className="empty-body">Prueba con otra búsqueda o quita el filtro.</p>
-                    <button type="button" className="btn" onClick={() => { setQuery(''); setFilter('all'); }}>
-                        Limpiar filtros
-                    </button>
-                </div>
-            ) : (
-                <div className="grid-books">
-                    {visible.map((book) => (
-                        <BookCard key={book.id} book={book} onOpen={onOpenBook} />
-                    ))}
-                </div>
-            )}
-
-            {books.length > 0 && (
-                <button
-                    type="button"
-                    className="fab"
-                    onClick={() => runImport('files')}
-                    disabled={!!importing}
-                    aria-label="Importar libros"
-                >
-                    +
-                </button>
             )}
         </div>
     );
