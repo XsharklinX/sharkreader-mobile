@@ -104,6 +104,7 @@ const rowValues = (row) => [
 export const createSqliteStorage = () => {
     const sqlite = new SQLiteConnection(CapacitorSQLite);
     let db = null;
+    let initPromise = null;
 
     const requireDb = () => {
         if (!db) throw new Error('[storage] init() no se ha llamado todavía.');
@@ -130,22 +131,38 @@ export const createSqliteStorage = () => {
     };
 
     return {
-        async init() {
-            if (db) return;
+        /**
+         * Abre la base de datos. Idempotente y seguro de llamar en paralelo:
+         * varios hooks arrancan a la vez (biblioteca, estadísticas) y el primero
+         * que llega crea la conexión mientras los demás esperan al mismo
+         * promise. Sin esto, el segundo en llegar encontraba `db` todavía a null
+         * y sus lecturas fallaban — que es como se perdían las metas y las
+         * preferencias en cada arranque en frío.
+         */
+        init() {
+            if (initPromise) return initPromise;
 
-            // Una conexión que quedó abierta de una sesión anterior impide
-            // volver a crearla; el plugin expone justo esta comprobación.
-            const check = await sqlite.checkConnectionsConsistency().catch(() => ({ result: false }));
-            const isOpen = await sqlite.isConnection(DB_NAME, false).catch(() => ({ result: false }));
+            initPromise = (async () => {
+                // Una conexión que quedó abierta de una sesión anterior impide
+                // volver a crearla; el plugin expone justo esta comprobación.
+                const check = await sqlite.checkConnectionsConsistency().catch(() => ({ result: false }));
+                const isOpen = await sqlite.isConnection(DB_NAME, false).catch(() => ({ result: false }));
 
-            if (check.result && isOpen.result) {
-                db = await sqlite.retrieveConnection(DB_NAME, false);
-            } else {
-                db = await sqlite.createConnection(DB_NAME, false, 'no-encryption', DB_VERSION, false);
-            }
+                if (check.result && isOpen.result) {
+                    db = await sqlite.retrieveConnection(DB_NAME, false);
+                } else {
+                    db = await sqlite.createConnection(DB_NAME, false, 'no-encryption', DB_VERSION, false);
+                }
 
-            await db.open();
-            await db.execute(SCHEMA);
+                await db.open();
+                await db.execute(SCHEMA);
+            })();
+
+            // Si la apertura falla, no se cachea el fallo: un reintento posterior
+            // debe poder volver a intentarlo.
+            initPromise.catch(() => { initPromise = null; });
+
+            return initPromise;
         },
 
         async listBooks() {

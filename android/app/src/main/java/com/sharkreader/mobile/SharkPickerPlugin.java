@@ -63,6 +63,13 @@ public class SharkPickerPlugin extends Plugin {
 
     // ─────────────────────────── métodos expuestos ───────────────────────────
 
+    private static final String[] BACKUP_MIME_TYPES = {
+        "application/json",
+        "application/zip",
+        "text/plain",
+        "application/octet-stream"
+    };
+
     @PluginMethod
     public void pickBooks(PluginCall call) {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -70,6 +77,21 @@ public class SharkPickerPlugin extends Plugin {
         intent.setType("*/*");
         intent.putExtra(Intent.EXTRA_MIME_TYPES, BOOK_MIME_TYPES);
         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        startActivityForResult(call, intent, "handlePickedBooks");
+    }
+
+    /**
+     * Selector para ficheros de backup (.json y .zip).
+     *
+     * Necesita su propio filtro: con los tipos MIME de libro, un backup aparece
+     * en gris y no se puede elegir.
+     */
+    @PluginMethod
+    public void pickBackup(PluginCall call) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, BACKUP_MIME_TYPES);
         startActivityForResult(call, intent, "handlePickedBooks");
     }
 
@@ -229,7 +251,7 @@ public class SharkPickerPlugin extends Plugin {
 
     private JSObject copyToPrivateStorage(Uri uri) throws Exception {
         String displayName = queryDisplayName(uri);
-        String extension = displayName.toLowerCase(Locale.ROOT).endsWith(".pdf") ? "pdf" : "epub";
+        String extension = extensionOf(displayName);
         String id = UUID.randomUUID().toString();
 
         File target = new File(booksDir(), id + "." + extension);
@@ -260,6 +282,19 @@ public class SharkPickerPlugin extends Plugin {
         book.put("path", target.getAbsolutePath());
         book.put("uri", uri.toString());
         return book;
+    }
+
+    /**
+     * Extensión real del fichero. Se respeta la del nombre original en lugar de
+     * asumir epub: por aquí también entran los backups (.json y .zip), y
+     * renombrarlos a .epub haría muy confuso inspeccionar el almacenamiento.
+     */
+    private String extensionOf(String displayName) {
+        String lower = displayName.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".pdf")) return "pdf";
+        if (lower.endsWith(".json")) return "json";
+        if (lower.endsWith(".zip")) return "zip";
+        return "epub";
     }
 
     private String queryDisplayName(Uri uri) {

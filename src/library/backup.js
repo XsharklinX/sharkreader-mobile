@@ -91,31 +91,12 @@ export const mergeIntoLibrary = (incoming, currentBooks = [], currentStats = {})
  */
 export const isBookReadable = (book) => Boolean(book.sourcePath);
 
-/** Extrae los EPUB/PDF de un ZIP completo al almacenamiento privado. */
-export const extractBookFiles = async (blob, onProgress) => {
-    const zip = await JSZip.loadAsync(blob);
-    const entries = Object.values(zip.files).filter(
-        (entry) => !entry.dir && /^books\/.+\.(epub|pdf)$/i.test(entry.name)
-    );
-
-    const extracted = [];
-    for (let index = 0; index < entries.length; index++) {
-        const entry = entries[index];
-        onProgress?.({ done: index, total: entries.length, name: entry.name });
-        try {
-            const content = await entry.async('base64');
-            const path = `books/${entry.name.split('/').pop()}`;
-            await Filesystem.writeFile({ path, data: content, directory: Directory.Data, recursive: true });
-            const { uri } = await Filesystem.getUri({ path, directory: Directory.Data });
-            extracted.push({ name: entry.name.split('/').pop(), uri });
-        } catch {
-            // Un fichero que no se puede extraer no debe abortar la restauración
-            // del resto de la biblioteca.
-        }
-    }
-    onProgress?.({ done: entries.length, total: entries.length, name: '' });
-    return extracted;
-};
+// Pendiente (v0.6.0): extraer los EPUB/PDF que trae un ZIP completo y
+// emparejarlos con sus registros. Hoy el ZIP se usa solo para leer
+// `sharkreader-backup.json`, así que un backup completo restaura metadata,
+// progreso y anotaciones, pero los ficheros hay que importarlos aparte.
+// El emparejamiento fiable entre `books/*.epub` del ZIP y cada registro
+// necesita una clave que hoy no viaja en el backup.
 
 /** Construye el backup portable de esta app, listo para compartir. */
 export const buildBackup = (books, stats = {}, achievements = {}) =>

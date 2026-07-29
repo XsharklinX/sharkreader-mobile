@@ -36,6 +36,12 @@ export const useStats = (books) => {
         let alive = true;
         const load = async () => {
             try {
+                // Sin esperar a init(), este hook lee antes de que la biblioteca
+                // haya abierto la base de datos y las lecturas fallan en
+                // silencio: metas y preferencias volvían a sus valores por
+                // defecto en cada arranque. init() es idempotente.
+                await ports.storage.init();
+
                 const [storedStats, storedAchievements, storedGoals, storedPrefs] = await Promise.all([
                     ports.storage.getSetting(STATS_KEY),
                     ports.storage.getSetting(ACHIEVEMENTS_KEY),
@@ -47,6 +53,11 @@ export const useStats = (books) => {
                 setAchievements(storedAchievements || {});
                 setGoals({ ...DEFAULT_GOALS, ...(storedGoals || {}) });
                 setPreferences({ ...DEFAULT_PREFERENCES, ...(storedPrefs || {}) });
+            } catch (error) {
+                // La biblioteca ya avisa al usuario si la base de datos no abre.
+                // Aquí basta con no dejar una promesa rechazada suelta y seguir
+                // con los valores por defecto.
+                console.warn('[stats] no se pudieron cargar los datos guardados:', error);
             } finally {
                 if (alive) setLoaded(true);
             }

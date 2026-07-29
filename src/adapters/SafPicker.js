@@ -44,6 +44,9 @@ export const createSafPicker = () => ({
     /** @returns {Promise<{books: PickedBook[], failed: number, cancelled?: boolean}>} */
     pickFolder: () => SharkPicker.pickFolder(),
 
+    /** Selector con filtro de backup (.json y .zip), no de libro. */
+    pickBackup: () => SharkPicker.pickBackup(),
+
     /** @param {string} path */
     deleteBookFile: (path) => SharkPicker.deleteBookFile({ path }),
 });

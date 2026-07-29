@@ -18,8 +18,8 @@ android {
         applicationId "com.sharkreader.mobile"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 5
-        versionName "0.5.0"
+        versionCode 6
+        versionName "0.5.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -50,8 +50,33 @@ android {
             }
         }
         debug {
-            applicationIdSuffix ".debug"
+            // Sin applicationIdSuffix: cambiar el id del paquete en debug obliga
+            // a que cada plugin derive bien su authority y es una fuente de
+            // fallos de instalación difíciles de diagnosticar. Para una app que
+            // no se instala junto a su propia versión de release, no aporta nada.
             versionNameSuffix "-debug"
+        }
+    }
+
+    // Firma v2 y v3. La v1 (JAR) solo hace falta por debajo de API 24, así que
+    // con minSdk 26 el propio AGP la omite aunque se pida; no se fuerza para no
+    // dejar en el fichero una opción que no tiene efecto.
+    signingConfigs.debug {
+        enableV2Signing true
+        enableV3Signing true
+    }
+
+    // Un APK por arquitectura además del universal. El universal pesa 25 MB
+    // porque lleva las cuatro variantes de la librería nativa de SQLite; el de
+    // arm64 ronda los 9 MB. Menos peso significa menos posibilidades de que una
+    // copia al móvil se trunque, que es la causa más habitual de que un APK
+    // válido falle al instalar.
+    splits {
+        abi {
+            enable true
+            reset()
+            include 'arm64-v8a', 'armeabi-v7a'
+            universalApk true
         }
     }
 }

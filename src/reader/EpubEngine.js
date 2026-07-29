@@ -27,7 +27,7 @@ export const createEpubEngine = () => {
          * @param {HTMLElement} element
          * @param {Object} options
          */
-        async open(data, element, { styles, savedLocations, startCfi } = {}) {
+        async open(data, element, { styles, savedLocations, startCfi, gestureHandlers } = {}) {
             book = ePub(data);
             rendition = book.renderTo(element, {
                 flow: 'paginated',
@@ -41,6 +41,14 @@ export const createEpubEngine = () => {
             });
 
             if (styles) rendition.themes.default(styles);
+
+            // Los gestos se registran ANTES de pintar nada. El hook de contenido
+            // de epub.js solo se ejecuta para los capítulos que se monten a
+            // partir de ese momento: registrarlo después de `display()` deja el
+            // primer capítulo sin manejadores, y como el primer capítulo es
+            // justo el que ve el usuario al abrir el libro, el lector parece
+            // colgado — no responde ni al toque ni al deslizamiento.
+            if (gestureHandlers) this.registerContentHooks(gestureHandlers);
 
             await rendition.display(startCfi || undefined);
             await book.ready;

@@ -44,7 +44,7 @@ export default function SettingsScreen({ library, stats: statsApi }) {
     const importBackup = async () => {
         setBusy('Esperando a que elijas el fichero…');
         try {
-            const picked = await ports.filePicker.pickBooks();
+            const picked = await ports.filePicker.pickBackup();
             const file = picked?.books?.[0];
             if (!file) {
                 setBusy(null);

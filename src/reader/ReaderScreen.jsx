@@ -64,6 +64,9 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     styles,
                     savedLocations,
                     startCfi: book.lastLocation || undefined,
+                    // Se pasan aquí para que el hook quede registrado antes de
+                    // que se monte el primer capítulo.
+                    gestureHandlers: gesturesRef.current,
                 });
                 if (cancelled) return;
 
@@ -86,10 +89,6 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                             () => setPanel('annotations')
                         );
                     });
-
-                // Los gestos se registran dentro del iframe de cada capítulo,
-                // no en una capa por encima: así se puede seleccionar texto.
-                engine.registerContentHooks(gesturesRef.current);
 
                 engine.onSelected((cfiRange) => {
                     const text = engine.selectionText();
