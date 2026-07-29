@@ -860,7 +860,7 @@ export const AboutPage = () => {
                 <div className="row">
                     <span className="row-txt">
                         <span>Contacto</span>
-                        <span className="row-sub mono">syzcompartido@gmail.com</span>
+                        <span className="row-sub mono">contactosharklin@gmail.com</span>
                     </span>
                 </div>
             </Group>

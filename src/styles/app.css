@@ -2135,3 +2135,124 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
    la biblioteca, y dos caminos al mismo sitio en la misma pantalla hacen dudar
    de si llevan a lo mismo. */
 .tabbar.two { justify-content: space-evenly; }
+
+/* ═══ Esqueletos de carga ═══════════════════════════════════════════════════
+ *
+ * Sustituyen al emoji centrado. Ver `Loading.jsx`: un emoji lo dibuja el sistema
+ * con su propio estilo y no se parece a nada del resto de la app, y un icono
+ * grande y centrado promete varios segundos de espera cuando son uno o dos.
+ *
+ * Un esqueleto ocupa el sitio del contenido real, así que al llegar no hay salto
+ * de maquetación.
+ */
+
+.skeleton { display: flex; flex-direction: column; }
+
+.sk-line, .sk-cover, .sk-head {
+    background: var(--surface-2);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* El barrido. Un indicador que gira dice «hay un proceso»; un barrido sobre la
+   forma del contenido dice «esto se está llenando», que es lo que pasa. */
+.sk-line::after, .sk-cover::after, .sk-head::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        color-mix(in srgb, var(--text-3) 14%, transparent) 50%,
+        transparent 100%
+    );
+    animation: sk-sweep 1.25s ease-in-out infinite;
+}
+
+@keyframes sk-sweep {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(100%); }
+}
+
+/* ── Lector ── */
+
+.reader-skeleton {
+    position: absolute;
+    inset: 0;
+    padding: calc(var(--safe-top) + 44px) var(--reader-margin, 20px) 0;
+    gap: 11px;
+}
+
+/* Alto y separación de una línea de texto real, para que el esqueleto tenga el
+   ritmo del párrafo que va a sustituirlo. */
+.reader-skeleton .sk-line { height: 9px; flex: none; }
+.reader-skeleton .sk-gap { height: 14px; flex: none; }
+
+/* ── Biblioteca ── */
+
+.library-skeleton { gap: var(--sp-4); padding: var(--sp-4); }
+
+.library-skeleton .sk-head { height: 30px; width: 45%; }
+
+.sk-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: var(--sp-4) var(--sp-3);
+}
+
+/* Proporción de portada, la misma que las tarjetas reales. */
+.sk-cover { aspect-ratio: 2 / 3; border-radius: var(--r-sm); }
+
+/* Con movimiento reducido el esqueleto se queda quieto: sigue diciendo lo mismo
+   —esto va a llenarse— porque la información está en la forma, no en el brillo. */
+@media (prefers-reduced-motion: reduce) {
+    .sk-line::after, .sk-cover::after, .sk-head::after { animation: none; }
+}
+
+/* ═══ Perfil editable ═══════════════════════════════════════════════════════ */
+
+.profile-card { width: 100%; text-align: left; cursor: pointer; border: 0; }
+
+.profile-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    font-size: 26px;
+    flex: none;
+    overflow: hidden;
+}
+
+.profile-avatar.lg { width: 72px; height: 72px; font-size: 34px; }
+
+.profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.profile-edit { display: flex; align-items: center; gap: var(--sp-3); }
+.profile-edit-txt { display: flex; flex-direction: column; min-width: 0; }
+.profile-edit-txt b { font-size: var(--t-heading); }
+.profile-edit-txt span { font-size: var(--t-micro); color: var(--text-3); }
+
+.avatar-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+    gap: var(--sp-2);
+}
+
+/* 48 px: el mínimo tocable. Un emoji de 24 px en un botón de 32 se falla. */
+.avatar-option {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    border: 2px solid transparent;
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    cursor: pointer;
+}
+
+.avatar-option.on { border-color: var(--accent); }

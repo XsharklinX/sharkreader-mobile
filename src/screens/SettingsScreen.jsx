@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useBackHandler } from '../ui/useBackHandler.js';
 import SettingsHome from '../settings/SettingsHome.jsx';
+import ProfileSheet from '../settings/ProfileSheet.jsx';
 import { PAGES } from '../settings/pages.jsx';
 import { CATEGORIES } from '../settings/catalog.js';
 import { IconArrowLeft } from '../ui/icons.jsx';
@@ -15,6 +16,7 @@ import { IconArrowLeft } from '../ui/icons.jsx';
  */
 export default function SettingsScreen({ library, stats, sync }) {
     const [page, setPage] = useState(null);
+    const [editingProfile, setEditingProfile] = useState(false);
     const [highlight, setHighlight] = useState(null);
     const [notice, setNotice] = useState(null);
 
@@ -59,12 +61,21 @@ export default function SettingsScreen({ library, stats, sync }) {
         return (
             <>
                 <SettingsHome
+                    profile={stats.preferences.profile}
+                    onEditProfile={() => setEditingProfile(true)}
                     library={library}
                     stats={stats}
                     sync={sync}
                     onOpenCategory={setPage}
                     onOpenItem={openItem}
                 />
+                {editingProfile && (
+                    <ProfileSheet
+                        profile={stats.preferences.profile}
+                        onChange={(profile) => stats.savePreferences({ profile })}
+                        onClose={() => setEditingProfile(false)}
+                    />
+                )}
                 {notice && <div className="toast-stack"><div className="toast">{notice}</div></div>}
             </>
         );

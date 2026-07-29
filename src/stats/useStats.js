@@ -28,6 +28,9 @@ export const DEFAULT_PREFERENCES = {
     appLock: false,
     // Cómo se ven los libros: 'grid' (rejilla) o 'shelf' (estante).
     libraryView: 'grid',
+    // Nombre y avatar. Sin cuentas ni servidor: vive en el dispositivo y viaja
+    // en el backup como cualquier otra preferencia.
+    profile: { name: '', emoji: '🦈', photo: null },
 };
 
 /**

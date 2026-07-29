@@ -32,6 +32,7 @@ export const CATEGORIES = [
         summary: 'Tema de la app y densidad',
         items: [
             { id: 'theme', label: 'Tema de la aplicación', keywords: 'oscuro claro noche modo color' },
+            { id: 'profile', label: 'Tu perfil', keywords: 'nombre usuario avatar foto imagen icono tiburon' },
             { id: 'library-view', label: 'Cómo se ven los libros', keywords: 'estante estanteria rejilla cuadricula portadas vista' },
             { id: 'density', label: 'Densidad de la biblioteca', keywords: 'rejilla compacta portadas tamaño' },
             { id: 'font-scale', label: 'Tamaño de la interfaz', keywords: 'letra texto grande accesibilidad' },

@@ -4,12 +4,13 @@ import { createGestureHandlers } from './useGestures.js';
 import { buildReaderStyles, DEFAULT_TYPOGRAPHY, READER_THEMES, EINK_OVERRIDES } from './typography.js';
 import { mapStatus, progressLabel } from './locationMap.js';
 import { createRefreshCounter, flashScreen, DEFAULT_REFRESH_EVERY } from './einkRefresh.js';
+import Loading from '../ui/Loading.jsx';
 import ReadingRuler from './ReadingRuler.jsx';
 import BrightnessSheet from './BrightnessSheet.jsx';
 import ReaderSettingsSheet from './ReaderSettingsSheet.jsx';
 import DisplaySheet from './DisplaySheet.jsx';
 import { runTurn, DEFAULT_TRANSITION, usesCurl } from './transitions.js';
-import { curlState, shadeGradient, PERSPECTIVE } from './pageCurl.js';
+import { curlState, shadeGradient } from './pageCurl.js';
 import { buildFontFaceCss } from './fontLoader.js';
 import { useHistory } from './useHistory.js';
 import FootnoteSheet from './FootnoteSheet.jsx';
@@ -40,21 +41,12 @@ import { UNKNOWN_AUTHOR_FALLBACK } from '../core/bookModel.js';
 import { readBookBlob } from '../adapters/SafPicker.js';
 import { usePorts } from '../ports/index.js';
 import { useBackHandler } from '../ui/useBackHandler.js';
-import { formatMinutes } from '../stats/derive.js';
 import {
     IconArrowLeft, IconTextSize, IconList, IconBookmark, IconHighlight, IconSearch,
     IconVolume, IconClock, IconSun, IconGoTo,
 } from '../ui/icons.jsx';
 
 const LOCATIONS_KEY = (bookId) => `locations:${bookId}`;
-
-/** Minutos restantes estimados con el ritmo real de este libro. */
-const estimateLeft = (book, progress) => {
-    const minutes = book.readingMinutes || 0;
-    if (minutes < 5 || progress < 0.04) return null;
-    const left = Math.round(minutes / progress - minutes);
-    return left > 0 ? left : null;
-};
 
 export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsChange, onExportAnnotations, preferences = {}, onPreferencesChange }) {
     const ports = usePorts();
@@ -181,16 +173,15 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     /**
      * Pasa página.
      *
-     * El cambio de página lo dispara **la animación**, no esta función: una
-     * transición no puede ir sincronizada con el cambio de contenido si no
-     * controla cuándo ocurre. Antes se lanzaban las dos cosas en el mismo tic y
-     * epub.js cambiaba el texto a mitad de la animación — por eso se veían las
-     * dos páginas fundiéndose.
+     * `runTurn` cambia la página **de inmediato** y anima la que entra. La
+     * versión anterior animaba una salida y cambiaba después: eso metía hasta
+     * 210 ms de latencia en cada toque, y si se tocaba otra vez en esa ventana el
+     * segundo toque cancelaba el primero antes de que hubiera cambiado nada. Dos
+     * toques seguidos daban cero páginas.
      *
      * @param {'next'|'prev'} direction
-     * @param {boolean} [fromDrag] El dedo ya ha sacado la página: no se repite.
      */
-    const turnPage = (direction, fromDrag = false) => {
+    const turnPage = (direction) => {
         const engine = engineRef.current;
         if (!engine) return;
 
@@ -205,11 +196,10 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             // desplazamiento nativo y escribirle un transform lo rompería.
             id: flowRef.current === 'scrolled' ? 'none' : transitionRef.current,
             direction,
-            skipOut: fromDrag,
             reducedMotion: reducedMotionRef.current,
             // La geometría del pliegue se inyecta: `transitions.js` se ocupa del
             // orden y del tiempo, `pageCurl.js` de las perspectivas.
-            curl: { state: curlState, shade: shadeGradient, perspective: PERSPECTIVE },
+            curl: { state: curlState, shade: shadeGradient },
             commit: () => (direction === 'next' ? engine.next() : engine.prev()),
         });
 
@@ -299,10 +289,9 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             onStart: () => {
                 const node = viewportRef.current;
                 if (!node) return;
+                // La perspectiva la pone el CSS en `.reader`, el padre: en el
+                // propio elemento que gira no tiene efecto.
                 node.style.willChange = 'transform';
-                if (usesCurl(transitionRef.current)) {
-                    node.style.perspective = `${PERSPECTIVE}px`;
-                }
             },
             onEnd: () => {
                 const node = viewportRef.current;
@@ -310,7 +299,6 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 // Se retira al acabar: una capa compuesta permanente mantiene el
                 // texto con otro suavizado que el resto de la app.
                 node.style.willChange = '';
-                node.style.perspective = '';
             },
             // El ancho del documento del libro, no el del contenedor: los
             // eventos llegan en coordenadas del iframe y el contenedor es más
@@ -330,7 +318,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 // animación se salta la fase de salida: repetirla daría un salto
                 // hacia atrás antes de completar el gesto.
                 release();
-                turnPage(direction, true);
+                turnPage(direction);
             },
         });
 
@@ -849,7 +837,6 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
 
     const percent = Math.round((location.progress || 0) * 100);
     const chapterPercent = Math.round((location.chapterProgress || 0) * 100);
-    const leftInBook = estimateLeft(book, location.progress);
     const annotationCount = annotationsRef.current.length;
 
     // El mapa de localizaciones es lo más parecido a un número de página que
@@ -885,10 +872,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             }}
         >
             {state === 'loading' && (
-                <div className="reader-loading">
-                    <span className="empty-art">📖</span>
-                    <p className="empty-body">Abriendo {book.name}…</p>
-                </div>
+                <Loading kind="reader" label={`Abriendo ${book.name}`} />
             )}
 
             {/* Los gestos van dentro del iframe (registerContentHooks), no en una
@@ -1022,10 +1006,12 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                         queda— y separarlas obligaba a leer dos veces. */}
                     <div className="prog-head">
                         <span className="prog-chapter">{location.chapter || 'Capítulo'}</span>
+                        {/* Siempre el porcentaje, nunca el tiempo restante: ver
+                            `locationMap.js`. El tiempo era una estimación sobre
+                            una estimación, no respondía a «por dónde voy», y en
+                            modo continuo no se podía calcular igual. */}
                         <span className="prog-left">
-                            {leftInBook && locationsReady
-                                ? `${formatMinutes(leftInBook)} restantes`
-                                : `${progressText.text} ${progressText.of}`}
+                            {progressText.text} {progressText.of}
                         </span>
                     </div>
 

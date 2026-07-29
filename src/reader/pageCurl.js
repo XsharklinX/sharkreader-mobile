@@ -30,7 +30,13 @@
 /** Ángulo máximo de giro, en grados. Ver arriba por qué no son 90. */
 export const MAX_ANGLE = 76;
 
-/** Distancia de perspectiva, en píxeles. Más baja = deformación más agresiva. */
+/**
+ * Distancia de perspectiva, en píxeles.
+ *
+ * Se declara aquí como referencia pero **la aplica el CSS en `.reader`**, el
+ * padre del elemento que gira. `rotateY` toma el punto de fuga del ancestro:
+ * ponerla en el mismo elemento que gira no hace nada y el giro sale plano.
+ */
 export const PERSPECTIVE = 1400;
 
 /**

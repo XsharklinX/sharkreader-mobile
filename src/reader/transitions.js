@@ -30,9 +30,27 @@
  * —mismo color de destino— pero los glifos se quedan opacos y en la misma capa,
  * así que no se vuelven a rasterizar.
  *
- * **La animación va en dos fases encadenadas al cambio real.** Sale la página
- * vieja, se espera a que epub.js confirme el cambio, entra la nueva. Nunca hay
- * dos páginas visibles a la vez porque no se solapan en el tiempo.
+ * ## El error que introdujo el arreglo anterior
+ *
+ * La versión anterior hacía dos fases: sacaba la página vieja, **esperaba**, y
+ * entonces cambiaba. Con el doblado de hoja esa espera era de 210 ms, así que al
+ * tocar el borde no pasaba nada durante un quinto de segundo. Y peor: si se
+ * tocaba otra vez en esa ventana, el segundo toque cancelaba el primero **antes
+ * de que hubiera cambiado la página**, así que dos toques seguidos daban cero
+ * páginas. Desde fuera eso es «los gestos no funcionan».
+ *
+ * Un test de integración del lector lo cazó en el primer intento; los 726 tests
+ * de módulos que había no podían verlo porque cada pieza estaba bien y lo que
+ * fallaba era la secuencia.
+ *
+ * **Ahora la página cambia primero y se anima la que entra.** Cero latencia: el
+ * toque tiene efecto en el mismo fotograma. Y no hay fase de salida que animar,
+ * porque no se puede: hay un solo iframe y la página vieja deja de existir en el
+ * momento en que epub.js pinta la nueva. Enseñar la hoja saliendo exigiría tener
+ * las dos a la vez, que es justo lo que este motor no da.
+ *
+ * La excepción es el arrastre: ahí la hoja vieja sí se ve salir, porque la mueve
+ * el dedo mientras el contenido todavía no ha cambiado.
  *
  * **Los desplazamientos son enteros y en `translate3d`.** Y la capa se promueve
  * una vez antes de empezar y se retira una vez al terminar, en lugar de que el
@@ -54,59 +72,44 @@
 export const PAGE_TRANSITIONS = {
     curl: {
         label: 'Doblar hoja',
-        description: 'La hoja se levanta y gira sobre su borde, como el papel.',
-        out: 210,
-        in: 130,
+        description: 'La hoja entra girando sobre su borde. Arrastra para doblarla con el dedo.',
+        in: 260,
         curl: true,
-        veil: false,
-        // Ver `leadsWithOut` más abajo.
-        leadsWithOut: true,
     },
     paper: {
         label: 'Hoja suelta',
-        description: 'La hoja se va y deja ver la siguiente, que estaba debajo.',
-        out: 160,
-        in: 120,
+        description: 'La siguiente entra desde el lado, como si estuviera debajo.',
+        in: 220,
         shift: 100,
-        veil: false,
-        leadsWithOut: true,
-    },
-    none: {
-        label: 'Ninguna',
-        description: 'Cambio instantáneo. Lo más rápido y lo único sin coste.',
-        out: 0,
-        in: 0,
-    },
-    fade: {
-        label: 'Fundido',
-        description: 'La página se apaga y la siguiente aparece. Discreta.',
-        out: 80,
-        in: 120,
-        veil: true,
     },
     slide: {
         label: 'Deslizar',
-        description: 'La página sale por un lado y la siguiente entra por el otro.',
-        out: 90,
-        in: 140,
-        shift: 26,
-        veil: true,
+        description: 'La página entra desde el lado hacia el que avanzas.',
+        in: 190,
+        shift: 34,
     },
     push: {
         label: 'Empujar',
-        description: 'Con más recorrido, como pasar una hoja de verdad.',
-        out: 130,
-        in: 190,
-        shift: 64,
+        description: 'Con más recorrido, para que se note de dónde viene.',
+        in: 260,
+        shift: 72,
+    },
+    fade: {
+        label: 'Fundido',
+        description: 'La página aparece desde el color del fondo. Discreta.',
+        in: 170,
         veil: true,
     },
     zoom: {
         label: 'Acercar',
-        description: 'La página se aleja un poco y la siguiente entra creciendo.',
-        out: 90,
-        in: 150,
-        scale: 0.985,
-        veil: true,
+        description: 'La página entra creciendo un poco.',
+        in: 200,
+        scale: 0.975,
+    },
+    none: {
+        label: 'Ninguna',
+        description: 'Cambio instantáneo. Lo más rápido y lo único sin coste.',
+        in: 0,
     },
 };
 
@@ -123,52 +126,56 @@ export const DEFAULT_TRANSITION = 'curl';
 export const usesCurl = (id) => Boolean(PAGE_TRANSITIONS[id]?.curl);
 
 /**
- * Estado visual de una fase.
+ * Estado visual de la página que entra.
  *
- * Se devuelve como valores y no como clase CSS para que el desplazamiento pueda
- * redondearse a píxeles enteros: con una clase habría que fijarlo en la hoja de
- * estilos y `26px` en un contenedor con `transform` heredado no cae
- * necesariamente en un píxel del dispositivo.
+ * Solo hay dos: de dónde viene (`enter`) y su sitio (`rest`). La fase de salida
+ * ya no existe — ver la cabecera: con un solo iframe la página vieja deja de
+ * existir en cuanto epub.js pinta la nueva, y esperar para animarla era lo que
+ * metía un quinto de segundo de latencia en cada toque.
+ *
+ * Se devuelve como valores y no como clase CSS para poder redondear el
+ * desplazamiento a píxeles enteros.
  *
  * @param {keyof PAGE_TRANSITIONS} id
  * @param {'next'|'prev'} direction
- * @param {'out'|'in'|'rest'} phase
- * @returns {{transform: string, veil: number, duration: number}}
+ * @param {'enter'|'rest'} phase
  */
 export const phaseState = (id, direction, phase) => {
     const spec = PAGE_TRANSITIONS[id];
     const rest = { transform: 'translate3d(0,0,0)', veil: 0, duration: 0 };
 
-    if (!spec || id === 'none' || phase === 'rest') return rest;
+    if (!spec || id === 'none' || phase === 'rest') {
+        // En reposo el doblado también tiene que decir que es doblado: quien
+        // pinta necesita saber que debe usar la geometría del pliegue para
+        // volver la hoja a su sitio, no un translate3d.
+        return spec?.curl && phase === 'rest'
+            ? { curl: true, progress: 0, direction, veil: 0, duration: 0 }
+            : rest;
+    }
 
-    // Avanzando, la página vieja sale hacia la izquierda y la nueva entra desde
-    // la derecha. Retrocediendo, al contrario.
-    const away = direction === 'next' ? -1 : 1;
-    const sign = phase === 'out' ? away : -away;
+    // Avanzando, la página nueva viene desde la derecha; retrocediendo, desde la
+    // izquierda. Es el sentido que dice hacia dónde te mueves en el libro.
+    const from = direction === 'next' ? 1 : -1;
 
-    // Redondeo a entero: media unidad de desplazamiento coloca cada letra a
-    // mitad de píxel y se redibuja distinta en cada fotograma.
-    //
-    // El `|| 0` final convierte el `-0` que sale al multiplicar cero por el
-    // sentido. Es inofensivo para el navegador pero deja «translate3d(-0px…)»
-    // escrito en el estilo, que al depurar hace pensar que hay un signo mal.
-    const shift = Math.round((spec.shift || 0) * sign) || 0;
-    const scale = spec.scale && phase !== 'rest' ? spec.scale : 1;
-
-    // El doblado no se describe con desplazamiento: su geometría la calcula
-    // `pageCurl.js` a partir del progreso, porque tiene que poder seguir al dedo
-    // y no solo recorrer una animación de duración fija.
     if (spec.curl) {
+        // El pliegue entra desde su ángulo máximo y se asienta. Al arrastrar, el
+        // progreso lo pone el dedo en vez de esta función.
         return {
             curl: true,
-            // Salir es llevar la hoja al final del pliegue; entrar es traer la
-            // siguiente desde su sitio, que apenas se mueve.
-            progress: phase === 'out' ? 1 : 0,
-            direction,
+            progress: 1,
+            // Entrando se dobla al contrario que la que se fue: la hoja nueva
+            // baja desde el lado por el que se levantó la anterior.
+            direction: direction === 'next' ? 'prev' : 'next',
             veil: 0,
-            duration: phase === 'out' ? spec.out : spec.in,
+            duration: spec.in,
         };
     }
+
+    // Redondeo a entero: media unidad coloca cada letra a mitad de píxel y se
+    // redibuja distinta en cada fotograma. El `|| 0` evita un `-0px` escrito en
+    // el estilo, que al depurar hace pensar que hay un signo mal.
+    const shift = Math.round((spec.shift || 0) * from) || 0;
+    const scale = spec.scale || 1;
 
     return {
         transform: scale === 1
@@ -177,15 +184,12 @@ export const phaseState = (id, direction, phase) => {
         // El velo lleva el color de fondo de la página, así que a opacidad 1 el
         // texto desaparece sin haber tocado su alfa.
         veil: spec.veil ? 1 : 0,
-        duration: phase === 'out' ? spec.out : spec.in,
+        duration: spec.in,
     };
 };
 
-/** Duración total, para quien necesite saber cuánto tarda el gesto completo. */
-export const transitionDuration = (id) => {
-    const spec = PAGE_TRANSITIONS[id];
-    return spec ? (spec.out || 0) + (spec.in || 0) : 0;
-};
+/** Cuánto tarda la animación completa. */
+export const transitionDuration = (id) => PAGE_TRANSITIONS[id]?.in || 0;
 
 /**
  * Espera al siguiente fotograma.
@@ -234,21 +238,19 @@ const paint = (element, veil, state, duration, curl) => {
 };
 
 /**
- * Ejecuta el paso de página con su animación.
+ * Cambia la página y anima la que entra.
  *
- * A diferencia de la versión anterior, **esta función es la que cambia la
- * página**: la animación no puede sincronizarse con el cambio si no controla
- * cuándo ocurre.
+ * **La página cambia primero, sin esperar a nada.** Ver la cabecera: la versión
+ * anterior animaba una salida y cambiaba después, y eso metía hasta 210 ms de
+ * latencia en cada toque — además de perder el cambio entero si se volvía a
+ * tocar en esa ventana.
  *
  * @param {Object} options
  * @param {HTMLElement} options.element  Contenedor que se mueve.
- * @param {HTMLElement} [options.veil]   Capa del color de fondo, por encima.
+ * @param {HTMLElement} [options.veil]   Capa por encima: color de fondo o sombra.
  * @param {string} options.id
  * @param {'next'|'prev'} options.direction
  * @param {() => Promise<void>|void} options.commit  Cambia la página de verdad.
- * @param {boolean} [options.skipOut]
- *   Se salta la fase de salida. Lo usa el arrastre: el dedo ya ha movido la
- *   página fuera, y volver a sacarla daría un salto.
  * @param {boolean} [options.reducedMotion]
  * @param {{state: Function, shade: Function, perspective: number}} [options.curl]
  *   Geometría del pliegue. Se inyecta en lugar de importarla para que este
@@ -256,8 +258,7 @@ const paint = (element, veil, state, duration, curl) => {
  * @returns {{done: Promise<void>, cancel: () => void}}
  */
 export const runTurn = ({
-    element, veil, id, direction, commit, skipOut = false, reducedMotion = false,
-    curl = null,
+    element, veil, id, direction, commit, reducedMotion = false, curl = null,
 }) => {
     let cancelled = false;
 
@@ -267,12 +268,10 @@ export const runTurn = ({
         if (!element) return;
         // Se limpia todo, incluida la promoción de capa. Dejar un `transform` o
         // un `will-change` puestos mantiene el texto en una capa compuesta, con
-        // otro suavizado que el del resto de la app: al pasar página el libro se
-        // veía sutilmente distinto que en reposo.
+        // otro suavizado que el del resto de la app.
         element.style.transitionDuration = '';
         element.style.transform = '';
         element.style.transformOrigin = '';
-        element.style.perspective = '';
         element.style.willChange = '';
         if (veil) {
             veil.style.transitionDuration = '';
@@ -282,55 +281,37 @@ export const runTurn = ({
     };
 
     const done = (async () => {
-        const instant = reducedMotion || id === 'none' || !PAGE_TRANSITIONS[id];
-
-        if (instant) {
-            await commit();
-            return;
-        }
-
-        // La capa se promueve **antes** de empezar y una sola vez. Promoverla al
-        // arrancar la animación fuerza una rasterización a mitad del primer
-        // fotograma, que es el tirón inicial que se notaba.
-        if (element) {
-            element.style.willChange = 'transform';
-            // La perspectiva se pone antes del primer fotograma: cambiarla a
-            // mitad del giro reencuadra la hoja de golpe.
-            if (PAGE_TRANSITIONS[id]?.curl && curl) {
-                element.style.perspective = `${curl.perspective}px`;
-            }
-        }
-        await frame();
-        if (cancelled) { settle(); return; }
-
-        if (!skipOut) {
-            const out = phaseState(id, direction, 'out');
-            apply(out, out.duration);
-            await wait(out.duration);
-            if (cancelled) { settle(); return; }
-        }
-
-        // El cambio de contenido ocurre con el velo puesto: es el único momento
-        // en que las dos páginas existirían a la vez, y así no se ve ninguna.
+        // 1. La página cambia YA. Es lo primero que se hace, siempre, incluso si
+        //    la animación luego se cancela: el usuario ha pedido pasar página y
+        //    tiene que pasar.
         await commit();
-        if (cancelled) { settle(); return; }
 
-        // Dos fotogramas antes de entrar: uno para que epub.js pinte el capítulo
-        // nuevo y otro para que el navegador registre la posición de partida. Con
-        // uno solo, algunos WebView se saltan la transición de entrada.
-        const entry = phaseState(id, direction, 'in');
-        apply(entry, 0);
+        const instant = reducedMotion || id === 'none' || !PAGE_TRANSITIONS[id];
+        if (instant || cancelled || !element) { settle(); return; }
+
+        // 2. La hoja nueva se coloca en su punto de partida, sin transición.
+        element.style.willChange = 'transform';
+        apply(phaseState(id, direction, 'enter'), 0);
+
+        // Dos fotogramas: uno para que epub.js pinte el capítulo nuevo y otro
+        // para que el navegador registre la posición de partida. Con uno solo,
+        // algunos WebView se saltan la transición y la hoja aparece ya colocada.
         await frame();
         await frame();
         if (cancelled) { settle(); return; }
 
-        apply(phaseState(id, direction, 'rest'), entry.duration);
-        await wait(entry.duration);
+        // 3. Y se asienta.
+        const duration = transitionDuration(id);
+        apply(phaseState(id, direction, 'rest'), duration);
+        await wait(duration);
         settle();
     })();
 
     return {
         done,
+        // Cancelar solo detiene la animación. La página ya ha cambiado: es lo
+        // que hace que tocar rápido varias veces avance varias páginas en vez de
+        // no avanzar ninguna.
         cancel: () => { cancelled = true; settle(); },
     };
 };

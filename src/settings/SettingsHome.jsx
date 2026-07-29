@@ -22,7 +22,7 @@ const CATEGORY_ICONS = {
  * las visitas a ajustes son para **comprobar** algo, no para cambiarlo, así que
  * si la respuesta cabe en la lista no hace falta entrar.
  */
-export default function SettingsHome({ library, stats, sync, onOpenCategory, onOpenItem }) {
+export default function SettingsHome({ library, stats, sync, onOpenCategory, onOpenItem, profile, onEditProfile }) {
     const [query, setQuery] = useState('');
     const usage = useStorageUsage();
 
@@ -53,12 +53,21 @@ export default function SettingsHome({ library, stats, sync, onOpenCategory, onO
                 </div>
             </header>
 
-            {/* Quién eres. Reaprovecha lo que useStats ya calcula y le da a la
-                pantalla más fría de la app un motivo para visitarla. */}
-            <section className="profile-card">
-                <span className="profile-avatar" aria-hidden="true">🦈</span>
+            {/* Quién eres. El tiburón era fijo: es la marca de la app, no el
+                usuario, y usarlo de avatar daba a entender que no se podía
+                cambiar. Ahora se toca y se edita. */}
+            <button type="button" className="profile-card" onClick={onEditProfile}>
+                <span className="profile-avatar">
+                    {profile?.photo
+                        ? <img src={profile.photo} alt="" />
+                        : <span aria-hidden="true">{profile?.emoji || '🦈'}</span>}
+                </span>
                 <div className="profile-info">
-                    <b>Nivel {stats.level.level} · {stats.level.name}</b>
+                    <b>
+                        {profile?.name?.trim()
+                            ? profile.name.trim()
+                            : `Nivel ${stats.level.level} · ${stats.level.name}`}
+                    </b>
                     <span>
                         {stats.stats.streak > 0
                             ? `${stats.stats.streak} ${stats.stats.streak === 1 ? 'día' : 'días'} de racha`
@@ -73,7 +82,7 @@ export default function SettingsHome({ library, stats, sync, onOpenCategory, onO
                         </span>
                     </div>
                 </div>
-            </section>
+            </button>
 
             <div className="search">
                 <IconSearch size={19} />

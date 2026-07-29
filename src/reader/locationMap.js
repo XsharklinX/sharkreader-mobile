@@ -58,15 +58,28 @@ export const mapStatus = ({ done = 0, total = 0, ready = false } = {}) => {
 };
 
 /**
- * Qué mostrar como progreso mientras el mapa no está.
+ * Qué se muestra como progreso.
  *
- * Sin mapa no se puede saber por dónde vas en el libro, solo por dónde vas en
- * el capítulo. Enseñar «0 %» durante diez segundos sería mentir sobre algo que
- * el usuario mira precisamente para orientarse.
+ * **Siempre el porcentaje del libro.** Antes se enseñaba «47 min restantes»
+ * cuando había datos suficientes, y eso tiene tres problemas:
  *
- * @param {{ready: boolean, bookPercent: number, chapterPercent: number}} state
+ *  1. Es una estimación sobre una estimación —tu ritmo medio aplicado a lo que
+ *     queda— así que baila al leer más rápido o más despacio y da la sensación de
+ *     que el libro cambia de largo.
+ *  2. No sirve para orientarse. La pregunta al mirar ahí es «por dónde voy», y
+ *     un tiempo no la responde: hay que hacer la cuenta al revés.
+ *  3. **En modo continuo no había forma de calcularlo igual.** El tiempo restante
+ *     se deduce de los minutos leídos y el progreso, y desplazando el progreso
+ *     cambia de forma continua mientras los minutos no: el número saltaba.
+ *
+ * El porcentaje sale del mapa de posiciones, que es el mismo dato en los dos
+ * modos: `locations.percentageFromCfi`. Un CFI es un CFI, esté paginado o
+ * desplazándose, así que el medidor es idéntico y no hay dos cálculos que
+ * mantener sincronizados.
+ *
+ * Mientras el mapa se construye no se puede saber el porcentaje del libro, solo
+ * el del capítulo. Se dice cuál de los dos es en lugar de enseñar un cero.
  */
-export const progressLabel = ({ ready, bookPercent = 0, chapterPercent = 0 }) =>
-    ready
-        ? { text: `${Math.round(bookPercent)}%`, of: 'libro' }
-        : { text: `${Math.round(chapterPercent)}%`, of: 'capítulo' };
+export const progressLabel = ({ ready, bookPercent = 0, chapterPercent = 0 }) => (ready
+    ? { text: `${Math.round(bookPercent)} %`, of: 'del libro', exact: true }
+    : { text: `${Math.round(chapterPercent)} %`, of: 'del capítulo', exact: false });

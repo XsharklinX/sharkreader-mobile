@@ -30,16 +30,37 @@ describe('mapStatus', () => {
 });
 
 describe('progressLabel', () => {
-    it('muestra el avance del libro cuando hay mapa', () => {
-        expect(progressLabel({ ready: true, bookPercent: 34, chapterPercent: 80 }))
-            .toEqual({ text: '34%', of: 'libro' });
+    it('siempre el porcentaje, nunca el tiempo restante', () => {
+        // El tiempo era una estimación sobre una estimación: bailaba al cambiar
+        // el ritmo de lectura y no respondía a «por dónde voy».
+        const label = progressLabel({ ready: true, bookPercent: 34, chapterPercent: 80 });
+        expect(label.text).toBe('34 %');
+        expect(label.of).toBe('del libro');
+        expect(label.text).not.toMatch(/min/);
     });
 
-    it('muestra el del capítulo mientras no lo hay', () => {
-        // Sin mapa no se sabe por dónde vas en el libro. Enseñar «0 %» sería
-        // mentir justo sobre el dato que se mira para orientarse.
-        expect(progressLabel({ ready: false, bookPercent: 0, chapterPercent: 80 }))
-            .toEqual({ text: '80%', of: 'capítulo' });
+    it('el porcentaje del libro sale del mapa, igual en los dos modos', () => {
+        // Un CFI es un CFI, esté paginado o desplazándose: el medidor es el
+        // mismo y no hay dos cálculos que mantener sincronizados.
+        expect(progressLabel({ ready: true, bookPercent: 61 }).exact).toBe(true);
+    });
+
+    it('sin mapa dice que el porcentaje es del capítulo', () => {
+        // Enseñar «0 %» durante diez segundos sería mentir justo sobre el dato
+        // que se mira para orientarse.
+        const label = progressLabel({ ready: false, bookPercent: 0, chapterPercent: 80 });
+        expect(label.text).toBe('80 %');
+        expect(label.of).toBe('del capítulo');
+        expect(label.exact).toBe(false);
+    });
+
+    it('redondea sin decimales', () => {
+        expect(progressLabel({ ready: true, bookPercent: 34.7 }).text).toBe('35 %');
+    });
+
+    it('sin datos no se rompe', () => {
+        expect(progressLabel({ ready: true }).text).toBe('0 %');
+        expect(progressLabel({ ready: false }).text).toBe('0 %');
     });
 });
 

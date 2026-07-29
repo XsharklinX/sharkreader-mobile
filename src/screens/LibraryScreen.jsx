@@ -8,6 +8,7 @@ import { minutesToday } from '../stats/derive.js';
 import { buildSeries } from '../library/collections.js';
 import ContentResults from '../library/ContentResults.jsx';
 import Bookshelf from '../library/Bookshelf.jsx';
+import Loading from '../ui/Loading.jsx';
 import CatalogScreen from '../catalog/CatalogScreen.jsx';
 import { useContentIndex } from '../library/useContentIndex.js';
 import {
@@ -145,12 +146,11 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
     };
 
     if (status === 'loading') {
+        // Esqueleto en vez de un icono centrado: ver `Loading.jsx`. Ocupa el
+        // sitio de las portadas, así que al llegar no hay salto de maquetación.
         return (
             <div className="screen">
-                <div className="empty">
-                    <span className="empty-art"><IconBook size={38} /></span>
-                    <p className="empty-body">Abriendo la biblioteca…</p>
-                </div>
+                <Loading kind="library" label="Abriendo la biblioteca" />
             </div>
         );
     }
