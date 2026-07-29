@@ -1090,3 +1090,78 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     overflow: hidden;
 }
 .serie-meta { font-size: var(--t-micro); color: var(--text-3); }
+
+/* La portada de la ficha es tocable para cambiarla; la pista solo aparece
+   cuando hay sitio, para no tapar el arte. */
+.detail-cover { border: 0; padding: 0; position: relative; background: var(--sf-2); }
+.detail-cover-hint {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 3px 0;
+    background: rgba(11, 16, 23, 0.72);
+    color: #fff;
+    font-size: var(--t-micro);
+    text-align: center;
+    backdrop-filter: blur(4px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Accesibilidad
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Respeta el tamaño de fuente del sistema.
+   La app fija sus medidas en px para que la maquetación sea predecible, pero
+   ignorar por completo el ajuste de accesibilidad de Android deja fuera a quien
+   lo necesita. El factor se aplica a los tokens de texto, no a los de espaciado:
+   así el texto crece sin que los controles se descoloquen. */
+@media (min-resolution: 0.001dpcm) {
+    :root {
+        --t-display: calc(28px * var(--font-scale, 1));
+        --t-title: calc(21px * var(--font-scale, 1));
+        --t-heading: calc(17px * var(--font-scale, 1));
+        --t-body: calc(15px * var(--font-scale, 1));
+        --t-small: calc(13px * var(--font-scale, 1));
+        --t-tiny: calc(11px * var(--font-scale, 1));
+        --t-micro: calc(9.5px * var(--font-scale, 1));
+    }
+}
+
+/* Contraste alto del sistema: se sube el contraste de los textos secundarios,
+   que son los que se quedan cortos en AA cuando alguien activa esta opción. */
+@media (prefers-contrast: more) {
+    :root {
+        --text-2: #D6E2EB;
+        --text-3: #A8BBC9;
+        --line: #3A4A59;
+    }
+    :root.theme-light {
+        --text-2: #2A3844;
+        --text-3: #47596A;
+        --line: #A9B7C3;
+    }
+}
+
+/* Solo para lectores de pantalla. */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ── Animación de pasar página ──
+   Un desvanecido corto, no un volteo 3D: el volteo es vistoso en un vídeo de
+   la tienda pero marea en un uso real de una hora, y en gama baja da tirones. */
+.reader-viewport.turning { animation: page-turn 0.22s var(--ease); }
+
+@keyframes page-turn {
+    from { opacity: 0.4; transform: translateX(var(--turn-from, 8px)); }
+    to { opacity: 1; transform: none; }
+}

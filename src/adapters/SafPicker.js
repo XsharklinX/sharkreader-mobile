@@ -67,6 +67,9 @@ export const createSafPicker = () => ({
     /** @returns {Promise<{books: PickedBook[], failed: number, cancelled?: boolean}>} */
     pickFolder: () => SharkPicker.pickFolder(),
 
+    /** Elige una imagen de la galería y la devuelve como data URL. */
+    pickImage: () => SharkPicker.pickImage(),
+
     /** Selector con filtro de backup (.json y .zip), no de libro. */
     pickBackup: () => SharkPicker.pickBackup(),
 

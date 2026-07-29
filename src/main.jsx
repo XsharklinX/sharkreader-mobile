@@ -12,6 +12,20 @@ installPorts(createAndroidPorts());
 
 document.documentElement.classList.add('theme-dark');
 
+// Escala de fuente del sistema. Android la expone comparando el tamaño real de
+// un elemento de 1rem con el que debería medir; el factor se limita para que un
+// ajuste extremo no rompa la maquetación por completo.
+const applySystemFontScale = () => {
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:absolute;visibility:hidden;font-size:1rem;height:1em';
+    document.body.appendChild(probe);
+    const scale = probe.getBoundingClientRect().height / 16;
+    probe.remove();
+    const clamped = Math.min(1.5, Math.max(0.85, scale || 1));
+    document.documentElement.style.setProperty('--font-scale', String(clamped));
+};
+applySystemFontScale();
+
 // Una promesa rechazada sin capturar no rompe el render, pero es la pista de un
 // fallo real. En un WebView no hay consola a mano, así que al menos queda en el
 // log de la app (visible con chrome://inspect o `adb logcat`).

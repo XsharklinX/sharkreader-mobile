@@ -69,18 +69,24 @@ describe('adaptadores de Android', () => {
         });
     });
 
-    it('solo sync sigue sin implementar, y lo dice al usarlo', async () => {
+    it('los cinco puertos son implementaciones reales, ninguno es un stub', async () => {
         const { createAndroidPorts } = await import('../adapters/android.js');
         const ports = createAndroidPorts();
 
-        expect(() => ports.sync.read()).toThrow(/no está implementado/);
+        // Un stub delata su origen en el cuerpo de la función. Comprobarlo así
+        // es lo que hace que este test avise cuando un puerto se implementa de
+        // verdad —o cuando alguien lo sustituye por un stub sin querer.
+        const probes = {
+            storage: ports.storage.init,
+            filePicker: ports.filePicker.pickBooks,
+            tts: ports.tts.speak,
+            notifier: ports.notifier.requestPermission,
+            sync: ports.sync.read,
+        };
 
-        // Los otros cuatro son implementaciones reales: llamarlos no debe
-        // lanzar el error de "sin implementar" aunque fallen por falta de
-        // contenedor nativo.
-        ['storage', 'filePicker', 'tts', 'notifier'].forEach((name) => {
-            const source = String(ports[name].init || ports[name].pickBooks || ports[name].speak || ports[name].requestPermission);
-            expect(source).not.toContain('no está implementado');
+        Object.entries(probes).forEach(([name, method]) => {
+            expect(String(method), `${name} sigue siendo un stub`)
+                .not.toContain('no está implementado');
         });
     });
 });

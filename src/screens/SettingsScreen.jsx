@@ -36,7 +36,7 @@ const Toggle = ({ label, sub, checked, onChange }) => (
     </div>
 );
 
-export default function SettingsScreen({ library, stats: statsApi }) {
+export default function SettingsScreen({ library, stats: statsApi, sync }) {
     const ports = usePorts();
     const [theme, setTheme] = useState('dark');
     const [info, setInfo] = useState(null);
@@ -272,6 +272,90 @@ export default function SettingsScreen({ library, stats: statsApi }) {
                     no tengas ya en el móvil aparecerán con su progreso, pero habrá que
                     importar el EPUB o el PDF para abrirlos.
                 </p>
+            </section>
+
+            <section className="section">
+                <h2 className="section-title">Sincronización</h2>
+                <p className="card-body">
+                    Con un servidor WebDAV —Nextcloud, ownCloud o el tuyo propio— la
+                    biblioteca, el progreso y las anotaciones viajan entre el móvil y el
+                    escritorio. No hay cuenta de SharkReader: el servidor es tuyo.
+                </p>
+
+                <div className="rows">
+                    <div className="row">
+                        <span className="row-txt"><span>Servidor</span></span>
+                    </div>
+                    <div style={{ padding: '0 var(--sp-4) var(--sp-3)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+                        <div className="search">
+                            <input
+                                type="url"
+                                value={sync.config.url}
+                                onChange={(event) => sync.saveConfig({ url: event.target.value })}
+                                placeholder="https://nube.ejemplo.com/remote.php/dav/…"
+                                aria-label="Dirección del servidor WebDAV"
+                            />
+                        </div>
+                        <div className="search">
+                            <input
+                                type="text"
+                                value={sync.config.user}
+                                onChange={(event) => sync.saveConfig({ user: event.target.value })}
+                                placeholder="Usuario"
+                                aria-label="Usuario"
+                                autoCapitalize="none"
+                            />
+                        </div>
+                        <div className="search">
+                            <input
+                                type="password"
+                                value={sync.config.password}
+                                onChange={(event) => sync.saveConfig({ password: event.target.value })}
+                                placeholder="Contraseña de aplicación"
+                                aria-label="Contraseña"
+                            />
+                        </div>
+                    </div>
+
+                    <Toggle
+                        label="Sincronizar al abrir"
+                        sub="No se sincroniza al cerrar: el proceso puede morir a mitad"
+                        checked={sync.config.auto}
+                        onChange={(auto) => sync.saveConfig({ auto })}
+                    />
+
+                    <div className="row">
+                        <span className="row-txt">
+                            <span>Última sincronización</span>
+                            <span className="row-sub">
+                                {sync.lastAt
+                                    ? new Date(sync.lastAt).toLocaleString('es-ES')
+                                    : 'Nunca'}
+                            </span>
+                        </span>
+                    </div>
+                </div>
+
+                {sync.message && <div className="banner" role="status">{sync.message}</div>}
+
+                <div className="sheet-actions">
+                    <button
+                        type="button"
+                        className="btn"
+                        onClick={sync.test}
+                        disabled={!sync.configured || sync.state === 'syncing'}
+                    >
+                        Probar conexión
+                    </button>
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={sync.sync}
+                        disabled={!sync.configured || sync.state === 'syncing'}
+                    >
+                        {sync.state === 'syncing' ? 'Sincronizando…' : 'Sincronizar ahora'}
+                    </button>
+                </div>
             </section>
 
             <section className="section">

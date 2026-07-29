@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { IconStar, IconCheck, IconShare, IconTrash, IconBook, IconSearch } from '../ui/icons.jsx';
+import { IconStar, IconCheck, IconShare, IconTrash, IconBook, IconSearch, IconFolder } from '../ui/icons.jsx';
 import { searchMetadata, fetchCover, applyMetadata } from './metadata.js';
+import CollectionsSheet from './CollectionsSheet.jsx';
+import { resizeCoverDataUrl } from '../core/coverResize.js';
+import { usePorts } from '../ports/index.js';
 import { formatMinutes } from '../stats/derive.js';
 import { estimateRemaining } from './ContinueCard.jsx';
 
@@ -17,6 +20,28 @@ export default function BookSheet({ book, onClose, onOpen, onUpdate, onDelete, o
     const [candidates, setCandidates] = useState(null);
     const [busy, setBusy] = useState(false);
     const [notice, setNotice] = useState(null);
+    const [showCollections, setShowCollections] = useState(false);
+    const ports = usePorts();
+
+    /**
+     * Portada propia. Se redimensiona con el mismo módulo que las portadas
+     * extraídas del EPUB: sin eso, una foto de galería de 4 MB se guardaría
+     * entera dentro del registro del libro y en el backup.
+     */
+    const pickCover = async () => {
+        setBusy(true);
+        try {
+            const { dataUrl } = await ports.filePicker.pickImage();
+            if (dataUrl) {
+                const resized = await resizeCoverDataUrl(dataUrl);
+                await onUpdate(book.id, { customCover: resized, metadataUpdatedAt: Date.now() });
+                setNotice('Portada actualizada.');
+            }
+        } catch (error) {
+            setNotice(error?.message || 'No se pudo usar esa imagen.');
+        }
+        setBusy(false);
+    };
 
     /**
      * Busca metadata en OpenLibrary. Solo cuando el usuario lo pide: una app
@@ -71,11 +96,19 @@ export default function BookSheet({ book, onClose, onOpen, onUpdate, onDelete, o
                 <span className="grip" aria-hidden="true" />
 
                 <div className="detail-top">
-                    <span className="detail-cover" style={cover ? undefined : { background: book.color }}>
+                    <button
+                        type="button"
+                        className="detail-cover"
+                        onClick={pickCover}
+                        disabled={busy}
+                        aria-label="Cambiar la portada"
+                        style={cover ? undefined : { background: book.color }}
+                    >
                         {cover
                             ? <img src={cover} alt="" style={{ width: '100%', display: 'block', aspectRatio: '2/3', objectFit: 'cover' }} />
                             : <span style={{ display: 'block', aspectRatio: '2/3' }} />}
-                    </span>
+                        <span className="detail-cover-hint">Cambiar</span>
+                    </button>
 
                     <div className="detail-meta">
                         <h2 className="detail-title">{book.name}</h2>
@@ -132,6 +165,14 @@ export default function BookSheet({ book, onClose, onOpen, onUpdate, onDelete, o
                     >
                         <IconSearch size={20} />
                         Metadata
+                    </button>
+                    <button
+                        type="button"
+                        className="detail-action"
+                        onClick={() => setShowCollections(true)}
+                    >
+                        <IconFolder size={20} />
+                        Colecciones
                     </button>
                     <button
                         type="button"
@@ -214,6 +255,10 @@ export default function BookSheet({ book, onClose, onOpen, onUpdate, onDelete, o
                             ))}
                         </div>
                     </section>
+                )}
+
+                {showCollections && (
+                    <CollectionsSheet book={book} onClose={() => setShowCollections(false)} />
                 )}
 
                 {confirmDelete && (

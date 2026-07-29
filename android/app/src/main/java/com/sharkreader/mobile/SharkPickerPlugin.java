@@ -100,6 +100,67 @@ public class SharkPickerPlugin extends Plugin {
         startActivityForResult(call, intent, "handlePickedBooks");
     }
 
+    /**
+     * Selector de imagen para portadas propias.
+     *
+     * Devuelve la imagen en base64 en lugar de copiarla al almacenamiento: una
+     * portada ya redimensionada son unas decenas de KB, y guardarla dentro del
+     * registro del libro es lo que hace que viaje en el backup.
+     */
+    @PluginMethod
+    public void pickImage(PluginCall call) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("image/*");
+        startActivityForResult(call, intent, "handlePickedImage");
+    }
+
+    @ActivityCallback
+    private void handlePickedImage(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+
+        JSObject payload = new JSObject();
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null) {
+            payload.put("dataUrl", null);
+            call.resolve(payload);
+            return;
+        }
+
+        Uri uri = result.getData().getData();
+        if (uri == null) {
+            payload.put("dataUrl", null);
+            call.resolve(payload);
+            return;
+        }
+
+        try (InputStream input = getContext().getContentResolver().openInputStream(uri)) {
+            if (input == null) throw new Exception("no se pudo abrir la imagen");
+
+            java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+            byte[] chunk = new byte[32 * 1024];
+            int read;
+            long total = 0;
+            while ((read = input.read(chunk)) != -1) {
+                total += read;
+                // Tope de 12 MB: una foto de galería puede ser enorme y aquí
+                // solo se necesita una portada.
+                if (total > 12L * 1024 * 1024) throw new Exception("la imagen es demasiado grande");
+                buffer.write(chunk, 0, read);
+            }
+
+            String mime = getContext().getContentResolver().getType(uri);
+            if (mime == null) mime = "image/jpeg";
+            String base64 = android.util.Base64.encodeToString(
+                buffer.toByteArray(), android.util.Base64.NO_WRAP
+            );
+
+            payload.put("dataUrl", "data:" + mime + ";base64," + base64);
+            call.resolve(payload);
+        } catch (Exception error) {
+            call.reject("No se pudo leer la imagen: " + error.getMessage());
+        }
+    }
+
     @PluginMethod
     public void pickFolder(PluginCall call) {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);

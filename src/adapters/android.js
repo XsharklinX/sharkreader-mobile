@@ -4,19 +4,24 @@
 //   v0.2.0 → storage (SQLite) y filePicker (SAF nativo)   ✔ implementados
 //   v0.5.0 → notifier (LocalNotifications)                ✔ implementado
 //   v0.6.0 → tts (motor del sistema Android)                 ✔ implementado
-//   v1.1   → sync (WebDAV vía fetch)
+//   v1.0   → sync (WebDAV vía fetch)                       ✔ implementado
 
 
 import { createSqliteStorage } from './SqliteStorage.js';
 import { createSafPicker } from './SafPicker.js';
 import { createLocalNotifier } from './LocalNotifier.js';
 import { createAndroidTts } from './AndroidTts.js';
-import { stubPort } from '../ports/index.js';
+import { createWebdavSync } from './WebdavSync.js';
 
-export const createAndroidPorts = () => ({
-    storage: createSqliteStorage(),
-    filePicker: createSafPicker(),
-    notifier: createLocalNotifier(),
-    tts: createAndroidTts(),
-    sync: stubPort('sync', ['read', 'write', 'test']),
-});
+export const createAndroidPorts = () => {
+    const storage = createSqliteStorage();
+    return {
+        storage,
+        filePicker: createSafPicker(),
+        notifier: createLocalNotifier(),
+        tts: createAndroidTts(),
+        // El adaptador lee su configuración del almacenamiento cada vez, así
+        // que cambiar de servidor en ajustes surte efecto sin reiniciar.
+        sync: createWebdavSync(() => storage.getSetting('sync')),
+    };
+};

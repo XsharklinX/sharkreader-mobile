@@ -11,6 +11,7 @@ import AchievementToast from './ui/AchievementToast.jsx';
 import { useLibrary } from './library/useLibrary.js';
 import { useReadingClock } from './library/useReadingClock.js';
 import { useStats } from './stats/useStats.js';
+import { useSync } from './library/useSync.js';
 import { exportAnnotations } from './library/backup.js';
 
 // Tres pantallas. Logros vive dentro de Progreso y Workshop dentro de Ajustes.
@@ -26,6 +27,7 @@ export default function App() {
 
     const library = useLibrary();
     const stats = useStats(library.books);
+    const sync = useSync(library);
     const reading = library.books.find((book) => book.id === readingId) || null;
 
     useReadingClock(reading, library.updateBook);
@@ -136,6 +138,7 @@ export default function App() {
                 <Screen
                     library={library}
                     stats={stats}
+                    sync={sync}
                     onOpenBook={(book) => setReadingId(book.id)}
                 />
             </main>
