@@ -2,7 +2,9 @@ import React from 'react';
 import { READER_THEMES } from './typography.js';
 import { PAGE_TRANSITIONS } from './transitions.js';
 import { AUTOSCROLL_SPEEDS } from './useAutoScroll.js';
-import { IconSun } from '../ui/icons.jsx';
+import { SPREAD_MODES } from './spread.js';
+import { ORIENTATION_MODES } from '../adapters/ScreenOrientation.js';
+import { IconSun, IconColumns, IconRotate } from '../ui/icons.jsx';
 
 /**
  * Ajustes de pantalla y de lectura.
@@ -19,6 +21,8 @@ export default function DisplaySheet({
     transition, onChangeTransition,
     dim, onChangeDim,
     warm, onChangeWarm,
+    spread, onChangeSpread, columns,
+    orientation, onChangeOrientation,
     autoScroll,
     onClose,
 }) {
@@ -95,6 +99,66 @@ export default function DisplaySheet({
                                 </button>
                             ))}
                         </div>
+                    </div>
+                )}
+
+                {/* Las columnas solo tienen sentido paginando: desplazando no
+                    hay página que repartir, hay una tira continua. */}
+                {flow !== 'scrolled' && onChangeSpread && (
+                    <div className="setting">
+                        <span className="setting-label">
+                            <span>
+                                <IconColumns size={15} style={{ verticalAlign: -3, marginRight: 5 }} />
+                                Columnas
+                            </span>
+                            <span className="setting-value">
+                                {columns === 2 ? 'Dos ahora mismo' : 'Una ahora mismo'}
+                            </span>
+                        </span>
+                        <div className="segmented">
+                            {Object.entries(SPREAD_MODES).map(([id, option]) => (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    className={(spread || 'auto') === id ? 'on' : ''}
+                                    onClick={() => onChangeSpread(id)}
+                                >
+                                    {option.label}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="option-desc">
+                            En horizontal, una sola columna da noventa caracteres por
+                            línea y el ojo pierde el salto de línea. Por eso los libros
+                            apaisados van siempre a dos columnas.
+                        </p>
+                    </div>
+                )}
+
+                {onChangeOrientation && (
+                    <div className="setting">
+                        <span className="setting-label">
+                            <span>
+                                <IconRotate size={15} style={{ verticalAlign: -3, marginRight: 5 }} />
+                                Orientación
+                            </span>
+                        </span>
+                        <div className="segmented">
+                            {Object.entries(ORIENTATION_MODES).map(([id, option]) => (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    className={(orientation || 'auto') === id ? 'on' : ''}
+                                    onClick={() => onChangeOrientation(id)}
+                                >
+                                    {option.label}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="option-desc">
+                            Bloquearla evita que la página gire al leer tumbado, que es
+                            justo cuando el sensor más molesta.
+                        </p>
                     </div>
                 )}
 

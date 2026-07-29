@@ -22,14 +22,20 @@ import { renderQuoteImage } from './quoteImage.js';
 import { shareImage } from '../library/backup.js';
 import {
     createHighlight, createBookmark, addAnnotation, removeAnnotation, HIGHLIGHT_SWATCHES,
+    updateHighlight, findAnnotation,
 } from './annotations.js';
+import { columnsFor, spreadValue, marginForColumns, SPREAD_MIN_WIDTH } from './spread.js';
+import GoToSheet from './GoToSheet.jsx';
+import CitationSheet from './CitationSheet.jsx';
+import HighlightEditor from './HighlightEditor.jsx';
 import { normalizeAnnotationKind } from '../core/annotationExport.js';
+import { UNKNOWN_AUTHOR_FALLBACK } from '../core/bookModel.js';
 import { readBookBlob } from '../adapters/SafPicker.js';
 import { usePorts } from '../ports/index.js';
 import { formatMinutes } from '../stats/derive.js';
 import {
     IconArrowLeft, IconTextSize, IconList, IconBookmark, IconHighlight, IconSearch,
-    IconVolume, IconClock, IconSun,
+    IconVolume, IconClock, IconSun, IconGoTo,
 } from '../ui/icons.jsx';
 
 const LOCATIONS_KEY = (bookId) => `locations:${bookId}`;
@@ -69,6 +75,13 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     );
     const [theme, setTheme] = useState(book.readerPreferences?.theme || 'dark');
     const [transition, setTransition] = useState(book.readerPreferences?.transition || DEFAULT_TRANSITION);
+
+    // Columnas y orientación. `columns` es el resultado —cuántas caben ahora
+    // mismo—, no la preferencia: depende del ancho real y cambia al girar.
+    const [spread, setSpread] = useState(book.readerPreferences?.spread || 'auto');
+    const [orientation, setOrientation] = useState(book.readerPreferences?.orientation || 'auto');
+    const [columns, setColumns] = useState(1);
+    const columnsRef = useRef(1);
 
     const styles = useMemo(() => buildReaderStyles(typography, theme), [typography, theme]);
     const palette = READER_THEMES[theme] || READER_THEMES.dark;
@@ -195,7 +208,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     .forEach((bookmark) => engine.addHighlight(
                         bookmark.cfi,
                         HIGHLIGHT_SWATCHES[bookmark.color] || HIGHLIGHT_SWATCHES.yellow,
-                        () => setPanel('annotations')
+                        setEditing
                     ));
 
                 engine.onSelected((cfiRange) => {
@@ -259,8 +272,79 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
 
     useEffect(() => {
         if (state !== 'ready') return;
-        progressRef.current?.({ readerPreferences: { typography, theme, transition, warm } });
-    }, [typography, theme, transition, warm, state]);
+        progressRef.current?.({
+            readerPreferences: { typography, theme, transition, warm, spread, orientation },
+        });
+    }, [typography, theme, transition, warm, spread, orientation, state]);
+
+    // ── Columnas y orientación ───────────────────────────────────────────────
+
+    /**
+     * Bloquea o libera la orientación mientras el libro está abierto.
+     *
+     * Al salir se libera siempre, aunque el usuario la dejara bloqueada: el
+     * bloqueo es del lector, no de la app. Salir a la biblioteca con la pantalla
+     * clavada en horizontal es un estado del que no se sabe salir.
+     */
+    useEffect(() => {
+        const screen = ports.screen;
+        if (!screen) return undefined;
+        screen.lock(orientation).catch(() => {});
+        return () => { screen.unlock().catch(() => {}); };
+    }, [orientation, ports]);
+
+    /**
+     * Decide cuántas columnas caben y se lo dice a epub.js.
+     *
+     * Se mide con un pequeño retraso tras girar: el evento de rotación llega
+     * antes de que Android termine la animación, y medir en ese momento devuelve
+     * el ancho de la orientación anterior — el libro se quedaría a una columna
+     * en horizontal, que es justo el caso que esto arregla.
+     */
+    useEffect(() => {
+        if (state !== 'ready') return undefined;
+        let timer = null;
+
+        const measure = () => {
+            const width = viewportRef.current?.clientWidth || 0;
+            if (!width) return;
+            const next = columnsFor(width, spread);
+            // La comparación va contra una ref y no dentro del actualizador de
+            // estado: repintar el libro es un efecto, y React puede llamar al
+            // actualizador dos veces: el libro parpadearía en cada giro.
+            if (columnsRef.current === next) return;
+            columnsRef.current = next;
+            engineRef.current?.setSpread(spreadValue(spread), SPREAD_MIN_WIDTH);
+            setColumns(next);
+        };
+
+        const scheduleMeasure = () => {
+            clearTimeout(timer);
+            timer = setTimeout(measure, 220);
+        };
+
+        measure();
+        window.addEventListener('resize', scheduleMeasure);
+
+        let removeListener;
+        ports.screen?.onChange?.(scheduleMeasure)
+            .then((remove) => { removeListener = remove; })
+            .catch(() => {});
+
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener('resize', scheduleMeasure);
+            removeListener?.();
+        };
+    }, [state, spread, ports]);
+
+    // Con dos columnas el margen exterior se reduce: el hueco entre columnas ya
+    // separa los bloques, y mantenerlo entero deja las columnas estrechas.
+    const effectiveMargin = marginForColumns(typography.margin, columns);
+
+    useEffect(() => {
+        if (state === 'ready') engineRef.current?.resize();
+    }, [effectiveMargin, state]);
 
     // ── Notas, imágenes e historial ──────────────────────────────────────────
     const [footnote, setFootnote] = useState(null);
@@ -354,14 +438,36 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     const annotationsRef = useRef(book.bookmarks || []);
     annotationsRef.current = book.bookmarks || [];
 
+    // Subrayado que se está editando, por CFI. Tocar un subrayado en el libro
+    // abre su editor en vez del panel entero: lo que quieres es *ese*, y en un
+    // libro con cien subrayados encontrarlo en la lista es peor que no tenerla.
+    const [editing, setEditing] = useState(null);
+
     const highlightSelection = useCallback((color, comment) => {
         if (!selection) return;
         const annotation = createHighlight({ cfi: selection.cfiRange, text: selection.text, color, comment });
         onAnnotationsChange?.(addAnnotation(annotationsRef.current, annotation));
-        engineRef.current?.addHighlight(selection.cfiRange, HIGHLIGHT_SWATCHES[color], () => setPanel('annotations'));
+        engineRef.current?.addHighlight(selection.cfiRange, HIGHLIGHT_SWATCHES[color], setEditing);
         engineRef.current?.clearSelection();
         setSelection(null);
     }, [selection, onAnnotationsChange]);
+
+    /**
+     * Guarda los cambios de un subrayado existente.
+     *
+     * El color se repinta quitando y volviendo a poner el overlay: epub.js no
+     * expone una forma de cambiarle el color a una anotación ya dibujada, y sin
+     * esto el cambio solo se vería al reabrir el libro.
+     */
+    const saveHighlight = useCallback(({ color, comment }) => {
+        const cfi = editing;
+        if (!cfi) return;
+        onAnnotationsChange?.(updateHighlight(annotationsRef.current, cfi, { color, comment }));
+        const engine = engineRef.current;
+        engine?.removeHighlight(cfi);
+        engine?.addHighlight(cfi, HIGHLIGHT_SWATCHES[color], setEditing);
+        setEditing(null);
+    }, [editing, onAnnotationsChange]);
 
     const deleteAnnotation = useCallback((cfi, kind) => {
         onAnnotationsChange?.(removeAnnotation(annotationsRef.current, cfi, kind));
@@ -390,6 +496,45 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         engineRef.current?.clearSelection();
         setSelection(null);
     }, []);
+
+    // ── Citar y saltar a una posición ────────────────────────────────────────
+    const [citing, setCiting] = useState(null);
+    const [citationFormat, setCitationFormat] = useState('plain');
+
+    const openCitation = useCallback((text) => {
+        // El registro del libro guarda «Autor desconocido» como relleno para la
+        // biblioteca. En una cita eso es peor que no poner nada: parece un dato
+        // y no lo es.
+        const known = book.author && book.author !== UNKNOWN_AUTHOR_FALLBACK ? book.author : '';
+        setCiting({
+            text,
+            title: book.name,
+            author: engineRef.current?.bookAuthor() || known,
+            chapter: locationRef.current?.chapter || '',
+            percent: locationRef.current?.progress ?? 0,
+        });
+        engineRef.current?.clearSelection();
+        setSelection(null);
+    }, [book.name, book.author]);
+
+    const copyCitation = useCallback(async (text, format) => {
+        setCitationFormat(format);
+        try { await navigator.clipboard.writeText(text); } catch { /* sin portapapeles */ }
+        setCiting(null);
+    }, []);
+
+    /** Salta a lo que el usuario haya escrito: posición, porcentaje o página. */
+    const goToTarget = useCallback((target) => {
+        const engine = engineRef.current;
+        if (!engine) return;
+        const cfi = target.kind === 'percent'
+            ? engine.cfiAtPercent(target.value)
+            : engine.cfiAtLocation(target.value);
+        // Sin CFI no se salta: mejor quedarse donde estabas que aterrizar en un
+        // sitio arbitrario del libro.
+        if (cfi) jumpTo(cfi);
+        setPanel(null);
+    }, [jumpTo]);
 
     // ── Avance automático y teclas de volumen ────────────────────────────────
     const autoScroll = useAutoScroll({
@@ -441,6 +586,12 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     const leftInBook = estimateLeft(book, location.progress);
     const annotationCount = annotationsRef.current.length;
 
+    // El mapa de localizaciones es lo más parecido a un número de página que
+    // tiene un EPUB. Se lee del motor en cada render en lugar de guardarlo en
+    // estado: cambia al regenerarse el mapa y no merece un ciclo de render.
+    const totalLocations = engineRef.current?.totalLocations() || 0;
+    const currentLocationIndex = engineRef.current?.currentLocation(location.cfi) || 0;
+
     // La interfaz del lector se adapta al tema de lectura: en sepia o papel una
     // barra oscura encima del texto claro sería un golpe visual.
     const chromeVars = palette.ui === 'light'
@@ -453,7 +604,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             style={{
                 '--reader-bg': palette.bg,
                 '--reader-text': palette.text,
-                '--reader-margin': `${typography.margin}px`,
+                '--reader-margin': `${effectiveMargin}px`,
                 ...chromeVars,
             }}
         >
@@ -468,7 +619,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 capa por encima: así el toque navega y la pulsación larga puede
                 seleccionar texto para subrayar. */}
             <div
-                className={`reader-viewport${typography.flow === 'scrolled' ? ' scrolled' : ''}`}
+                className={`reader-viewport${typography.flow === 'scrolled' ? ' scrolled' : ''}${columns === 2 ? ' two-columns' : ''}`}
                 ref={viewportRef}
             />
 
@@ -549,9 +700,20 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                             <span>{scrubChapter || 'del libro'}</span>
                         </div>
                     )}
+                    {/* Escribir el destino en vez de arrastrar. Con el pulgar
+                        sobre una barra de 300 px cada píxel son varias páginas,
+                        así que volver a una posición concreta —la que te han
+                        dicho, la de tus notas— es imposible a mano. */}
                     <div className="prog-row prog-sub">
                         <span className="mono">cap. {chapterPercent}%</span>
-                        <span className="mono">libro {percent}%</span>
+                        <button type="button" className="goto-btn" onClick={() => setPanel('goto')}>
+                            <IconGoTo size={14} />
+                            <span className="mono">
+                                {totalLocations > 0
+                                    ? `${currentLocationIndex + 1} / ${totalLocations}`
+                                    : `libro ${percent}%`}
+                            </span>
+                        </button>
                     </div>
                 </div>
 
@@ -599,9 +761,21 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     toc={toc}
                     initialTab={panel === 'search' ? 'search' : 'toc'}
                     currentChapter={location.chapter}
+                    bookmarks={annotationsRef.current}
                     onSelect={jumpTo}
                     onClose={() => setPanel(null)}
-                    onSearch={(query) => engineRef.current?.search(query)}
+                    // El índice se pasa a la búsqueda para que cada resultado
+                    // sepa de qué capítulo sale.
+                    onSearch={(query, options) => engineRef.current?.search(query, { ...options, toc })}
+                />
+            )}
+
+            {panel === 'goto' && (
+                <GoToSheet
+                    totalLocations={totalLocations}
+                    currentLocation={currentLocationIndex}
+                    onGo={goToTarget}
+                    onClose={() => setPanel(null)}
                 />
             )}
 
@@ -617,6 +791,11 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     onChangeDim={setDim}
                     warm={warm}
                     onChangeWarm={setWarm}
+                    spread={spread}
+                    onChangeSpread={setSpread}
+                    columns={columns}
+                    orientation={orientation}
+                    onChangeOrientation={setOrientation}
                     transitionMode={transition}
                     autoScroll={autoScroll}
                     onClose={() => setPanel(null)}
@@ -636,6 +815,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     bookmarks={annotationsRef.current}
                     onJump={jumpTo}
                     onDelete={deleteAnnotation}
+                    onEdit={(cfi) => { setPanel(null); setEditing(cfi); }}
                     onExport={() => onExportAnnotations?.(book)}
                     onClose={() => setPanel(null)}
                 />
@@ -666,6 +846,25 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     onCancel={cancelSelection}
                     onLookup={openDictionary}
                     onQuote={shareQuote}
+                    onCite={openCitation}
+                />
+            )}
+
+            {citing && (
+                <CitationSheet
+                    source={citing}
+                    initialFormat={citationFormat}
+                    onCopy={copyCitation}
+                    onClose={() => setCiting(null)}
+                />
+            )}
+
+            {editing && (
+                <HighlightEditor
+                    annotation={findAnnotation(annotationsRef.current, editing)}
+                    onSave={saveHighlight}
+                    onDelete={(cfi) => { deleteAnnotation(cfi, 'highlight'); setEditing(null); }}
+                    onClose={() => setEditing(null)}
                 />
             )}
         </div>

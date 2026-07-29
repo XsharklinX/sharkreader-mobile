@@ -1738,3 +1738,111 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+/* ═══ Lector — Fase C ═══════════════════════════════════════════════════════ */
+
+/* Resultados de búsqueda y marcadores. El capítulo va encima y pequeño: es lo
+   que distingue un resultado de otro, pero el fragmento es lo que se lee. */
+.result-chapter {
+    display: block;
+    font-size: var(--t-micro);
+    color: var(--accent);
+    letter-spacing: .02em;
+    margin-bottom: 2px;
+    /* Un capítulo con título largo no puede empujar la lista a dos líneas. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.result-excerpt {
+    display: block;
+    color: var(--text-2);
+    line-height: 1.45;
+}
+
+/* Ir a una posición. Va en la fila inferior de la barra de progreso, donde
+   antes solo había un número muerto. */
+.goto-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: 0;
+    padding: 4px 6px;
+    margin: -4px -6px;
+    border-radius: var(--r-sm);
+    color: var(--text-3);
+    cursor: pointer;
+}
+
+.goto-btn:active { background: var(--surface-3); }
+
+.goto-input {
+    /* El destino es un número corto: un campo a todo lo ancho invita a escribir
+       una frase, que es justo lo que no se acepta aquí. */
+    width: 100%;
+    font-size: var(--t-h2);
+    text-align: center;
+    letter-spacing: .04em;
+    font-variant-numeric: tabular-nums;
+}
+
+.goto-feedback { min-height: 2.4em; }
+
+.text-input {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    color: var(--text-1);
+    padding: var(--sp-3);
+    font: inherit;
+}
+
+.text-input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+/* Vista previa de la cita. Es lo que decide el formato: los nombres no
+   significan nada hasta que ves la forma. */
+.citation-preview {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    padding: var(--sp-3);
+    margin: var(--sp-3) 0;
+    font-size: var(--t-small);
+    line-height: 1.5;
+    color: var(--text-2);
+    /* El formato markdown lleva saltos de línea que hay que respetar, pero una
+       línea larga no puede desbordar la hoja. */
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    max-height: 9em;
+    overflow-y: auto;
+}
+
+.sheet-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-2);
+}
+
+.annotation-date { font-size: var(--t-micro); color: var(--text-3); }
+
+/* Dos columnas: epub.js dibuja el hueco entre ellas, pero no la separación
+   visual. Un filete tenue en el centro es lo que hace que se lean como dos
+   columnas y no como un texto con un agujero en medio. */
+.reader-viewport.two-columns::after {
+    content: '';
+    position: absolute;
+    top: 8%;
+    bottom: 8%;
+    left: 50%;
+    width: 1px;
+    background: currentColor;
+    opacity: .07;
+    pointer-events: none;
+}

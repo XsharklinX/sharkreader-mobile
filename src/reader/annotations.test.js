@@ -9,6 +9,8 @@ import {
     removeAnnotation,
     selectAnnotations,
     countByKind,
+    updateHighlight,
+    findAnnotation,
 } from './annotations.js';
 import { normalizeAnnotationKind, normalizeAnnotationText } from '../core/annotationExport.js';
 
@@ -127,5 +129,62 @@ describe('filtrado del panel', () => {
     it('cuenta por tipo para las pastillas', () => {
         const counts = countByKind(bookmarks);
         expect(counts).toMatchObject({ all: 5, highlight: 3, note: 1, bookmark: 1 });
+    });
+});
+
+describe('updateHighlight', () => {
+    const highlight = createHighlight({
+        cfi: 'epubcfi(/6/4!/4/2)',
+        text: 'un fragmento',
+        color: 'yellow',
+        comment: 'primera idea',
+    });
+
+    it('cambia el color conservando el texto marcado', () => {
+        const [updated] = updateHighlight([highlight], highlight.cfi, { color: 'green' });
+        expect(updated.color).toBe('green');
+        expect(normalizeAnnotationText(updated)).toBe('un fragmento');
+    });
+
+    it('cambia el comentario sin tocar el color', () => {
+        const [updated] = updateHighlight([highlight], highlight.cfi, { comment: 'segunda idea' });
+        expect(highlightComment(updated)).toBe('segunda idea');
+        expect(updated.color).toBe('yellow');
+    });
+
+    it('permite vaciar el comentario', () => {
+        const [updated] = updateHighlight([highlight], highlight.cfi, { comment: '' });
+        expect(highlightComment(updated)).toBe('');
+    });
+
+    it('conserva la fecha del subrayado, no la de la edición', () => {
+        // Refrescarla reordenaría el panel y se perdería el orden de lectura,
+        // que es el único orden que significa algo ahí.
+        const [updated] = updateHighlight([highlight], highlight.cfi, { color: 'blue' });
+        expect(updated.date).toBe(highlight.date);
+    });
+
+    it('no crea nada si el CFI no existe', () => {
+        const list = [highlight];
+        expect(updateHighlight(list, 'epubcfi(/otro)', { color: 'blue' })).toEqual(list);
+    });
+
+    it('ignora las anotaciones que no son subrayados', () => {
+        const note = createNote({ cfi: 'epubcfi(/6/4!/4/9)', comment: 'nota suelta' });
+        const [updated] = updateHighlight([note], note.cfi, { color: 'green' });
+        expect(updated).toEqual(note);
+    });
+});
+
+describe('findAnnotation', () => {
+    it('encuentra el subrayado de una posición', () => {
+        const highlight = createHighlight({ cfi: 'epubcfi(/6/4!/4/2)', text: 'x' });
+        const bookmark = createBookmark({ cfi: 'epubcfi(/6/4!/4/2)' });
+        // Misma posición, tipos distintos: tiene que devolver el que se pide.
+        expect(findAnnotation([bookmark, highlight], 'epubcfi(/6/4!/4/2)')).toBe(highlight);
+    });
+
+    it('devuelve null si no está', () => {
+        expect(findAnnotation([], 'epubcfi(/nada)')).toBeNull();
     });
 });

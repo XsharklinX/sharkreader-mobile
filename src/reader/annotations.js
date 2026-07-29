@@ -68,6 +68,37 @@ export const withComment = (bookmark, comment) => {
     };
 };
 
+/**
+ * Cambia color y comentario de un subrayado ya existente.
+ *
+ * Se conserva `date`: es la fecha en que se marcó el fragmento, no la de la
+ * última vez que se tocó la nota. Refrescarla al editar reordenaría el panel de
+ * anotaciones y perderías el orden de lectura, que es el que tiene sentido.
+ *
+ * Devuelve la lista sin tocar si el CFI no está — no crea nada nuevo, porque
+ * editar algo que ya no existe es señal de un error en otro sitio.
+ */
+export const updateHighlight = (bookmarks = [], cfi, { color, comment } = {}) =>
+    bookmarks.map((bookmark) => {
+        if (bookmark.cfi !== cfi || normalizeAnnotationKind(bookmark) !== 'highlight') {
+            return bookmark;
+        }
+        return {
+            ...bookmark,
+            color: color || bookmark.color,
+            note: JSON.stringify({
+                text: normalizeAnnotationText(bookmark),
+                comment: comment === undefined ? highlightComment(bookmark) : String(comment),
+            }),
+        };
+    });
+
+/** Busca una anotación por posición y tipo, para abrir el editor. */
+export const findAnnotation = (bookmarks = [], cfi, kind = 'highlight') =>
+    bookmarks.find(
+        (bookmark) => bookmark.cfi === cfi && normalizeAnnotationKind(bookmark) === kind
+    ) || null;
+
 /** Añade una anotación evitando duplicar la misma posición y tipo. */
 export const addAnnotation = (bookmarks = [], annotation) => {
     const exists = bookmarks.some(

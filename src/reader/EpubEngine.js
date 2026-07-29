@@ -257,11 +257,17 @@ export const createEpubEngine = () => {
         },
 
         /**
-         * Resalta la frase que se está leyendo en voz alta.
+         * Resalta **la frase exacta** que se está leyendo en voz alta.
          *
-         * Se hace envolviendo coincidencias con un `<mark>` propio en lugar de
-         * con anotaciones de epub.js: es temporal, no debe persistir ni entrar
-         * en el sistema de subrayados del usuario.
+         * Antes se marcaba el párrafo entero. En un párrafo de doce líneas eso
+         * no dice nada útil: sabes en qué párrafo va la voz, que es lo que ya
+         * sabías. Para seguir la lectura con la vista —el motivo por el que
+         * alguien mira la pantalla mientras escucha— hace falta la frase.
+         *
+         * Se envuelve con Range sobre los nodos de texto, no reescribiendo
+         * `innerHTML`: reescribir el HTML del párrafo destruiría los nodos
+         * sobre los que epub.js tiene calculados los CFI, y con ellos los
+         * subrayados del usuario y la posición guardada.
          */
         highlightSpoken(sentence) {
             const contents = [].concat(rendition?.getContents?.() || []);
@@ -270,23 +276,77 @@ export const createEpubEngine = () => {
                 const doc = content?.document;
                 if (!doc) return;
 
-                doc.querySelectorAll('.sr-speaking').forEach((element) => {
-                    element.classList.remove('sr-speaking');
-                });
-
+                clearSpokenMarks(doc);
                 if (!sentence) return;
 
-                const needle = sentence.trim().slice(0, 60);
-                if (needle.length < 8) return;
+                const needle = sentence.trim().replace(/\s+/g, ' ');
+                if (needle.length < 6) return;
 
                 const blocks = doc.querySelectorAll('p, li, blockquote, h1, h2, h3, h4, h5, h6, td');
                 for (const element of blocks) {
-                    if ((element.textContent || '').includes(needle)) {
+                    const flat = (element.textContent || '').replace(/\s+/g, ' ');
+                    if (!flat.includes(needle.slice(0, 60))) continue;
+
+                    // Si no se consigue envolver la frase concreta —texto
+                    // partido entre cursivas, una nota al pie en medio— se
+                    // marca el bloque entero, que es lo que se hacía siempre.
+                    // Peor, pero nunca deja de indicarse nada.
+                    if (!markSentence(doc, element, needle)) {
                         element.classList.add('sr-speaking');
-                        break;
                     }
+                    return;
                 }
             });
+        },
+
+        /**
+         * Cambia entre una y dos columnas sin recargar el libro.
+         *
+         * `spread()` solo reconfigura: hay que volver a mostrar la posición
+         * actual para que epub.js recalcule las columnas, o el cambio no se ve
+         * hasta que pasas de capítulo.
+         */
+        setSpread(value, minWidth) {
+            if (!rendition) return;
+            try {
+                rendition.spread(value, minWidth);
+                const cfi = rendition.currentLocation()?.start?.cfi;
+                if (cfi) rendition.display(cfi);
+            } catch { /* aún no hay vista montada */ }
+        },
+
+        /** CFI de una localización del mapa, para saltar escribiendo un número. */
+        cfiAtLocation(index) {
+            const total = book?.locations?.total || 0;
+            if (!total) return null;
+            try {
+                return book.locations.cfiFromLocation(
+                    Math.min(total - 1, Math.max(0, Math.round(index)))
+                );
+            } catch {
+                return null;
+            }
+        },
+
+        /** Localización actual: el «número de página» que se muestra abajo. */
+        currentLocation(cfi) {
+            if (!book?.locations || !cfi) return 0;
+            try {
+                const value = book.locations.locationFromCfi(cfi);
+                return Number.isFinite(value) ? value : 0;
+            } catch {
+                return 0;
+            }
+        },
+
+        totalLocations() {
+            return book?.locations?.total || 0;
+        },
+
+        /** Autor declarado por el EPUB, para componer citas. */
+        bookAuthor() {
+            const creator = book?.packaging?.metadata?.creator;
+            return typeof creator === 'string' ? creator : '';
         },
 
         /**
@@ -416,8 +476,28 @@ export const createEpubEngine = () => {
             }
         },
 
-        /** Busca en todo el libro. Recorre el spine capítulo a capítulo. */
-        async search(query, limit = 60) {
+        /**
+         * Busca en todo el libro. Recorre el spine capítulo a capítulo.
+         *
+         * Cada resultado lleva su capítulo. Una lista de cuarenta fragmentos
+         * sueltos no se puede usar: todos se parecen, porque todos contienen la
+         * palabra buscada. Lo que distingue uno de otro es dónde está, y sin el
+         * capítulo hay que ir abriéndolos de uno en uno para averiguarlo.
+         *
+         * @param {string} query
+         * @param {Object} [options]
+         * @param {number} [options.limit]
+         * @param {Array}  [options.toc]      Índice, para etiquetar cada resultado.
+         * @param {(found: number) => void} [options.onProgress]
+         *   Se llama al terminar cada capítulo. Buscar en un libro largo tarda
+         *   varios segundos y sin esto la pantalla se queda muda.
+         */
+        async search(query, options = {}) {
+            // Firma antigua: search(query, 60). Se mantiene porque la usan los
+            // tests y la pantalla del PDF.
+            const { limit = 60, toc = [], onProgress } =
+                typeof options === 'number' ? { limit: options } : options;
+
             if (!book || !query || query.trim().length < 2) return [];
             const needle = query.trim();
             const results = [];
@@ -427,14 +507,22 @@ export const createEpubEngine = () => {
                 try {
                     await item.load(book.load.bind(book));
                     const found = item.find(needle) || [];
+                    // El capítulo se resuelve una vez por documento, no por
+                    // resultado: en un capítulo con treinta coincidencias sería
+                    // treinta veces la misma búsqueda en el índice.
+                    const chapter = toc.find(
+                        (entry) => entry.href.split('#')[0] === (item.href || '').split('#')[0]
+                    )?.label || '';
+
                     found.slice(0, limit - results.length).forEach((hit) => {
-                        results.push({ cfi: hit.cfi, excerpt: hit.excerpt });
+                        results.push({ cfi: hit.cfi, excerpt: hit.excerpt, chapter });
                     });
                 } catch {
                     // Un capítulo ilegible no debe abortar la búsqueda.
                 } finally {
                     item.unload();
                 }
+                onProgress?.(results.length);
             }
             return results;
         },
@@ -447,6 +535,128 @@ export const createEpubEngine = () => {
             book = null;
         },
     };
+};
+
+// ── Resaltado de la frase hablada ────────────────────────────────────────────
+//
+// Se intentan dos técnicas, en este orden:
+//
+//  1. **CSS Custom Highlight API.** Pinta un rango sin tocar el DOM. Es la
+//     opción correcta aquí: los CFI de epub.js —y por tanto los subrayados del
+//     usuario y la posición guardada— se calculan sobre la estructura de nodos
+//     del capítulo, así que cualquier cosa que la modifique es una bomba de
+//     relojería. Disponible en WebView reciente.
+//  2. **Envolver en `<mark>`.** Para WebView antiguo. Sí toca el DOM, pero solo
+//     nodos de texto y siempre deshaciéndolo con `normalize()`, que devuelve el
+//     árbol al estado exacto anterior.
+
+const SPOKEN_HIGHLIGHT = 'sr-spoken';
+
+/** Nodos de texto de un bloque, en orden. */
+const textNodesOf = (doc, element) => {
+    const walker = doc.createTreeWalker(element, 4 /* NodeFilter.SHOW_TEXT */);
+    const nodes = [];
+    let node = walker.nextNode();
+    while (node) {
+        if (node.nodeValue) nodes.push(node);
+        node = walker.nextNode();
+    }
+    return nodes;
+};
+
+/**
+ * Localiza la frase dentro del bloque y devuelve un Range.
+ *
+ * La frase que llega del troceador viene con los espacios ya normalizados, pero
+ * el HTML del libro tiene saltos de línea e indentación por todas partes. Por
+ * eso se construye una versión aplanada del texto guardando, para cada carácter,
+ * de qué nodo y qué posición salió: buscar sobre el texto aplanado y volver
+ * después a las coordenadas reales.
+ */
+const rangeForSentence = (doc, element, needle) => {
+    const nodes = textNodesOf(doc, element);
+    if (nodes.length === 0) return null;
+
+    let flat = '';
+    const map = []; // map[i] = { node, offset } del carácter i de `flat`
+
+    nodes.forEach((node) => {
+        const value = node.nodeValue;
+        for (let i = 0; i < value.length; i += 1) {
+            const char = value[i];
+            if (/\s/.test(char)) {
+                // Una tirada de espacios cuenta como uno solo, igual que al
+                // normalizar la frase; si no, nunca coincidirían.
+                if (flat.endsWith(' ') || flat === '') continue;
+                flat += ' ';
+            } else {
+                flat += char;
+            }
+            map.push({ node, offset: i });
+        }
+    });
+
+    const start = flat.indexOf(needle);
+    if (start === -1 || map.length === 0) return null;
+    const end = Math.min(start + needle.length, map.length) - 1;
+    if (end < start) return null;
+
+    try {
+        const range = doc.createRange();
+        range.setStart(map[start].node, map[start].offset);
+        range.setEnd(map[end].node, map[end].offset + 1);
+        return range;
+    } catch {
+        return null;
+    }
+};
+
+/** @returns {boolean} true si se consiguió marcar la frase concreta. */
+export const markSentence = (doc, element, needle) => {
+    const range = rangeForSentence(doc, element, needle);
+    if (!range) return false;
+
+    const view = doc.defaultView;
+    if (view?.CSS?.highlights && view.Highlight) {
+        try {
+            view.CSS.highlights.set(SPOKEN_HIGHLIGHT, new view.Highlight(range));
+            return true;
+        } catch {
+            // Sigue al plan B.
+        }
+    }
+
+    try {
+        const mark = doc.createElement('mark');
+        mark.className = 'sr-speaking-sentence';
+        range.surroundContents(mark);
+        return true;
+    } catch {
+        // `surroundContents` lanza si el rango cruza la frontera de un elemento
+        // —una frase que empieza fuera de una cursiva y acaba dentro—. No es
+        // recuperable y el llamante marcará el bloque entero.
+        return false;
+    }
+};
+
+/** Quita cualquier marca de lectura y deja el DOM como estaba. */
+export const clearSpokenMarks = (doc) => {
+    try { doc.defaultView?.CSS?.highlights?.delete(SPOKEN_HIGHLIGHT); } catch { /* no soportado */ }
+
+    doc.querySelectorAll('.sr-speaking').forEach((element) => {
+        element.classList.remove('sr-speaking');
+    });
+
+    doc.querySelectorAll('mark.sr-speaking-sentence').forEach((mark) => {
+        const parent = mark.parentNode;
+        if (!parent) return;
+        while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+        parent.removeChild(mark);
+        // Sin esto quedarían nodos de texto partidos donde antes había uno, y
+        // los CFI que epub.js calcule a partir de ahora no cuadrarían con los
+        // guardados.
+        parent.normalize();
+    });
 };
 
 /**

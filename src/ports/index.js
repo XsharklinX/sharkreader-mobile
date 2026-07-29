@@ -80,12 +80,25 @@
  */
 
 /**
+ * Orientación de la pantalla. Solo el lector la usa: es donde el giro
+ * automático estorba —leer tumbado— y donde hace falta saber si caben dos
+ * columnas.
+ *
+ * @typedef {Object} ScreenPort
+ * @property {(mode: 'auto'|'portrait'|'landscape') => Promise<void>} lock
+ * @property {() => Promise<void>} unlock
+ * @property {() => Promise<'portrait'|'landscape'>} current
+ * @property {(handler: (o: 'portrait'|'landscape') => void) => Promise<() => void>} onChange
+ */
+
+/**
  * @typedef {Object} Ports
  * @property {StoragePort}    storage
  * @property {FilePickerPort} filePicker
  * @property {TtsPort}        tts
  * @property {NotifierPort}   notifier
  * @property {SyncPort}       sync
+ * @property {ScreenPort}     screen
  */
 
 /** @type {Ports|null} */

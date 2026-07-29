@@ -198,3 +198,39 @@ export const IconGrid = (p) => (
         <rect x="13.5" y="13.5" width="7" height="7" rx="1.4" />
     </Svg>
 );
+
+// ── Lector: composición y orientación ────────────────────────────────────────
+// El icono de columnas dibuja una página con dos bloques de texto en vez de dos
+// rectángulos sueltos: lo que se está eligiendo es cómo se compone la página,
+// no cómo se reparte la pantalla.
+export const IconColumns = (p) => (
+    <Svg {...p}>
+        <rect x="3" y="4" width="18" height="16" rx="1.6" />
+        <path d="M12 4v16" />
+        <path d="M6 8.5h3M6 11.5h3M6 14.5h2" />
+        <path d="M15 8.5h3M15 11.5h3M15 14.5h2" />
+    </Svg>
+);
+
+export const IconRotate = (p) => (
+    <Svg {...p}>
+        <rect x="4" y="8.5" width="16" height="11" rx="1.6" />
+        <path d="M8.5 5.5a6 6 0 0 1 8.4 1.2" />
+        <path d="M17.5 3.6v3.3h-3.3" />
+    </Svg>
+);
+
+export const IconGoTo = (p) => (
+    <Svg {...p}>
+        <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z" />
+        <path d="M8.5 12h7" />
+        <path d="M12.8 9.2 15.6 12l-2.8 2.8" />
+    </Svg>
+);
+
+export const IconQuote = (p) => (
+    <Svg {...p}>
+        <path d="M9.5 6.5C7 7.6 5.5 9.8 5.5 12.4v5.1h5.2v-5.2H8.2c0-1.9.8-3.3 2.4-4.2z" />
+        <path d="M18.3 6.5c-2.5 1.1-4 3.3-4 5.9v5.1h5.2v-5.2H17c0-1.9.8-3.3 2.4-4.2z" />
+    </Svg>
+);

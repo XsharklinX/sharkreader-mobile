@@ -221,6 +221,19 @@ export default function ReaderSettingsSheet({ typography, onChangeTypography, on
                     />
                 )}
 
+                {/* La capitular es composición de texto, así que va aquí bajo la
+                    «Aa» y no en el panel de pantalla. Se desactiva con el modo
+                    dislexia: una letra de tres líneas es exactamente el tipo de
+                    obstáculo que ese modo intenta quitar del camino. */}
+                {!typography.dyslexia && (
+                    <Switch
+                        label="Letra capitular"
+                        hint="Inicial grande al empezar cada capítulo"
+                        checked={Boolean(typography.dropCap)}
+                        onChange={(dropCap) => set({ dropCap })}
+                    />
+                )}
+
                 <Switch
                     label="Modo dislexia"
                     hint="Más aire entre letras y palabras, sin justificar"

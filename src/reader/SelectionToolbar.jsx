@@ -9,7 +9,7 @@ import { isLookupable } from './dictionary.js';
  * contextual con cuadraditos de 16 px funciona porque hay puntero; aquí cada
  * opción tiene que ser un objetivo cómodo para el pulgar.
  */
-export default function SelectionToolbar({ text, onHighlight, onCancel, onCopy, onLookup, onQuote }) {
+export default function SelectionToolbar({ text, onHighlight, onCancel, onCopy, onLookup, onQuote, onCite }) {
     const [writing, setWriting] = useState(false);
     const [comment, setComment] = useState('');
     const [color, setColor] = useState('yellow');
@@ -87,6 +87,10 @@ export default function SelectionToolbar({ text, onHighlight, onCancel, onCopy, 
                 )}
                 {onQuote && <button type="button" className="link-btn" onClick={() => onQuote(text)}>Compartir</button>}
                 <button type="button" className="link-btn" onClick={onCopy}>Copiar</button>
+                {/* «Citar» y «Copiar» son cosas distintas: copiar es para
+                    pegarlo en un chat, citar es para que el fragmento conserve
+                    de dónde salió cuando ya esté fuera del libro. */}
+                {onCite && <button type="button" className="link-btn" onClick={() => onCite(text)}>Citar</button>}
                 <button type="button" className="link-btn" onClick={onCancel}>Cerrar</button>
             </div>
         </div>

@@ -37,6 +37,12 @@ export const DEFAULT_TYPOGRAPHY = {
     // Ajustes de accesibilidad para dislexia: más aire entre letras, palabras
     // y líneas, sin justificar y sin partir palabras.
     dyslexia: false,
+    // Dos columnas cuando la pantalla es ancha. Una línea de 90 caracteres es
+    // ilegible: en horizontal y en tablet, una sola columna castiga la lectura.
+    spread: 'auto',
+    // Letra capitular al empezar capítulo. Detalle pequeño que hace que un
+    // capítulo parezca un capítulo.
+    dropCap: false,
 };
 
 /**
@@ -232,13 +238,48 @@ export const buildReaderStyles = (typography, themeId) => {
             'font-style': 'italic',
         },
         '::selection': { 'background': 'rgba(56,189,248,.35)' },
-        // Párrafo que está sonando en la lectura en voz alta. Es un resaltado
+        // Lo que está sonando en la lectura en voz alta. Es un resaltado
         // temporal, no un subrayado del usuario: no persiste ni se guarda.
+        //
+        // Tres selectores para lo mismo porque hay tres formas de pintarlo
+        // según lo que soporte el WebView: el rango sin tocar el DOM, la frase
+        // envuelta en <mark>, y el párrafo entero como último recurso.
+        '::highlight(sr-spoken)': {
+            'background-color': 'rgba(56,189,248,.22)',
+            'color': `${theme.text}`,
+        },
+        'mark.sr-speaking-sentence': {
+            'background': 'rgba(56,189,248,.22) !important',
+            'color': `${theme.text} !important`,
+            'border-radius': '3px',
+            'padding': '0 1px',
+        },
         '.sr-speaking': {
             'background': 'rgba(56,189,248,.16) !important',
             'border-radius': '3px',
             'box-shadow': '0 0 0 4px rgba(56,189,248,.16)',
         },
+        // Letra capitular. Solo en el primer párrafo de un capítulo y solo si
+        // no es el que sigue a otro texto: una capitular a mitad de página no
+        // señala nada y parece un error de composición.
+        //
+        // Va con `float` y no con `initial-letter` porque este último todavía
+        // no funciona en el WebView de Android, y fallaría en silencio dejando
+        // una letra normal donde se esperaba el efecto.
+        ...(base.dropCap ? {
+            'p:first-of-type::first-letter, h1 + p::first-letter, h2 + p::first-letter': {
+                'float': 'left',
+                'font-size': '3.1em',
+                // El interlineado de la capitular se fija a 1 para que ocupe
+                // exactamente tres líneas; con el del cuerpo bailaría según el
+                // espaciado que tenga puesto el usuario.
+                'line-height': '.86',
+                'padding-right': '.06em',
+                'padding-top': '.06em',
+                'font-weight': '600',
+                'color': `${theme.text} !important`,
+            },
+        } : {}),
     };
 };
 

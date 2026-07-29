@@ -6,7 +6,7 @@ import {
 import { normalizeAnnotationKind, normalizeAnnotationText } from '../core/annotationExport.js';
 import { IconShare, IconClose, IconTrash, IconHighlight } from '../ui/icons.jsx';
 
-export default function AnnotationsPanel({ bookmarks, onJump, onDelete, onExport, onClose }) {
+export default function AnnotationsPanel({ bookmarks, onJump, onDelete, onEdit, onExport, onClose }) {
     const [kind, setKind] = useState('all');
     const [color, setColor] = useState(null);
 
@@ -111,15 +111,31 @@ export default function AnnotationsPanel({ bookmarks, onJump, onDelete, onExport
                                         </span>
                                         {comment && <span className="annotation-comment">{comment}</span>}
                                     </button>
-                                    <button
-                                        type="button"
-                                        className="icon-btn"
-                                        style={{ minWidth: 40 }}
-                                        onClick={() => onDelete(bookmark.cfi, entryKind)}
-                                        aria-label="Borrar anotación"
-                                    >
-                                        <IconTrash size={18} />
-                                    </button>
+                                    {/* Un subrayado se edita; una nota o un
+                                        marcador no tienen color ni comentario
+                                        que cambiar, así que ahí solo cabe
+                                        borrar. */}
+                                    {entryKind === 'highlight' && onEdit ? (
+                                        <button
+                                            type="button"
+                                            className="icon-btn"
+                                            style={{ minWidth: 40 }}
+                                            onClick={() => onEdit(bookmark.cfi)}
+                                            aria-label="Editar subrayado"
+                                        >
+                                            <IconHighlight size={18} />
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            className="icon-btn"
+                                            style={{ minWidth: 40 }}
+                                            onClick={() => onDelete(bookmark.cfi, entryKind)}
+                                            aria-label="Borrar anotación"
+                                        >
+                                            <IconTrash size={18} />
+                                        </button>
+                                    )}
                                 </article>
                             );
                         })
