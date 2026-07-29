@@ -182,7 +182,16 @@ public class SharkPickerPlugin extends Plugin {
         if (intent == null) return;
         if (!Intent.ACTION_VIEW.equals(intent.getAction())) return;
         Uri data = intent.getData();
-        if (data != null) pendingUri = data;
+        if (data == null) return;
+
+        // Los accesos directos del icono y el widget también llegan como
+        // ACTION_VIEW, pero con esquema propio: no son ficheros que copiar sino
+        // órdenes de «abre este libro que ya tienes». Sin este descarte, tocar
+        // un acceso directo intentaría importar «sharkreader://book/<id>» como
+        // si fuera un EPUB.
+        if ("sharkreader".equals(data.getScheme())) return;
+
+        pendingUri = data;
     }
 
     /**
@@ -234,6 +243,42 @@ public class SharkPickerPlugin extends Plugin {
             call.resolve();
         } catch (Exception error) {
             call.reject("No se pudo escribir el fichero: " + error.getMessage());
+        }
+    }
+
+    /**
+     * Guarda un libro descargado de un catálogo OPDS.
+     *
+     * No pasa por el selector de ficheros porque el usuario no ha elegido nada
+     * del sistema: el fichero viene de la red. Se le da el mismo trato que a
+     * uno importado —nombre aleatorio dentro del directorio privado— para que
+     * el resto de la app no tenga que distinguir de dónde salió.
+     */
+    @PluginMethod
+    public void saveDownloadedBook(PluginCall call) {
+        String name = call.getString("name");
+        String data = call.getString("data");
+        if (name == null || data == null) {
+            call.reject("Faltan los parámetros 'name' o 'data'.");
+            return;
+        }
+
+        try {
+            String extension = extensionOf(name);
+            if (extension.isEmpty()) extension = "epub";
+
+            File target = new File(booksDir(), UUID.randomUUID().toString() + "." + extension);
+            try (OutputStream output = new FileOutputStream(target)) {
+                output.write(android.util.Base64.decode(data, android.util.Base64.DEFAULT));
+            }
+
+            JSObject result = new JSObject();
+            result.put("path", target.getAbsolutePath());
+            result.put("name", name);
+            result.put("size", target.length());
+            call.resolve(result);
+        } catch (Exception error) {
+            call.reject("No se pudo guardar el libro: " + error.getMessage());
         }
     }
 

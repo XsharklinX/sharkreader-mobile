@@ -151,6 +151,29 @@ export const useLibrary = () => {
         importing,
         importFiles: () => runImport('files'),
         importFolder: () => runImport('folder'),
+        /**
+         * Importa un libro descargado de un catálogo OPDS.
+         *
+         * Se guarda en el almacenamiento privado y a partir de ahí sigue el
+         * mismo camino que cualquier otro: de dónde vino el fichero no debe
+         * cambiar cómo se procesa, ni dejarlo con metadatos distintos.
+         */
+        importDownloaded: async (name, blob) => {
+            const { saveDownloadedBook } = await import('../adapters/SafPicker.js');
+            const picked = await saveDownloadedBook(name, blob);
+            const result = await importPickedBooks([picked], books);
+
+            if (result.imported.length) {
+                await ports.storage.putBooks(result.imported);
+                setBooks((current) => [...result.imported.map(hydrateStoredBook), ...current]);
+            }
+            if (result.duplicates.length) {
+                throw new Error('Ese libro ya está en tu biblioteca.');
+            }
+            if (!result.imported.length) {
+                throw new Error('No se pudo leer el libro descargado.');
+            }
+        },
         updateBook,
         removeBook,
         replaceAll,

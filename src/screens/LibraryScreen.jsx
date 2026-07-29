@@ -7,9 +7,11 @@ import { selectBooks, FILTERS, SORTS } from '../library/useLibrary.js';
 import { minutesToday } from '../stats/derive.js';
 import { buildSeries } from '../library/collections.js';
 import ContentResults from '../library/ContentResults.jsx';
+import CatalogScreen from '../catalog/CatalogScreen.jsx';
 import { useContentIndex } from '../library/useContentIndex.js';
 import {
     IconSearch, IconSort, IconPlus, IconClose, IconBook, IconFolder, IconGrid, IconSettings,
+    IconCloud,
 } from '../ui/icons.jsx';
 
 export default function LibraryScreen({ library, stats: statsApi, onOpenBook, onGoToSettings }) {
@@ -26,6 +28,7 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
     const [detail, setDetail] = useState(null);
     const [notice, setNotice] = useState(null);
     const [importChoice, setImportChoice] = useState(false);
+    const [catalogOpen, setCatalogOpen] = useState(false);
 
     const browsing = Boolean(query.trim()) || filter !== 'all';
 
@@ -436,6 +439,15 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                 selector de ficheros: importar una carpeta entera es lo que hace
                 la mayoría al estrenar la app, y antes esa opción solo existía en
                 la pantalla de biblioteca vacía. */}
+            {catalogOpen && (
+                <div className="overlay-screen">
+                    <CatalogScreen
+                        onImport={library.importDownloaded}
+                        onClose={() => setCatalogOpen(false)}
+                    />
+                </div>
+            )}
+
             {importChoice && (
                 <div className="scrim" onClick={() => setImportChoice(false)} role="presentation">
                     <section
@@ -456,6 +468,17 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                                 <span className="row-txt">
                                     <span>Elegir libros</span>
                                     <span className="row-sub">Uno o varios ficheros sueltos</span>
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                className="row"
+                                onClick={() => { setImportChoice(false); setCatalogOpen(true); }}
+                            >
+                                <span className="row-icon"><IconCloud size={20} /></span>
+                                <span className="row-txt">
+                                    <span>Desde un catálogo</span>
+                                    <span className="row-sub">Tu servidor de Calibre u otro catálogo OPDS</span>
                                 </span>
                             </button>
                             <button

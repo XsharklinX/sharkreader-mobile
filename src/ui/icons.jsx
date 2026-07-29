@@ -242,3 +242,17 @@ export const IconLock = (p) => (
         <path d="M12 14.3v2.2" />
     </Svg>
 );
+
+export const IconDownload = (p) => (
+    <Svg {...p}>
+        <path d="M12 4v10.5" />
+        <path d="M8 11l4 4 4-4" />
+        <path d="M4.5 17.5v1.2A1.3 1.3 0 0 0 5.8 20h12.4a1.3 1.3 0 0 0 1.3-1.3v-1.2" />
+    </Svg>
+);
+
+export const IconCloud = (p) => (
+    <Svg {...p}>
+        <path d="M7 18.5h9.8a3.7 3.7 0 0 0 .5-7.4 5.5 5.5 0 0 0-10.5-1.3A4.1 4.1 0 0 0 7 18.5z" />
+    </Svg>
+);

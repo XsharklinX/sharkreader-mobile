@@ -2111,3 +2111,75 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 
 .app-lock-title { font-size: var(--t-h1); font-weight: 700; }
 .app-lock-body { color: var(--text-2); max-width: 30ch; }
+
+/* ═══ Catálogos OPDS ════════════════════════════════════════════════════════ */
+
+/* La pantalla de catálogo se monta encima de la biblioteca, no la sustituye:
+   así al cerrarla se vuelve exactamente al mismo sitio y con el mismo scroll. */
+.overlay-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: var(--bg);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.catalog-row { display: flex; align-items: stretch; }
+
+.catalog-main {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-3);
+    width: 100%;
+    padding: var(--sp-3);
+    text-align: left;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    color: inherit;
+    cursor: pointer;
+}
+
+.catalog-main:active { background: var(--surface-2); }
+.catalog-main:disabled { opacity: .55; }
+
+.catalog-icon { color: var(--text-3); flex-shrink: 0; padding-top: 2px; }
+.catalog-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.catalog-title { font-size: var(--t-tiny); font-weight: 600; }
+.catalog-author { font-size: var(--t-micro); color: var(--accent); }
+
+/* El resumen se corta a tres líneas: los catálogos traen sinopsis enteras y una
+   lista donde cada fila mide distinto es imposible de recorrer con la vista. */
+.catalog-summary {
+    font-size: var(--t-micro);
+    color: var(--text-3);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.catalog-action { color: var(--accent); flex-shrink: 0; padding-top: 2px; }
+.catalog-server { text-align: left; background: none; border: 0; color: inherit; cursor: pointer; flex: 1; }
+
+.form { display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-4); }
+.field { display: flex; flex-direction: column; gap: var(--sp-2); }
+.field-label { font-size: var(--t-tiny); font-weight: 600; }
+
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+    .spinner { animation-duration: 2s; }
+}

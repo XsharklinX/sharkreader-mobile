@@ -60,6 +60,28 @@ export const writeConvertedBook = async (path, blob) => {
     await SharkPicker.writeBookFile({ path, data: base64 });
 };
 
+/**
+ * Guarda un libro descargado de un catálogo y devuelve un `PickedBook`.
+ *
+ * Se devuelve con la misma forma que un fichero elegido a mano para que la
+ * importación sea exactamente la misma: de dónde vino el fichero no debería
+ * cambiar cómo se procesa.
+ *
+ * @param {string} name Nombre con extensión.
+ * @param {Blob} blob
+ */
+export const saveDownloadedBook = async (name, blob) => {
+    const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+    });
+
+    const saved = await SharkPicker.saveDownloadedBook({ name, data: base64 });
+    return { path: saved.path, name: saved.name, size: saved.size };
+};
+
 export const createSafPicker = () => ({
     /** @returns {Promise<{books: PickedBook[], failed: number, cancelled?: boolean}>} */
     pickBooks: () => SharkPicker.pickBooks(),
