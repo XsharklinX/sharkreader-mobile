@@ -1140,15 +1140,9 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     border: 0;
 }
 
-/* ── Animación de pasar página ──
-   Un desvanecido corto, no un volteo 3D: el volteo es vistoso en un vídeo de
-   la tienda pero marea en un uso real de una hora, y en gama baja da tirones. */
-.reader-viewport.turning { animation: page-turn 0.22s var(--ease); }
-
-@keyframes page-turn {
-    from { opacity: 0.4; transform: translateX(var(--turn-from, 8px)); }
-    to { opacity: 1; transform: none; }
-}
+/* La animación de pasar página vive en `reader-chrome.css` junto al resto de la
+   zona de lectura. Ya no es una animación de keyframes sobre el texto: ver
+   `transitions.js` para por qué eso hacía temblar las letras. */
 
 /* ── Marca de la app ──
    La cabecera de la biblioteca lleva el nombre y para qué sirve, no un saludo:
@@ -1212,28 +1206,6 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 /* Las animaciones se aplican al contenedor, no dentro del iframe: epub.js lo
    repinta entero al cambiar de página, así que animar su contenido daría un
    parpadeo en lugar de una transición. */
-.turn-fade { animation: turn-fade 200ms var(--ease); }
-@keyframes turn-fade { from { opacity: 0.25; } to { opacity: 1; } }
-
-.turn-slide.turn-next { animation: slide-next 240ms var(--ease); }
-.turn-slide.turn-prev { animation: slide-prev 240ms var(--ease); }
-@keyframes slide-next { from { opacity: 0.5; transform: translateX(18px); } to { opacity: 1; transform: none; } }
-@keyframes slide-prev { from { opacity: 0.5; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
-
-.turn-push.turn-next { animation: push-next 300ms cubic-bezier(0.2, 0.8, 0.25, 1); }
-.turn-push.turn-prev { animation: push-prev 300ms cubic-bezier(0.2, 0.8, 0.25, 1); }
-@keyframes push-next {
-    from { opacity: 0.2; transform: translateX(46%); }
-    to { opacity: 1; transform: none; }
-}
-@keyframes push-prev {
-    from { opacity: 0.2; transform: translateX(-46%); }
-    to { opacity: 1; transform: none; }
-}
-
-.turn-zoom { animation: turn-zoom 220ms var(--ease); }
-@keyframes turn-zoom { from { opacity: 0.3; transform: scale(0.965); } to { opacity: 1; transform: none; } }
-
 /* ═══════════════════════════════════════════════════════════════════════════
    Barra inferior del lector
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -1570,7 +1542,11 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 /* ── Arrastre de página ── */
 /* Mientras el dedo está puesto no hay transición: la página tiene que ir
    pegada al dedo. El rebote al soltar sí se anima. */
+/* Arrastre: el dedo manda, sin transición que lo suavice. */
 .reader-viewport.dragging { transition: none; }
+
+/* Soltar antes del umbral: la página vuelve a su sitio. Solo transform — no se
+   toca la opacidad del texto, por el mismo motivo que en el paso de página. */
 .reader-viewport.releasing { transition: transform 0.24s cubic-bezier(0.2, 0.9, 0.3, 1); }
 
 /* Barra de progreso arrastrable. El input va invisible por encima de la pista

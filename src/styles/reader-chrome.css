@@ -274,3 +274,48 @@
     .reader-hairline span,
     .dock-btn { transition: none; }
 }
+
+/* ═══ Paso de página ════════════════════════════════════════════════════════
+ *
+ * Lo que se anima es el contenedor y un velo, nunca el texto. Ver
+ * `transitions.js` para el diagnóstico completo: animar la opacidad de un
+ * elemento con texto hace que el WebView cambie de suavizado subpíxel a escala
+ * de grises mientras dura la animación, y los bordes de cada letra se redibujan
+ * con otro método dos veces por página. Eso era el temblor.
+ */
+
+/* La curva la pone el JS junto con la duración de cada fase, así que aquí solo
+   se declara qué propiedad transiciona y con qué aceleración. */
+.reader-viewport {
+    transition-property: transform;
+    transition-timing-function: cubic-bezier(0.32, 0.72, 0.24, 1);
+}
+
+/* Velo del color de la página.
+ *
+ * A opacidad 1 tapa el texto por completo, y como lleva exactamente el color de
+ * fondo del tema, el usuario ve el texto apagarse sin que se haya tocado su
+ * alfa. El cambio de contenido ocurre debajo, con el velo puesto: es el único
+ * instante en que las dos páginas coexistirían, y así no se ve ninguna.
+ */
+.turn-veil {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: var(--reader-bg);
+    opacity: 0;
+    pointer-events: none;
+    transition-property: opacity;
+    transition-timing-function: linear;
+    /* Se promueve de forma permanente: es una capa de color plano, así que
+       mantenerla en la GPU no cuesta memoria de texto y evita promoverla y
+       degradarla en cada página. */
+    will-change: opacity;
+}
+
+/* Con movimiento reducido no hay transición ninguna. El cambio es instantáneo y
+   `runTurn` ni siquiera monta las fases — esto es solo el cinturón. */
+@media (prefers-reduced-motion: reduce) {
+    .reader-viewport,
+    .turn-veil { transition: none !important; }
+}

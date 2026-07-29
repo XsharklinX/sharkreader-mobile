@@ -7,7 +7,7 @@ import { createRefreshCounter, flashScreen, DEFAULT_REFRESH_EVERY } from './eink
 import ReadingRuler from './ReadingRuler.jsx';
 import ReaderSettingsSheet from './ReaderSettingsSheet.jsx';
 import DisplaySheet from './DisplaySheet.jsx';
-import { runTransition, DEFAULT_TRANSITION } from './transitions.js';
+import { runTurn, DEFAULT_TRANSITION } from './transitions.js';
 import { buildFontFaceCss } from './fontLoader.js';
 import { useHistory } from './useHistory.js';
 import FootnoteSheet from './FootnoteSheet.jsx';
@@ -157,23 +157,61 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
      */
     const transitionRef = useRef(effectiveTransition);
     transitionRef.current = effectiveTransition;
-    const cleanupRef = useRef(null);
+    const turnRef = useRef(null);
+    const veilRef = useRef(null);
 
     const einkRef = useRef(false);
 
-    const turnPage = (direction) => {
+    // Quien ha pedido menos movimiento en el sistema no debería recibir una
+    // animación por página. Se consulta por medio de una ref porque los gestos
+    // se registran una sola vez y no pueden capturar estado.
+    const reducedMotionRef = useRef(false);
+    useEffect(() => {
+        const query = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+        if (!query) return undefined;
+        reducedMotionRef.current = query.matches;
+        const update = () => { reducedMotionRef.current = query.matches; };
+        query.addEventListener?.('change', update);
+        return () => query.removeEventListener?.('change', update);
+    }, []);
+
+    /**
+     * Pasa página.
+     *
+     * El cambio de página lo dispara **la animación**, no esta función: una
+     * transición no puede ir sincronizada con el cambio de contenido si no
+     * controla cuándo ocurre. Antes se lanzaban las dos cosas en el mismo tic y
+     * epub.js cambiaba el texto a mitad de la animación — por eso se veían las
+     * dos páginas fundiéndose.
+     *
+     * @param {'next'|'prev'} direction
+     * @param {boolean} [fromDrag] El dedo ya ha sacado la página: no se repite.
+     */
+    const turnPage = (direction, fromDrag = false) => {
         const engine = engineRef.current;
         if (!engine) return;
-        cleanupRef.current?.();
-        cleanupRef.current = runTransition(viewportRef.current, transitionRef.current, direction);
-        if (direction === 'next') engine.next();
-        else engine.prev();
 
-        // La limpieza va después de pasar página, no antes: parpadear y luego
-        // cambiar el contenido dejaría el rastro de la página nueva sin limpiar.
-        if (einkRef.current && refreshRef.current.pageTurned()) {
-            flashScreen(viewportRef.current?.parentElement);
-        }
+        // Pasar página más rápido de lo que dura la animación cancela la
+        // anterior: sin esto, dos animaciones se pelean por el mismo transform.
+        turnRef.current?.cancel();
+
+        turnRef.current = runTurn({
+            element: viewportRef.current,
+            veil: veilRef.current,
+            id: transitionRef.current,
+            direction,
+            skipOut: fromDrag,
+            reducedMotion: reducedMotionRef.current,
+            commit: () => (direction === 'next' ? engine.next() : engine.prev()),
+        });
+
+        // La limpieza de tinta electrónica va cuando la página nueva ya está
+        // puesta: parpadear antes dejaría el rastro de la nueva sin limpiar.
+        turnRef.current.done.then(() => {
+            if (einkRef.current && refreshRef.current.pageTurned()) {
+                flashScreen(viewportRef.current?.parentElement);
+            }
+        }).catch(() => {});
     };
 
     /**
@@ -211,9 +249,11 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             onMove: setShift,
             onCancel: release,
             onCommit: (direction) => {
+                // El dedo ya ha sacado la página de su sitio, así que la
+                // animación se salta la fase de salida: repetirla daría un salto
+                // hacia atrás antes de completar el gesto.
                 release();
-                if (direction === 'next') engineRef.current?.next();
-                else engineRef.current?.prev();
+                turnPage(direction, true);
             },
         });
 
@@ -781,6 +821,15 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 className={`reader-viewport${typography.flow === 'scrolled' ? ' scrolled' : ''}${columns === 2 ? ' two-columns' : ''}`}
                 ref={viewportRef}
             />
+
+            {/* Velo del color de la página.
+                Es lo que se atenúa al pasar página, en lugar de la opacidad del
+                texto: fundir el texto obliga al WebView a componer los glifos con
+                canal alfa y a cambiar de suavizado subpíxel a escala de grises
+                mientras dura, que es lo que hacía temblar las letras. Con un velo
+                del mismo color de destino el efecto se ve igual y los glifos no se
+                vuelven a rasterizar. */}
+            <div className="turn-veil" ref={veilRef} aria-hidden="true" />
 
             {/* Atenuador y filtro cálido no se pintan en tinta electrónica: el
                 panel no tiene niveles intermedios y una capa semitransparente

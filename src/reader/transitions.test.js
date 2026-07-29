@@ -1,103 +1,211 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
-    PAGE_TRANSITIONS, DEFAULT_TRANSITION,
-    transitionClass, transitionDuration, runTransition,
+    PAGE_TRANSITIONS, DEFAULT_TRANSITION, phaseState, transitionDuration, runTurn,
 } from './transitions.js';
 
-/** Elemento de mentira con la misma API que usa runTransition. */
-const fakeElement = () => {
-    const list = new Set();
-    return {
-        offsetWidth: 100,
-        classList: {
-            add: (...names) => names.forEach((name) => list.add(name)),
-            remove: (...names) => names.forEach((name) => list.delete(name)),
-            contains: (name) => list.has(name),
-        },
-        _classes: list,
-    };
-};
-
 describe('catálogo de transiciones', () => {
-    it('la opción por defecto existe', () => {
-        expect(PAGE_TRANSITIONS[DEFAULT_TRANSITION]).toBeTruthy();
-    });
-
-    it('todas tienen etiqueta, descripción y duración', () => {
-        Object.entries(PAGE_TRANSITIONS).forEach(([id, transition]) => {
-            expect(transition.label, id).toBeTruthy();
-            expect(transition.description, id).toBeTruthy();
-            expect(typeof transition.duration, id).toBe('number');
+    it('todas tienen etiqueta, descripción y sus dos fases', () => {
+        Object.entries(PAGE_TRANSITIONS).forEach(([id, spec]) => {
+            expect(spec.label, id).toBeTruthy();
+            expect(spec.description, id).toBeTruthy();
+            expect(typeof spec.out, id).toBe('number');
+            expect(typeof spec.in, id).toBe('number');
         });
     });
 
-    it('«ninguna» dura cero: es la opción para móviles lentos', () => {
-        expect(PAGE_TRANSITIONS.none.duration).toBe(0);
+    it('«ninguna» no dura nada: es la opción sin coste', () => {
+        expect(transitionDuration('none')).toBe(0);
+    });
+
+    it('la fase de salida es más corta que la de entrada', () => {
+        // Salir es tiempo en que el usuario ya ha pedido la página y aún no la
+        // tiene. Entrar puede permitirse más porque el contenido ya está ahí.
+        Object.entries(PAGE_TRANSITIONS).forEach(([id, spec]) => {
+            if (spec.out === 0) return;
+            expect(spec.out, id).toBeLessThan(spec.in);
+        });
     });
 
     it('ninguna dura tanto como para estorbar al pasar páginas seguidas', () => {
-        Object.values(PAGE_TRANSITIONS).forEach((transition) => {
-            expect(transition.duration).toBeLessThanOrEqual(320);
+        Object.keys(PAGE_TRANSITIONS).forEach((id) => {
+            expect(transitionDuration(id), id).toBeLessThanOrEqual(340);
         });
     });
-});
 
-describe('clases CSS', () => {
-    it('incluye la transición y la dirección', () => {
-        expect(transitionClass('slide', 'next')).toBe('turn turn-slide turn-next');
-        expect(transitionClass('fade', 'prev')).toBe('turn turn-fade turn-prev');
-    });
-
-    it('«ninguna» no genera clase', () => {
-        expect(transitionClass('none', 'next')).toBe('');
-    });
-
-    it('un id desconocido no genera clase en vez de romper', () => {
-        expect(transitionClass('inventada', 'next')).toBe('');
-        expect(transitionClass(null, 'next')).toBe('');
+    it('la de por defecto existe', () => {
+        expect(PAGE_TRANSITIONS[DEFAULT_TRANSITION]).toBeTruthy();
     });
 });
 
-describe('ejecución', () => {
-    it('añade las clases al elemento', () => {
-        const element = fakeElement();
-        runTransition(element, 'slide', 'next');
-
-        expect(element.classList.contains('turn')).toBe(true);
-        expect(element.classList.contains('turn-slide')).toBe(true);
-        expect(element.classList.contains('turn-next')).toBe(true);
+describe('phaseState', () => {
+    it('nunca toca la opacidad del texto: solo transform y velo', () => {
+        // Es el arreglo del temblor. Animar la opacidad de un elemento con texto
+        // hace que el WebView cambie de suavizado subpíxel a escala de grises
+        // mientras dura, y los glifos se redibujan con otro método.
+        const state = phaseState('slide', 'next', 'out');
+        expect(state).not.toHaveProperty('opacity');
+        expect(state.transform).toContain('translate3d');
     });
 
-    it('limpia las clases de una animación anterior antes de empezar', () => {
-        const element = fakeElement();
-        runTransition(element, 'slide', 'next');
-        runTransition(element, 'fade', 'prev');
-
-        expect(element.classList.contains('turn-slide')).toBe(false);
-        expect(element.classList.contains('turn-next')).toBe(false);
-        expect(element.classList.contains('turn-fade')).toBe(true);
-        expect(element.classList.contains('turn-prev')).toBe(true);
+    it('la página vieja sale en sentido contrario al que entra la nueva', () => {
+        const out = phaseState('slide', 'next', 'out');
+        const entry = phaseState('slide', 'next', 'in');
+        expect(out.transform).toContain('-26px');
+        expect(entry.transform).toContain('26px');
+        expect(entry.transform).not.toContain('-26px');
     });
 
-    it('la limpieza devuelta quita las clases', () => {
-        const element = fakeElement();
-        const cleanup = runTransition(element, 'push', 'next');
-        cleanup();
-        expect(element.classList.contains('turn-push')).toBe(false);
+    it('retroceder invierte los dos sentidos', () => {
+        expect(phaseState('slide', 'prev', 'out').transform).toContain('26px');
+        expect(phaseState('slide', 'prev', 'in').transform).toContain('-26px');
     });
 
-    it('sin elemento no lanza', () => {
-        expect(() => runTransition(null, 'slide', 'next')).not.toThrow();
+    it('el desplazamiento cae en píxeles enteros', () => {
+        // Media unidad coloca cada letra a mitad de píxel y se redibuja distinta
+        // en cada fotograma. Era la tercera causa del temblor.
+        Object.keys(PAGE_TRANSITIONS).forEach((id) => {
+            ['out', 'in'].forEach((phase) => {
+                const match = phaseState(id, 'next', phase).transform.match(/(-?[\d.]+)px/);
+                if (!match) return;
+                expect(Number.isInteger(Number(match[1])), `${id}/${phase}`).toBe(true);
+            });
+        });
     });
 
-    it('con «ninguna» no toca el elemento', () => {
-        const element = fakeElement();
-        runTransition(element, 'none', 'next');
-        expect(element._classes.size).toBe(0);
+    it('el estado de reposo no lleva desplazamiento ni velo', () => {
+        const rest = phaseState('push', 'next', 'rest');
+        expect(rest.transform).toBe('translate3d(0,0,0)');
+        expect(rest.veil).toBe(0);
     });
 
-    it('la duración conocida se usa para retirar la clase', () => {
-        expect(transitionDuration('slide')).toBe(PAGE_TRANSITIONS.slide.duration);
-        expect(transitionDuration('inventada')).toBe(0);
+    it('«ninguna» se queda en reposo en cualquier fase', () => {
+        expect(phaseState('none', 'next', 'out').veil).toBe(0);
+        expect(phaseState('none', 'next', 'out').transform).toBe('translate3d(0,0,0)');
+    });
+
+    it('un id desconocido no rompe: se comporta como «ninguna»', () => {
+        expect(phaseState('espiral', 'next', 'out').transform).toBe('translate3d(0,0,0)');
+    });
+
+    it('el velo tapa por completo, para que el cambio no se vea', () => {
+        // A opacidad 1 y con el color del fondo de la página, el texto
+        // desaparece sin haber tocado su alfa, y el cambio de contenido ocurre
+        // debajo sin que se vean las dos páginas.
+        expect(phaseState('fade', 'next', 'out').veil).toBe(1);
+    });
+
+    it('«acercar» añade escala sin perder el desplazamiento', () => {
+        const state = phaseState('zoom', 'next', 'out');
+        expect(state.transform).toContain('scale(');
+        expect(state.transform).toContain('translate3d');
+    });
+});
+
+describe('runTurn', () => {
+    const build = () => ({ element: { style: {} }, veil: { style: {} } });
+
+    it('cambia la página **después** de la fase de salida, no a la vez', async () => {
+        // Este es el arreglo de la fusión: antes se lanzaban la animación y el
+        // cambio en el mismo tic, y epub.js cambiaba el texto a mitad de la
+        // animación con la opacidad a medias.
+        const { element, veil } = build();
+        const commit = vi.fn();
+
+        const turn = runTurn({ element, veil, id: 'slide', direction: 'next', commit });
+
+        // Todavía no: primero tiene que salir la página vieja.
+        expect(commit).not.toHaveBeenCalled();
+        await turn.done;
+        expect(commit).toHaveBeenCalledOnce();
+    });
+
+    it('con movimiento reducido cambia la página sin animar nada', async () => {
+        const { element, veil } = build();
+        const commit = vi.fn();
+
+        await runTurn({
+            element, veil, id: 'slide', direction: 'next', commit, reducedMotion: true,
+        }).done;
+
+        expect(commit).toHaveBeenCalledOnce();
+        expect(element.style.transform).toBeUndefined();
+    });
+
+    it('«ninguna» cambia la página sin tocar los estilos', async () => {
+        const { element, veil } = build();
+        const commit = vi.fn();
+        await runTurn({ element, veil, id: 'none', direction: 'next', commit }).done;
+        expect(commit).toHaveBeenCalledOnce();
+        expect(element.style.transform).toBeUndefined();
+    });
+
+    it('deja el elemento limpio al terminar', async () => {
+        // Dejar un transform o un will-change puestos mantiene el texto en una
+        // capa compuesta, con otro suavizado que el resto de la app: al pasar
+        // página el libro se veía sutilmente distinto que en reposo.
+        const { element, veil } = build();
+        await runTurn({
+            element, veil, id: 'slide', direction: 'next', commit: () => {},
+        }).done;
+
+        expect(element.style.transform).toBe('');
+        expect(element.style.willChange).toBe('');
+        expect(element.style.transitionDuration).toBe('');
+        expect(veil.style.opacity).toBe('');
+    });
+
+    it('cancelar deja el elemento limpio', async () => {
+        const { element, veil } = build();
+        const turn = runTurn({
+            element, veil, id: 'push', direction: 'next', commit: () => {},
+        });
+        turn.cancel();
+        await turn.done;
+
+        expect(element.style.transform).toBe('');
+        expect(element.style.willChange).toBe('');
+    });
+
+    it('saltarse la salida sigue cambiando la página', async () => {
+        // Lo usa el arrastre: el dedo ya ha sacado la página fuera, y repetir la
+        // salida daría un salto hacia atrás antes de completar el gesto.
+        const { element, veil } = build();
+        const commit = vi.fn();
+
+        await runTurn({
+            element, veil, id: 'slide', direction: 'next', skipOut: true, commit,
+        }).done;
+
+        expect(commit).toHaveBeenCalledOnce();
+    });
+
+    it('espera al cambio de página si es asíncrono', async () => {
+        // epub.js devuelve una promesa: entrar antes de que resuelva animaría la
+        // página vieja otra vez.
+        const { element, veil } = build();
+        let resolved = false;
+
+        await runTurn({
+            element, veil, id: 'fade', direction: 'next',
+            commit: () => new Promise((resolve) => setTimeout(() => {
+                resolved = true;
+                resolve();
+            }, 20)),
+        }).done;
+
+        expect(resolved).toBe(true);
+    });
+
+    it('sin elemento no lanza', async () => {
+        const commit = vi.fn();
+        await runTurn({ element: null, id: 'slide', direction: 'next', commit }).done;
+        expect(commit).toHaveBeenCalled();
+    });
+
+    it('funciona sin velo: el visor de PDF no lo monta', async () => {
+        const { element } = build();
+        const commit = vi.fn();
+        await runTurn({ element, id: 'slide', direction: 'next', commit }).done;
+        expect(commit).toHaveBeenCalled();
     });
 });
