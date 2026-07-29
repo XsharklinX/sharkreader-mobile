@@ -13,6 +13,12 @@
  * interfaz. Deslizar horizontalmente también pasa página, con un umbral que
  * evita que un roce al hacer scroll cuente como gesto.
  *
+ * **Reclamar el gesto.** En cuanto el movimiento es claramente horizontal se
+ * llama a `preventDefault()` y se borra cualquier selección naciente. Sin eso,
+ * el WebView de Android empieza a seleccionar texto al arrastrar el dedo sobre
+ * un párrafo, y el gesto se perdía: al soltar siempre había selección. Los
+ * toques nunca fallaron porque un toque no selecciona nada.
+ *
  * Las zonas se miden en las coordenadas del **documento del libro**, que es
  * donde se escuchan los eventos. El contenedor es más ancho —lleva los
  * márgenes de lectura como relleno— y usar su ancho hacía la zona izquierda
@@ -31,14 +37,25 @@ const TAP_MAX_MOVEMENT = 12;   // px de tolerancia para considerar que fue un to
 const LONG_PRESS_MS = 480;
 
 /**
+ * Píxeles horizontales tras los que el gesto se declara nuestro.
+ *
+ * Más bajo que el umbral de arrastre a propósito: hay que reclamarlo antes de
+ * que el WebView haya empezado a seleccionar texto, no después.
+ */
+const HORIZONTAL_CLAIM = 6;
+
+/**
  * @param {Object} handlers
  * @param {() => void} handlers.onNext
  * @param {() => void} handlers.onPrev
  * @param {() => void} handlers.onToggleChrome
  * @param {(point: {x: number, y: number}) => void} [handlers.onLongPress]
  * @param {() => boolean} [handlers.shouldIgnore]
- *   Se consulta al soltar el dedo. Sirve para que seleccionar texto dentro del
- *   libro no acabe pasando página: el gesto se descarta si devuelve true.
+ *   Se consulta **al empezar** el gesto: si ya había texto seleccionado, el
+ *   dedo estaba marcando y no navegando, así que el gesto se descarta.
+ * @param {() => void} [handlers.clearSelection]
+ *   Borra la selección que aparezca en los primeros píxeles de un arrastre
+ *   horizontal, antes de que dé tiempo a reclamar el gesto.
  * @param {() => number} [handlers.getWidth]
  *   Ancho de referencia para decidir la zona. Necesario cuando los eventos se
  *   escuchan en el documento de un iframe, que no tiene `clientWidth`.
@@ -67,7 +84,23 @@ export const createGestureHandlers = (handlers) => {
     };
 
     const onPointerDown = (event) => {
-        start = { x: event.clientX, y: event.clientY, time: Date.now() };
+        start = {
+            x: event.clientX,
+            y: event.clientY,
+            time: Date.now(),
+            // Se anota si **ya había** texto seleccionado al empezar.
+            //
+            // Antes se preguntaba al soltar, y eso rompía el deslizamiento: al
+            // arrastrar el dedo sobre el texto, el WebView empieza a
+            // seleccionar, así que al llegar el `pointerup` siempre había
+            // selección y el gesto se descartaba entero. Los toques seguían
+            // funcionando porque un toque no selecciona nada — exactamente el
+            // síntoma que se veía.
+            //
+            // Lo que se quiere expresar es «el dedo estaba marcando, no
+            // navegando», y eso se decide al empezar el gesto, no al acabarlo.
+            hadSelection: Boolean(shouldIgnore?.()),
+        };
         handlers.onDragDown?.(event);
         clearLongPress();
         if (onLongPress) {
@@ -80,7 +113,51 @@ export const createGestureHandlers = (handlers) => {
     };
 
     const onPointerMove = (event) => {
+        claimHorizontal(event);
         handlers.onDragMove?.(event);
+    };
+
+    /**
+     * Reclama el gesto en cuanto se ve que es horizontal.
+     *
+     * Dos cosas, y las dos hacen falta:
+     *
+     *  1. `preventDefault()` para que el WebView no siga extendiendo la
+     *     selección ni desplazando por su cuenta. Solo funciona porque el
+     *     oyente se registra con `passive: false`.
+     *  2. Borrar la selección que haya podido aparecer en los primeros píxeles,
+     *     antes de que diera tiempo a reclamarlo. Si no, el texto se queda
+     *     marcado en azul detrás de la página que se está arrastrando.
+     */
+    const claimHorizontal = (event) => {
+        if (!start || start.hadSelection) return;
+
+        const dx = Math.abs(event.clientX - start.x);
+        const dy = Math.abs(event.clientY - start.y);
+        if (dx < HORIZONTAL_CLAIM || dx <= dy) return;
+
+        start.claimed = true;
+        if (event.cancelable) event.preventDefault();
+        handlers.clearSelection?.();
+    };
+
+    /**
+     * El mismo trabajo para los eventos táctiles.
+     *
+     * En el WebView de Android los eventos de puntero se sintetizan a partir de
+     * los táctiles, y hay versiones que dejan de emitir `pointermove` en cuanto
+     * el sistema toma el gesto. `touchmove` sigue llegando y es el que de
+     * verdad se puede cancelar.
+     */
+    const onTouchMove = (event) => {
+        const touch = event.touches?.[0];
+        if (!touch || !start) return;
+        claimHorizontal({
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+            cancelable: event.cancelable,
+            preventDefault: () => event.preventDefault(),
+        });
     };
 
     const onPointerUp = (event) => {
@@ -97,10 +174,11 @@ export const createGestureHandlers = (handlers) => {
         const dy = event.clientY - start.y;
         const elapsed = Date.now() - start.time;
         const width = getWidth?.() || event.currentTarget?.clientWidth || window.innerWidth;
+        const { hadSelection } = start;
         start = null;
 
-        // Hay texto seleccionado: el dedo estaba marcando, no navegando.
-        if (shouldIgnore?.()) return;
+        // El dedo estaba marcando texto desde el principio: no navegaba.
+        if (hadSelection) return;
 
         const movement = Math.hypot(dx, dy);
 
@@ -149,7 +227,7 @@ export const createGestureHandlers = (handlers) => {
     // porque los gestos se registran en el iframe durante la carga y no se
     // vuelven a crear.
     Object.assign(handlers, {
-        onPointerDown, onPointerMove, onPointerUp, onPointerCancel,
+        onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onTouchMove,
         onPointerLeave: onPointerCancel,
     });
     return handlers;

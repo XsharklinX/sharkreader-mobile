@@ -133,6 +133,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             onNext: () => turnPage('next'),
             onPrev: () => turnPage('prev'),
             shouldIgnore: () => Boolean(engineRef.current?.selectionText()),
+            clearSelection: () => engineRef.current?.clearSelection(),
             // El ancho del documento del libro, no el del contenedor: los
             // eventos llegan en coordenadas del iframe y el contenedor es más
             // ancho por los márgenes de lectura.
@@ -858,28 +859,33 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 </button>
             </header>
 
+            {/* Hilo de progreso siempre visible, también con la interfaz
+                oculta. Es la única información que se quiere de fondo mientras
+                se lee: saber por dónde vas sin tener que invocar nada. */}
+            <div className="reader-hairline" aria-hidden="true">
+                <span style={{ width: `${percent}%` }} />
+            </div>
+
             <footer className={`reader-bottom${chrome ? '' : ' hidden'}`}>
-                {/* Una sola pista con las dos lecturas superpuestas: el avance
-                    del libro en gris de fondo y el del capítulo en acento
-                    encima. Dos barras apiladas ocupaban el doble para decir
-                    casi lo mismo. */}
                 <div className="prog">
-                    <div className="prog-row">
-                        <span className="prog-chapter">
-                            {location.chapter || 'Capítulo'}
-                        </span>
-                        <span className="prog-left mono">
+                    {/* Capítulo y tiempo restante en la misma línea: son las dos
+                        preguntas que se hacen a la vez —dónde estoy y cuánto
+                        queda— y separarlas obligaba a leer dos veces. */}
+                    <div className="prog-head">
+                        <span className="prog-chapter">{location.chapter || 'Capítulo'}</span>
+                        <span className="prog-left">
                             {leftInBook && locationsReady
-                                ? `quedan ${formatMinutes(leftInBook)}`
+                                ? `${formatMinutes(leftInBook)} restantes`
                                 : `${progressText.text} ${progressText.of}`}
                         </span>
                     </div>
+
                     {/* Arrastrable: recorrer el libro sin pasar por el índice.
                         Mientras se arrastra se muestra el capítulo de destino,
                         para poder soltar sabiendo a dónde vas. */}
-                    <div className="prog-track">
+                    <div className={`prog-track${scrubAt !== null ? ' scrubbing' : ''}`}>
                         <span className="prog-book" style={{ width: `${scrubAt ?? percent}%` }} />
-                        <span className="prog-chap" style={{ width: `${scrubAt === null ? chapterPercent : 0}%` }} />
+                        <span className="prog-knob" style={{ left: `${scrubAt ?? percent}%` }} />
                         <input
                             type="range"
                             className="prog-scrub"
@@ -897,60 +903,70 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                             disabled={!locationsReady}
                             aria-label="Ir a una posición del libro"
                         />
+
+                        {scrubAt !== null && (
+                            <div className="scrub-preview" style={{ left: `${scrubAt}%` }}>
+                                <b>{Math.round(scrubAt)}%</b>
+                                <span>{scrubChapter || 'del libro'}</span>
+                            </div>
+                        )}
                     </div>
 
-                    {scrubAt !== null && (
-                        <div className="scrub-preview">
-                            <b>{Math.round(scrubAt)}%</b>
-                            <span>{scrubChapter || 'del libro'}</span>
-                        </div>
-                    )}
                     {/* Escribir el destino en vez de arrastrar. Con el pulgar
                         sobre una barra de 300 px cada píxel son varias páginas,
                         así que volver a una posición concreta —la que te han
                         dicho, la de tus notas— es imposible a mano. */}
-                    <div className="prog-row prog-sub">
-                        <span className="mono">cap. {chapterPercent}%</span>
-                        <button type="button" className="goto-btn" onClick={() => setPanel('goto')}>
-                            <IconGoTo size={14} />
-                            <span className="mono">
-                                {totalLocations > 0
-                                    ? `${currentLocationIndex + 1} / ${totalLocations}`
-                                    : `libro ${percent}%`}
-                            </span>
-                        </button>
-                    </div>
+                    <button type="button" className="prog-goto" onClick={() => setPanel('goto')}>
+                        <IconGoTo size={13} />
+                        <span>
+                            {totalLocations > 0
+                                ? `${currentLocationIndex + 1} de ${totalLocations}`
+                                : `${percent} % del libro`}
+                        </span>
+                    </button>
                 </div>
 
-                <div className="reader-tools">
-                    <button type="button" className="tool" onClick={() => setPanel('settings')} aria-label="Texto">
-                        <IconTextSize size={21} />
-                        <span>Texto</span>
-                    </button>
-                    <button type="button" className="tool" onClick={() => setPanel('display')} aria-label="Pantalla y lectura">
-                        <IconSun size={21} />
-                        <span>Pantalla</span>
-                    </button>
+                {/* Dock de herramientas.
+                    Iconos grandes y sin etiqueta salvo cuando aportan un dato
+                    —el número de notas—. La versión anterior metía icono y
+                    palabra en 60 px de ancho: el texto salía a 10 px, ilegible,
+                    y el objetivo tocable quedaba en la mitad de lo que debería. */}
+                <nav className="reader-dock" aria-label="Herramientas de lectura">
                     <button
                         type="button"
-                        className={`tool${annotationCount ? ' on' : ''}`}
-                        onClick={() => setPanel('annotations')}
-                        aria-label={`Notas (${annotationCount})`}
+                        className="dock-btn"
+                        onClick={() => setPanel('settings')}
+                        aria-label="Texto y tipografía"
                     >
-                        <IconHighlight size={21} />
-                        <span>Notas{annotationCount > 0 ? ` ${annotationCount}` : ''}</span>
+                        <IconTextSize size={23} />
                     </button>
                     <button
                         type="button"
-                        className={`tool${speech.isSpeaking ? ' on' : ''}`}
+                        className="dock-btn"
+                        onClick={() => setPanel('display')}
+                        aria-label="Pantalla y lectura"
+                    >
+                        <IconSun size={23} />
+                    </button>
+                    <button
+                        type="button"
+                        className={`dock-btn${annotationCount ? ' has-data' : ''}`}
+                        onClick={() => setPanel('annotations')}
+                        aria-label={`Notas y subrayados (${annotationCount})`}
+                    >
+                        <IconHighlight size={23} />
+                        {annotationCount > 0 && <span className="dock-badge">{annotationCount}</span>}
+                    </button>
+                    <button
+                        type="button"
+                        className={`dock-btn${speech.isSpeaking ? ' on' : ''}`}
                         onClick={speech.toggle}
                         disabled={!speech.supported}
-                        aria-label="Leer en voz alta"
+                        aria-label={speech.isSpeaking ? 'Parar la lectura' : 'Leer en voz alta'}
                     >
-                        <IconVolume size={21} />
-                        <span>Voz</span>
+                        <IconVolume size={23} />
                     </button>
-                </div>
+                </nav>
             </footer>
 
             {speech.state !== 'idle' && (

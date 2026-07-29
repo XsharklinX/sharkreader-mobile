@@ -5,6 +5,9 @@ import ErrorBoundary from './ui/ErrorBoundary.jsx';
 import { installPorts } from './ports/index.js';
 import { createAndroidPorts } from './adapters/android.js';
 import './styles/app.css';
+// La barra del lector vive en su propio fichero: `app.css` pasaba de las 1800
+// líneas y el bloque del lector estaba repartido en tres sitios distintos.
+import './styles/reader-chrome.css';
 
 // Los puertos se instalan antes de montar React: ninguna pantalla debe poder
 // ejecutarse contra un registro vacío.

@@ -682,22 +682,16 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .reader-bottom {
     bottom: 0;
     padding: var(--sp-3) var(--sp-4) calc(var(--safe-bottom) + var(--sp-2));
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-3);
 }
 .reader-bottom.hidden { transform: translateY(100%); opacity: 0; pointer-events: none; }
 
-/* Doble progreso: capítulo arriba, libro abajo. Cuánto queda del capítulo es
-   lo que decide si sigues leyendo; el porcentaje del libro es contexto. */
-.progress-pair { display: flex; flex-direction: column; gap: var(--sp-2); }
+/* Progreso del PDF y del cómic, que siguen siendo por página y no por CFI.
+   `.progress-pair`, `.bar.chapter` y `.bar.bookwide` se han quitado: eran de
+   un diseño anterior de la barra del EPUB y no las usaba ya ningún fichero. */
 .progress-line { display: flex; flex-direction: column; gap: 4px; }
 .progress-label { display: flex; justify-content: space-between; font-size: var(--t-micro); color: var(--text-3); font-family: var(--font-mono); }
 .progress-label b { color: var(--chrome-text, var(--text)); font-weight: 600; }
-.bar.chapter i { background: var(--accent); }
-.bar.bookwide i { background: var(--text-3); }
 
-.reader-tools { display: flex; justify-content: space-around; align-items: center; }
 
 /* Indicador de página flotante, visible con la interfaz oculta. */
 .page-chip {
@@ -1261,114 +1255,6 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
    Barra inferior del lector
    ═══════════════════════════════════════════════════════════════════════════ */
 
-.prog { display: flex; flex-direction: column; gap: var(--sp-2); }
-
-.prog-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
-
-.prog-chapter {
-    font-size: var(--t-small);
-    font-weight: 650;
-    color: var(--chrome-text, var(--text));
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.prog-left { font-size: var(--t-tiny); color: var(--accent); font-weight: 600; flex: none; }
-
-.prog-sub { opacity: 0.55; }
-.prog-sub .mono { font-size: var(--t-micro); color: var(--text-3); }
-
-/* Una pista con las dos lecturas superpuestas: el libro en gris de fondo, el
-   capítulo en acento encima. Ocupa la mitad que dos barras apiladas. */
-.prog-track {
-    position: relative;
-    height: 5px;
-    border-radius: var(--r-full);
-    background: var(--sf-3);
-    overflow: hidden;
-}
-
-.prog-book, .prog-chap {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    border-radius: var(--r-full);
-    transition: width 0.25s var(--ease);
-}
-
-.prog-book { background: var(--text-3); opacity: 0.45; }
-.prog-chap { background: var(--accent); }
-
-/* Herramientas con etiqueta: un icono suelto obliga a adivinar, y aquí hay
-   sitio de sobra para decir qué hace cada uno. */
-.reader-tools { display: flex; justify-content: space-between; gap: var(--sp-1); }
-
-.tool {
-    flex: 1;
-    min-height: 52px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    padding: var(--sp-1) 2px;
-    background: none;
-    border: 0;
-    border-radius: var(--r-md);
-    color: var(--text-3);
-    font-size: var(--t-micro);
-    font-weight: 550;
-    transition: color 0.15s var(--ease), background 0.15s var(--ease);
-}
-
-.tool:active { background: var(--sf-2); }
-.tool.on { color: var(--accent); }
-.tool:disabled { opacity: 0.3; }
-.tool span { white-space: nowrap; }
-
-/* ── Lista de opciones con descripción ── */
-.option-list { display: flex; flex-direction: column; background: var(--sf-2); border-radius: var(--r-md); overflow: hidden; }
-
-.option {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-3);
-    min-height: 56px;
-    padding: var(--sp-2) var(--sp-4);
-    background: none;
-    border: 0;
-    color: var(--text);
-    text-align: left;
-}
-
-.option + .option { box-shadow: 0 -1px 0 var(--line); }
-.option-txt { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.option-name { font-size: var(--t-small); font-weight: 600; }
-.option-desc { font-size: var(--t-tiny); color: var(--text-3); line-height: 1.4; }
-
-.option-mark {
-    width: 20px;
-    height: 20px;
-    border-radius: var(--r-full);
-    box-shadow: inset 0 0 0 2px var(--line-strong);
-    flex: none;
-}
-
-.option.on .option-mark {
-    background: var(--accent);
-    box-shadow: inset 0 0 0 2px var(--accent), inset 0 0 0 5px var(--sf-2);
-}
-
-.stepper-preview {
-    flex: 1;
-    text-align: center;
-    font-family: var(--font-read);
-    color: var(--text-2);
-    line-height: 1;
-}
-
 /* ═══════════════════════════════════════════════════════════════════════════
    Ficha de libro
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -1707,40 +1593,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 /* Barra de progreso arrastrable. El input va invisible por encima de la pista
    pintada: así se conserva el comportamiento nativo de un slider —incluida la
    accesibilidad— con el aspecto que queremos. */
-.prog-track { position: relative; }
 
-.prog-scrub {
-    position: absolute;
-    inset: -12px 0;
-    width: 100%;
-    margin: 0;
-    opacity: 0;
-    -webkit-appearance: none;
-    appearance: none;
-    background: none;
-}
-.prog-scrub::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 32px;
-    height: 32px;
-}
-
-.scrub-preview {
-    display: flex;
-    align-items: baseline;
-    justify-content: center;
-    gap: var(--sp-2);
-    padding: var(--sp-1) 0;
-}
-.scrub-preview b { font-family: var(--font-mono); font-size: var(--t-heading); color: var(--accent); }
-.scrub-preview span {
-    font-size: var(--t-tiny);
-    color: var(--text-3);
-    max-width: 60%;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
 
 /* ═══ Lector — Fase C ═══════════════════════════════════════════════════════ */
 
@@ -1933,8 +1786,18 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 }
 
 .reader.eink .prog-book,
-.reader.eink .prog-chap {
+.reader.eink .prog-knob,
+.reader.eink .reader-hairline span {
     background: #000;
+}
+
+/* En tinta electrónica el dock pierde el relieve: las sombras y los fondos
+   translúcidos no existen en un panel de dos niveles. Se sustituye por un
+   borde sólido, que sí se ve. */
+.reader.eink .reader-dock {
+    background: #FFF;
+    border: 1px solid #000;
+    box-shadow: none;
 }
 
 /* Aviso de cálculo del mapa de posiciones. Discreto: el libro ya se puede leer,

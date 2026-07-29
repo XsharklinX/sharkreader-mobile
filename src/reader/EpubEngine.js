@@ -146,10 +146,23 @@ export const createEpubEngine = () => {
             if (!rendition) return;
             rendition.hooks.content.register((contents) => {
                 const doc = contents.document;
+                // `passive: false` es obligatorio en `pointermove` y `touchmove`.
+                // Un oyente pasivo **no puede llamar a `preventDefault()`**, y sin
+                // eso no hay forma de decirle al WebView «este arrastre es mío»:
+                // sigue con lo suyo —extender la selección de texto, rebotar el
+                // documento— y el gesto se pierde. Es la mitad del motivo por el
+                // que deslizar no funcionaba.
                 doc.addEventListener('pointerdown', handlers.onPointerDown, { passive: true });
-                doc.addEventListener('pointermove', handlers.onPointerMove, { passive: true });
+                doc.addEventListener('pointermove', handlers.onPointerMove, { passive: false });
                 doc.addEventListener('pointerup', handlers.onPointerUp, { passive: true });
                 doc.addEventListener('pointercancel', handlers.onPointerCancel, { passive: true });
+
+                // Y además los eventos táctiles. En el WebView de Android los
+                // punteros se sintetizan a partir de los táctiles y hay
+                // versiones que dejan de emitir `pointermove` en cuanto el
+                // sistema decide que el gesto es suyo. `touchmove` sí llega, y
+                // es el que puede cancelarlo.
+                doc.addEventListener('touchmove', handlers.onTouchMove, { passive: false });
             });
         },
 

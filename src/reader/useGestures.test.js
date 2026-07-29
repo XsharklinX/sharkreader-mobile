@@ -229,3 +229,110 @@ describe('convivencia con la selección de texto', () => {
         expect(onPrev).toHaveBeenCalledOnce();
     });
 });
+
+describe('deslizar sobre texto', () => {
+    /**
+     * La regresión que rompía deslizar tres versiones seguidas.
+     *
+     * Al arrastrar el dedo sobre un párrafo, el WebView de Android empieza a
+     * seleccionar texto. Como `shouldIgnore` se consultaba al SOLTAR, siempre
+     * encontraba selección y descartaba el gesto entero. Los toques seguían
+     * funcionando porque un toque no selecciona nada.
+     */
+    const setupWithSelection = (selectionDuringDrag) => {
+        let selected = false;
+        const onNext = vi.fn();
+        const onPrev = vi.fn();
+        const clearSelection = vi.fn(() => { selected = false; });
+        const handlers = createGestureHandlers({
+            onNext,
+            onPrev,
+            onToggleChrome: vi.fn(),
+            shouldIgnore: () => selected,
+            clearSelection,
+            getWidth: () => WIDTH,
+        });
+        return {
+            handlers, onNext, onPrev, clearSelection,
+            select: () => { selected = selectionDuringDrag; },
+        };
+    };
+
+    it('pasa página aunque el WebView empiece a seleccionar a mitad del gesto', () => {
+        const { handlers, onNext, select } = setupWithSelection(true);
+
+        handlers.onPointerDown(event(300));
+        select(); // el WebView selecciona al arrastrar sobre el texto
+        handlers.onPointerMove(event(240));
+        handlers.onPointerUp(event(200));
+
+        expect(onNext).toHaveBeenCalledOnce();
+    });
+
+    it('borra la selección naciente al reclamar el gesto', () => {
+        const { handlers, clearSelection } = setupWithSelection(true);
+        handlers.onPointerDown(event(300));
+        handlers.onPointerMove(event(280));
+        expect(clearSelection).toHaveBeenCalled();
+    });
+
+    it('no reclama un movimiento vertical', () => {
+        // Deslizar hacia abajo en modo desplazamiento tiene que seguir siendo
+        // del navegador.
+        const { handlers, clearSelection } = setupWithSelection(true);
+        handlers.onPointerDown(event(300, 300));
+        handlers.onPointerMove(event(302, 380));
+        expect(clearSelection).not.toHaveBeenCalled();
+    });
+
+    it('respeta una selección que ya existía antes de tocar', () => {
+        // Aquí el dedo sí estaba marcando: arrastrar el asa de la selección no
+        // debe pasar página.
+        let selected = true;
+        const onNext = vi.fn();
+        const handlers = createGestureHandlers({
+            onNext,
+            onPrev: vi.fn(),
+            onToggleChrome: vi.fn(),
+            shouldIgnore: () => selected,
+            clearSelection: vi.fn(),
+            getWidth: () => WIDTH,
+        });
+
+        handlers.onPointerDown(event(300));
+        handlers.onPointerMove(event(240));
+        handlers.onPointerUp(event(200));
+
+        expect(onNext).not.toHaveBeenCalled();
+    });
+
+    it('cancela el evento táctil para que Android no se quede el gesto', () => {
+        // Sin `preventDefault` el sistema sigue con lo suyo. Solo funciona
+        // porque el oyente se registra con `passive: false`.
+        const { handlers } = setupWithSelection(false);
+        const preventDefault = vi.fn();
+
+        handlers.onPointerDown(event(300));
+        handlers.onTouchMove({
+            touches: [{ clientX: 260, clientY: 300 }],
+            cancelable: true,
+            preventDefault,
+        });
+
+        expect(preventDefault).toHaveBeenCalled();
+    });
+
+    it('no intenta cancelar un evento que no se puede cancelar', () => {
+        const { handlers } = setupWithSelection(false);
+        const preventDefault = vi.fn();
+
+        handlers.onPointerDown(event(300));
+        handlers.onTouchMove({
+            touches: [{ clientX: 260, clientY: 300 }],
+            cancelable: false,
+            preventDefault,
+        });
+
+        expect(preventDefault).not.toHaveBeenCalled();
+    });
+});

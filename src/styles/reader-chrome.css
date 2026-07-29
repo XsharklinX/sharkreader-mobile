@@ -1,0 +1,276 @@
+/* ═══ Zona de lectura — barra inferior ══════════════════════════════════════
+ *
+ * Rediseño completo. Lo que había:
+ *
+ *  - Cuatro botones con icono y palabra encajados en unos 60 px de ancho. El
+ *    texto salía a 10 px, ilegible, y el objetivo tocable quedaba en la mitad
+ *    de los 48 px que necesita un dedo.
+ *  - Tres filas de progreso —capítulo y tiempo, la barra, y otra fila con dos
+ *    porcentajes más— que ocupaban un cuarto de pantalla para decir tres veces
+ *    lo mismo con números distintos.
+ *
+ * Lo que hay ahora: una sola lectura del progreso, una barra que se puede
+ * agarrar de verdad, y un dock aparte con cuatro objetivos grandes. Más un
+ * hilo de progreso que se queda visible con la interfaz oculta, que es cuando
+ * de verdad interesa saber por dónde vas.
+ */
+
+/* ── Hilo permanente ──────────────────────────────────────────────────────── */
+
+/* 2 px y muy tenue: tiene que poder ignorarse mientras se lee y estar ahí
+   cuando se busca. */
+.reader-hairline {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    z-index: 5;
+    pointer-events: none;
+}
+
+.reader-hairline span {
+    display: block;
+    height: 100%;
+    background: var(--reader-text);
+    opacity: .22;
+    transition: width .3s var(--ease);
+}
+
+.reader-bottom {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+}
+
+/* ── Progreso ─────────────────────────────────────────────────────────────── */
+
+.prog { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+.prog-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+}
+
+.prog-chapter {
+    font-size: var(--t-tiny);
+    font-weight: 600;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* El tiempo restante es el dato que más se mira: va en acento y no se encoge. */
+.prog-left {
+    font-size: var(--t-micro);
+    color: var(--accent);
+    font-weight: 600;
+    flex: none;
+    font-variant-numeric: tabular-nums;
+}
+
+/* La pista mide 28 px de alto aunque la barra pintada sean 4: lo que se agarra
+   con el pulgar es la pista. El objetivo anterior tenía 6 px. */
+.prog-track {
+    position: relative;
+    height: 28px;
+    display: flex;
+    align-items: center;
+}
+
+.prog-track::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 4px;
+    border-radius: 2px;
+    background: currentColor;
+    opacity: .16;
+}
+
+.prog-book {
+    position: absolute;
+    left: 0;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--accent);
+    pointer-events: none;
+}
+
+/* El tirador solo crece al arrastrar. En reposo es un punto: marca dónde estás
+   sin convertir la barra en un control que reclama atención mientras lees. */
+.prog-knob {
+    position: absolute;
+    top: 50%;
+    width: 10px;
+    height: 10px;
+    margin-left: -5px;
+    border-radius: 50%;
+    background: var(--accent);
+    transform: translateY(-50%);
+    transition: width .14s var(--ease), height .14s var(--ease), margin-left .14s var(--ease);
+    pointer-events: none;
+}
+
+.prog-track.scrubbing .prog-knob {
+    width: 18px;
+    height: 18px;
+    margin-left: -9px;
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* El input real es invisible y ocupa toda la pista: se ve lo de arriba y se
+   toca esto, que es lo que da el arrastre nativo y el soporte de accesibilidad
+   sin tener que reimplementar ninguno de los dos. */
+.prog-scrub {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    background: none;
+}
+
+.prog-scrub::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 32px;
+    height: 32px;
+}
+
+.prog-scrub:disabled { cursor: default; }
+
+/* Vista previa del destino. Sigue al tirador en lugar de quedarse centrada:
+   con el dedo en un extremo, un cartel en mitad de la pantalla no se relaciona
+   con lo que estás moviendo. */
+.scrub-preview {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding: 6px 12px;
+    border-radius: var(--r-md);
+    background: var(--chrome-bg);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .28);
+    white-space: nowrap;
+    pointer-events: none;
+    max-width: 60vw;
+}
+
+.scrub-preview b {
+    font-family: var(--font-mono);
+    font-size: var(--t-tiny);
+    color: var(--accent);
+}
+
+.scrub-preview span {
+    font-size: var(--t-micro);
+    color: var(--text-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+/* Ir a una posición. Discreto y a la derecha: es una acción ocasional y no
+   debe competir con la barra. */
+.prog-goto {
+    align-self: flex-end;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    margin: -4px -4px -4px 0;
+    background: none;
+    border: 0;
+    border-radius: var(--r-sm);
+    color: var(--text-3);
+    font-size: var(--t-micro);
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+}
+
+.prog-goto:active { background: color-mix(in srgb, currentColor 12%, transparent); }
+
+/* ── Dock de herramientas ─────────────────────────────────────────────────── */
+
+/* Con fondo propio: agrupa las cuatro acciones y las separa del progreso, que
+   es información y no un control. */
+.reader-dock {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
+    padding: 4px;
+    border-radius: 18px;
+    background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.dock-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* 52 px: por encima de los 48 que necesita un dedo. El botón anterior tenía
+       40 con una palabra dentro. */
+    height: 52px;
+    border: 0;
+    border-radius: 14px;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    transition: background .12s var(--ease), color .12s var(--ease);
+}
+
+.dock-btn:active { background: color-mix(in srgb, currentColor 14%, transparent); }
+
+.dock-btn:disabled { opacity: .3; cursor: default; }
+
+/* Activo —la voz sonando— con fondo lleno y no solo un cambio de tinte: sobre
+   un icono de línea, un tinte distinto es casi invisible a plena luz. */
+.dock-btn.on {
+    background: var(--accent);
+    color: var(--reader-bg);
+}
+
+.dock-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+/* Contador de notas como globo, no como texto al lado del icono: así el número
+   cabe sin encoger el icono ni descentrarlo. */
+.dock-badge {
+    position: absolute;
+    top: 8px;
+    right: calc(50% - 22px);
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    border-radius: 9px;
+    background: var(--accent);
+    color: var(--reader-bg);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 17px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.dock-btn.on .dock-badge {
+    background: var(--reader-bg);
+    color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .prog-knob,
+    .reader-hairline span,
+    .dock-btn { transition: none; }
+}
