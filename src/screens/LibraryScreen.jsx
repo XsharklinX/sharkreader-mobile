@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import BookCard from '../library/BookCard.jsx';
 import ContinueCard from '../library/ContinueCard.jsx';
 import BookSheet from '../library/BookSheet.jsx';
@@ -6,6 +6,8 @@ import Sharky from '../ui/Sharky.jsx';
 import { selectBooks, FILTERS, SORTS } from '../library/useLibrary.js';
 import { minutesToday } from '../stats/derive.js';
 import { buildSeries } from '../library/collections.js';
+import ContentResults from '../library/ContentResults.jsx';
+import { useContentIndex } from '../library/useContentIndex.js';
 import {
     IconSearch, IconSort, IconPlus, IconClose, IconBook, IconFolder, IconGrid, IconSettings,
 } from '../ui/icons.jsx';
@@ -26,6 +28,38 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
     const [importChoice, setImportChoice] = useState(false);
 
     const browsing = Boolean(query.trim()) || filter !== 'all';
+
+    // ── Búsqueda dentro de los libros ────────────────────────────────────────
+    //
+    // El índice se construye al entrar en la biblioteca, no al importar: añadir
+    // veinte libros ya es lento, y leerlos enteros encima haría esperar un
+    // minuto antes de ver nada.
+    const contentIndex = useContentIndex(books);
+    const [hits, setHits] = useState([]);
+    const [hitQuery, setHitQuery] = useState('');
+
+    useEffect(() => {
+        if (status === 'ready') contentIndex.build();
+    }, [status, books.length, contentIndex]);
+
+    // Se busca con retraso: lanzar una consulta por pulsación devolvería
+    // resultados de una palabra a medio escribir y encima competiría con la
+    // indexación por el mismo hilo.
+    useEffect(() => {
+        const text = query.trim();
+        if (text.length < 2) { setHits([]); setHitQuery(''); return undefined; }
+
+        let alive = true;
+        const timer = setTimeout(() => {
+            contentIndex.search(text, 40).then(({ query: used, results }) => {
+                if (!alive) return;
+                setHits(results);
+                setHitQuery(used);
+            }).catch(() => {});
+        }, 260);
+
+        return () => { alive = false; clearTimeout(timer); };
+    }, [query, contentIndex]);
 
     const visible = useMemo(
         () => selectBooks(books, { query, filter, sort }),
@@ -256,27 +290,46 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                         ))}
                     </div>
 
-                    {visible.length === 0 ? (
+                    {visible.length === 0 && hits.length === 0 ? (
                         <div className="empty">
                             <span className="empty-art"><IconSearch size={34} /></span>
                             <h2 className="empty-title">Nada coincide</h2>
-                            <p className="empty-body">Prueba con otra búsqueda o quita el filtro.</p>
+                            <p className="empty-body">
+                                Ni en los títulos ni dentro de los libros.
+                            </p>
                             <button type="button" className="btn" onClick={() => { setQuery(''); setFilter('all'); setSearching(false); }}>
                                 Limpiar
                             </button>
                         </div>
                     ) : (
-                        <div className="section">
-                            <div className="section-head">
-                                <h2 className="section-title">Resultados</h2>
-                                <span className="section-meta">{visible.length}</span>
-                            </div>
-                            <div className={`grid-books${compact ? ' compact' : ''}`}>
-                                {visible.map((book) => (
-                                    <BookCard key={book.id} book={book} onOpen={openBook} onLongPress={setDetail} />
-                                ))}
-                            </div>
-                        </div>
+                        <>
+                            {visible.length > 0 && (
+                                <div className="section">
+                                    <div className="section-head">
+                                        <h2 className="section-title">Libros</h2>
+                                        <span className="section-meta">{visible.length}</span>
+                                    </div>
+                                    <div className={`grid-books${compact ? ' compact' : ''}`}>
+                                        {visible.map((book) => (
+                                            <BookCard key={book.id} book={book} onOpen={openBook} onLongPress={setDetail} />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Debajo, nunca mezclado: si escribes «Borges»
+                                quieres el libro, no las trescientas veces que
+                                sale el nombre dentro de un ensayo sobre él. */}
+                            <ContentResults
+                                results={hits}
+                                query={hitQuery}
+                                indexing={contentIndex.progress}
+                                onOpen={(hit) => {
+                                    const target = books.find((book) => book.id === hit.bookId);
+                                    if (target) openBook(target);
+                                }}
+                            />
+                        </>
                     )}
                 </>
             ) : (

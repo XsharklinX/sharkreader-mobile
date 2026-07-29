@@ -14,7 +14,15 @@ export const DEFAULT_GOALS = { daily: 20, weekly: 120, monthly: 600 };
 
 // Sharky y los recordatorios llegan apagados: una app de lectura no debería
 // empezar hablando ni pidiendo permiso de notificaciones.
-export const DEFAULT_PREFERENCES = { sharky: false, reminders: false, reminderHour: 21 };
+export const DEFAULT_PREFERENCES = {
+    sharky: false,
+    reminders: false,
+    reminderHour: 21,
+    // Rejilla de gestos del lector: null significa «la de siempre». Se guarda
+    // aquí y no en cada libro porque quien invierte los lados los quiere
+    // invertidos en todos.
+    gestureGrid: null,
+};
 
 /**
  * Estadísticas, nivel y logros.

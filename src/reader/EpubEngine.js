@@ -289,6 +289,16 @@ export const createEpubEngine = () => {
             return 0;
         },
 
+        /** Alto del documento del libro, para las filas de la rejilla de gestos. */
+        contentHeight() {
+            const contents = [].concat(rendition?.getContents?.() || []);
+            for (const content of contents) {
+                const height = content?.window?.innerHeight;
+                if (height > 0) return height;
+            }
+            return 0;
+        },
+
         /** Idioma declarado por el EPUB, para poder ofrecerlo como sugerencia. */
         bookLanguage() {
             return book?.packaging?.metadata?.language || '';

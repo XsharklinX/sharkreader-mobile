@@ -149,6 +149,7 @@ export default function App() {
                 onAnnotationsChange={handleAnnotations}
                 onExportAnnotations={handleExportAnnotations}
                 preferences={stats.preferences}
+                onPreferencesChange={stats.savePreferences}
             />
         );
     }

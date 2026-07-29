@@ -27,6 +27,8 @@ import {
     updateHighlight, findAnnotation,
 } from './annotations.js';
 import { columnsFor, spreadValue, marginForColumns, SPREAD_MIN_WIDTH } from './spread.js';
+import { DEFAULT_GESTURE_GRID, normalizeGrid } from './gestureGrid.js';
+import GestureGridSheet from './GestureGridSheet.jsx';
 import GoToSheet from './GoToSheet.jsx';
 import CitationSheet from './CitationSheet.jsx';
 import HighlightEditor from './HighlightEditor.jsx';
@@ -51,7 +53,7 @@ const estimateLeft = (book, progress) => {
     return left > 0 ? left : null;
 };
 
-export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsChange, onExportAnnotations, preferences = {} }) {
+export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsChange, onExportAnnotations, preferences = {}, onPreferencesChange }) {
     const ports = usePorts();
     const viewportRef = useRef(null);
     const engineRef = useRef(null);
@@ -92,6 +94,10 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
 
     const [ruler, setRuler] = useState(book.readerPreferences?.ruler || 'off');
 
+    // Rejilla de gestos. Es una preferencia de la app, no del libro: quien
+    // invierte los lados los quiere invertidos en todos.
+    const [grid, setGrid] = useState(() => normalizeGrid(preferences.gestureGrid));
+
     // El modo tinta electrónica impone tema y animación: no son preferencias
     // que convivan con él, son consecuencias del panel. Se calcula aquí en vez
     // de escribirlas en el estado para que al apagarlo vuelvan las de antes en
@@ -116,7 +122,6 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         gesturesRef.current = createGestureHandlers({
             onNext: () => turnPage('next'),
             onPrev: () => turnPage('prev'),
-            onToggleChrome: () => setChrome((visible) => !visible),
             shouldIgnore: () => Boolean(engineRef.current?.selectionText()),
             // El ancho del documento del libro, no el del contenedor: los
             // eventos llegan en coordenadas del iframe y el contenedor es más
@@ -124,6 +129,12 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             getWidth: () => engineRef.current?.contentWidth()
                 || viewportRef.current?.clientWidth
                 || window.innerWidth,
+            getHeight: () => engineRef.current?.contentHeight()
+                || viewportRef.current?.clientHeight
+                || window.innerHeight,
+            // La rejilla y el despachador se enchufan más abajo con refs: los
+            // manejadores se crean una vez y se registran dentro del iframe
+            // durante la carga, así que no pueden capturar estado de React.
         });
     }
 
@@ -619,6 +630,34 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     }, [book, theme]);
 
     /**
+     * Ejecuta la acción que tenga asignada la zona tocada.
+     *
+     * Se enchufa por ref y no como argumento al crear los manejadores: estos se
+     * crean una sola vez y se registran dentro del iframe durante la carga, así
+     * que si capturaran el estado de React se quedarían con el de aquel momento
+     * — la rejilla no se podría cambiar con el libro abierto y `toggleBookmark`
+     * marcaría siempre la posición de apertura.
+     */
+    useEffect(() => {
+        gesturesRef.current.grid = grid;
+        gesturesRef.current.onAction = (action) => {
+            switch (action) {
+                case 'next': turnPage('next'); break;
+                case 'prev': turnPage('prev'); break;
+                case 'chrome': setChrome((visible) => !visible); break;
+                case 'toc': setPanel('toc'); break;
+                case 'bookmark': toggleBookmark(); break;
+                case 'speech': speech.toggle(); break;
+                case 'brightness': setPanel('display'); break;
+                case 'goto': setPanel('goto'); break;
+                case 'back': if (history.canGoBack) goBack(); break;
+                // 'none': la zona está apagada a propósito.
+                default: break;
+            }
+        };
+    }, [grid, toggleBookmark, speech, history.canGoBack, goBack]);
+
+    /**
      * Atrás dentro del libro cierra una capa cada vez.
      *
      * El orden es el de encima hacia abajo, que es el que ve el usuario. Solo
@@ -906,6 +945,17 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 />
             )}
 
+            {panel === 'gestures' && (
+                <GestureGridSheet
+                    grid={grid}
+                    onChange={(next) => {
+                        setGrid(next);
+                        onPreferencesChange?.({ gestureGrid: next });
+                    }}
+                    onClose={() => setPanel(null)}
+                />
+            )}
+
             {panel === 'goto' && (
                 <GoToSheet
                     totalLocations={totalLocations}
@@ -936,6 +986,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     onChangeRuler={setRuler}
                     eink={eink}
                     onChangeEink={(value) => setTypography({ ...typography, eink: value })}
+                    onOpenGestures={() => setPanel('gestures')}
                     transitionMode={transition}
                     autoScroll={autoScroll}
                     onClose={() => setPanel(null)}

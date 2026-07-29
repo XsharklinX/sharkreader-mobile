@@ -27,6 +27,7 @@ export default function DisplaySheet({
     orientation, onChangeOrientation,
     ruler, onChangeRuler,
     eink, onChangeEink,
+    onOpenGestures,
     autoScroll,
     onClose,
 }) {
@@ -147,6 +148,19 @@ export default function DisplaySheet({
                             En horizontal, una sola columna da noventa caracteres por
                             línea y el ojo pierde el salto de línea. Por eso los libros
                             apaisados van siempre a dos columnas.
+                        </p>
+                    </div>
+                )}
+
+                {onOpenGestures && (
+                    <div className="setting">
+                        <span className="setting-label">Gestos</span>
+                        <button type="button" className="btn btn-block" onClick={onOpenGestures}>
+                            Configurar las zonas de la pantalla
+                        </button>
+                        <p className="option-desc">
+                            Nueve zonas con acción propia. Sirve para invertir los
+                            lados o para apagar la de abajo, donde se apoya el pulgar.
                         </p>
                     </div>
                 )}

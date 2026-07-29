@@ -19,29 +19,12 @@
  * más grande que la derecha.
  */
 
-/**
- * Ancho de las zonas laterales, como fracción del ancho de página.
- *
- * Era 0.28. Con casi un tercio de pantalla por lado, el centro «real» —lo que
- * uno percibe como el medio— quedaba dentro de la zona de paso de página, y
- * tocar un poco a la izquierda del centro retrocedía. 0.18 deja el 64 % central
- * libre, que ya se lee claramente como centro.
- */
-const TAP_ZONE = 0.18;
+import { actionAt, tapZoneWidth, TAP_ZONE, TAP_ZONE_MAX_PX } from './gestureGrid.js';
 
-/**
- * Tope absoluto de la zona lateral, en píxeles.
- *
- * En una tablet, un 18 % de 1200 px son 216 px de banda muerta a cada lado:
- * media pantalla dedicada a pasar página. El toque es del mismo tamaño en
- * cualquier pantalla —un pulgar— así que la zona también debe serlo a partir de
- * cierto ancho.
- */
-const TAP_ZONE_MAX_PX = 140;
+// Reexportado: las zonas son ahora de `gestureGrid`, que es quien las
+// configura, pero media app las pide por aquí.
+export { tapZoneWidth };
 
-/** Ancho efectivo de la zona lateral para un ancho de página dado. */
-export const tapZoneWidth = (width) =>
-    Math.min(TAP_ZONE_MAX_PX, width * TAP_ZONE);
 const SWIPE_MIN_DISTANCE = 48; // px que hay que recorrer para que cuente
 const SWIPE_MAX_DURATION = 700;// ms: más lento que esto no es un deslizamiento
 const TAP_MAX_MOVEMENT = 12;   // px de tolerancia para considerar que fue un toque
@@ -59,13 +42,20 @@ const LONG_PRESS_MS = 480;
  * @param {() => number} [handlers.getWidth]
  *   Ancho de referencia para decidir la zona. Necesario cuando los eventos se
  *   escuchan en el documento de un iframe, que no tiene `clientWidth`.
+ * @param {() => number} [handlers.getHeight]
+ *   Alto de referencia, para las filas de la rejilla.
+ * @param {string[]} [handlers.grid]
+ *   Rejilla de nueve acciones. Se lee en cada toque, no al crear los
+ *   manejadores: se pueden cambiar los gestos con el libro abierto.
+ * @param {(action: string) => void} [handlers.onAction]
+ *   Ejecuta la acción de la zona tocada.
  * @param {(point: {x: number, y: number}) => boolean} [handlers.onTapWhileSpeaking]
  *   Se puede asignar después de crear los manejadores: el objeto devuelto es el
  *   mismo que se recibe, porque los gestos se registran dentro del iframe
  *   durante la carga y ya no se vuelven a crear.
  */
 export const createGestureHandlers = (handlers) => {
-    const { onNext, onPrev, onToggleChrome, onLongPress, shouldIgnore, getWidth } = handlers;
+    const { onNext, onPrev, onLongPress, shouldIgnore, getWidth } = handlers;
     let start = null;
     let longPressTimer = null;
 
@@ -132,10 +122,21 @@ export const createGestureHandlers = (handlers) => {
         // habría que parar, buscar y volver a empezar.
         if (handlers.onTapWhileSpeaking?.({ x: event.clientX, y: event.clientY })) return;
 
-        const zone = tapZoneWidth(width);
-        if (event.clientX < zone) onPrev();
-        else if (event.clientX > width - zone) onNext();
-        else onToggleChrome();
+        // La rejilla decide qué hace cada zona. Sin rejilla configurada se usa
+        // el reparto por defecto, que es el de siempre: laterales pasan página,
+        // centro enseña los controles.
+        const height = handlers.getHeight?.() || 0;
+        const action = actionAt(handlers.grid, event.clientX, event.clientY, width, height);
+
+        // Las tres acciones básicas se resuelven aquí aunque no haya
+        // despachador: son las que tiene cualquier lector y no deberían
+        // depender de que quien monte los gestos se acuerde de conectarlas.
+        // Las demás —marcador, índice, voz— sí necesitan `onAction`, porque
+        // viven fuera de este módulo.
+        if (handlers.onAction) { handlers.onAction(action); return; }
+        if (action === 'next') onNext();
+        else if (action === 'prev') onPrev();
+        else if (action === 'chrome') handlers.onToggleChrome?.();
     };
 
     const onPointerCancel = () => {

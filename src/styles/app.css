@@ -1972,3 +1972,110 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     background: var(--accent);
     opacity: 1;
 }
+
+/* ═══ Rejilla de gestos ═════════════════════════════════════════════════════ */
+
+/* La maqueta guarda la proporción de la pantalla real —columnas laterales
+   estrechas— para que lo que se configura aquí sea lo que luego se toca. */
+.gesture-grid {
+    display: grid;
+    grid-template-columns: 0.62fr 2fr 0.62fr;
+    grid-template-rows: repeat(3, 1fr);
+    gap: 3px;
+    aspect-ratio: 9 / 14;
+    max-height: 46vh;
+    margin: var(--sp-3) auto;
+    width: 100%;
+    max-width: 260px;
+}
+
+.gesture-zone {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    color: var(--text-2);
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.gesture-zone:active { background: var(--surface-3); }
+
+/* Una zona apagada se ve apagada: si pareciera igual que las demás, no habría
+   forma de distinguir «no hace nada» de «hace algo que no recuerdo». */
+.gesture-zone.off {
+    background: transparent;
+    border-style: dashed;
+    color: var(--text-3);
+}
+
+.gesture-zone-name {
+    font-size: 10px;
+    line-height: 1.15;
+    text-align: center;
+    /* Las etiquetas largas se parten, no desbordan: la zona lateral mide poco
+       más de 50 px en la maqueta. */
+    overflow-wrap: anywhere;
+}
+
+.warn-note {
+    margin: var(--sp-2) 0;
+    padding: var(--sp-2) var(--sp-3);
+    border-radius: var(--r-sm);
+    background: color-mix(in srgb, var(--warn, #E8A33D) 14%, transparent);
+    color: var(--warn, #E8A33D);
+    font-size: var(--t-micro);
+    line-height: 1.4;
+}
+
+/* ═══ Resultados de contenido ═══════════════════════════════════════════════ */
+
+.content-results { margin-top: var(--sp-5); }
+
+.content-hit {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: var(--sp-3);
+    margin-bottom: var(--sp-2);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    cursor: pointer;
+}
+
+.content-hit:active { background: var(--surface-3); }
+
+.content-hit-book {
+    display: block;
+    font-size: var(--t-tiny);
+    font-weight: 650;
+    color: var(--text-1);
+}
+
+.content-hit-chapter {
+    display: block;
+    font-size: var(--t-micro);
+    color: var(--accent);
+    margin-top: 1px;
+}
+
+.content-hit-text {
+    display: block;
+    margin-top: var(--sp-2);
+    font-size: var(--t-small);
+    line-height: 1.45;
+    color: var(--text-2);
+}
+
+/* Lo que FTS5 marcó como coincidencia. Fondo y no negrita: en un fragmento de
+   dos líneas la negrita se confunde con el énfasis del propio texto. */
+.content-hit-text mark {
+    background: color-mix(in srgb, var(--accent) 24%, transparent);
+    color: var(--text-1);
+    border-radius: 2px;
+    padding: 0 2px;
+}

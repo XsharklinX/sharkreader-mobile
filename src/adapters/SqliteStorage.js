@@ -57,6 +57,38 @@ CREATE TABLE IF NOT EXISTS deleted_books (
     id         TEXT PRIMARY KEY NOT NULL,
     deleted_at INTEGER NOT NULL
 );
+
+-- Índice de contenido para buscar dentro de todos los libros a la vez.
+--
+-- Es una tabla FTS5 «externa»: no guarda el texto para devolverlo, solo lo
+-- indexa. Sin content='' SQLite guardaría además una copia íntegra de todos
+-- los libros, y una biblioteca de doscientos títulos pasaría de unos pocos MB
+-- de índice a varios cientos duplicando lo que ya está en disco.
+--
+-- Se indexa por capítulo y no por libro entero para poder decir en qué parte
+-- está lo que buscas: un resultado que solo dijera «está en este libro» dejaría
+-- el trabajo a medias.
+--
+-- El tokenizador unicode61 con remove_diacritics 2 hace que «cancion» encuentre
+-- «canción». Sin ello habría que escribir los acentos exactos, que en una barra
+-- de búsqueda de móvil no va a pasar.
+CREATE VIRTUAL TABLE IF NOT EXISTS book_content USING fts5(
+    book_id UNINDEXED,
+    href    UNINDEXED,
+    chapter,
+    body,
+    content='',
+    tokenize="unicode61 remove_diacritics 2"
+);
+
+-- Qué libros están indexados y con qué versión del indexador. Sin esto habría
+-- que releer cada libro en cada arranque para saberlo.
+CREATE TABLE IF NOT EXISTS content_index (
+    book_id    TEXT PRIMARY KEY NOT NULL,
+    indexed_at INTEGER NOT NULL,
+    version    INTEGER NOT NULL DEFAULT 1,
+    chapters   INTEGER NOT NULL DEFAULT 0
+);
 `;
 
 const toRow = (record) => ({
@@ -201,6 +233,13 @@ export const createSqliteStorage = () => {
                 'INSERT OR REPLACE INTO deleted_books (id, deleted_at) VALUES (?, ?)',
                 [id, Date.now()]
             );
+            // El índice de contenido se borra con el libro. FTS5 no tiene clave
+            // foránea, así que si no se limpia aquí, buscar seguiría devolviendo
+            // fragmentos de un libro que ya no existe.
+            await connection.executeSet([
+                { statement: 'DELETE FROM book_content WHERE book_id = ?', values: [id] },
+                { statement: 'DELETE FROM content_index WHERE book_id = ?', values: [id] },
+            ]);
         },
 
         async listDeletedBooks() {
@@ -229,6 +268,90 @@ export const createSqliteStorage = () => {
         async countBooks() {
             const result = await requireDb().query('SELECT COUNT(*) AS total FROM books');
             return (result.values || [])[0]?.total || 0;
+        },
+
+        // ── Índice de contenido (FTS5) ───────────────────────────────────────
+
+        /**
+         * Guarda el índice de un libro, reemplazando el anterior si lo hubiera.
+         *
+         * Va en una sola transacción: si se corta a medias —cerrar la app
+         * durante la indexación es lo normal— no puede quedar medio libro
+         * indexado y marcado como completo, porque entonces buscar devolvería
+         * resultados incompletos sin avisar de nada.
+         */
+        async indexBookContent(bookId, rows, version) {
+            const connection = requireDb();
+            const statements = [
+                { statement: 'DELETE FROM book_content WHERE book_id = ?', values: [bookId] },
+                ...rows.map((row) => ({
+                    statement: 'INSERT INTO book_content (book_id, href, chapter, body) VALUES (?,?,?,?)',
+                    values: [row.bookId, row.href, row.chapter, row.body],
+                })),
+                {
+                    statement: `INSERT OR REPLACE INTO content_index (book_id, indexed_at, version, chapters)
+                                VALUES (?,?,?,?)`,
+                    values: [bookId, Date.now(), version, rows.length],
+                },
+            ];
+            await connection.executeSet(statements);
+        },
+
+        /** Libros ya indexados y con qué versión, para saber qué falta. */
+        async indexedBooks() {
+            const result = await requireDb().query('SELECT book_id, version FROM content_index');
+            return Object.fromEntries(
+                (result.values || []).map((row) => [row.book_id, row.version])
+            );
+        },
+
+        async removeBookContent(bookId) {
+            const connection = requireDb();
+            await connection.executeSet([
+                { statement: 'DELETE FROM book_content WHERE book_id = ?', values: [bookId] },
+                { statement: 'DELETE FROM content_index WHERE book_id = ?', values: [bookId] },
+            ]);
+        },
+
+        /**
+         * Busca en el contenido de todos los libros.
+         *
+         * `snippet()` devuelve el trozo con las coincidencias marcadas, que es
+         * lo que hace la lista útil: sin él habría que abrir cada resultado
+         * para saber si es el que buscabas.
+         *
+         * El orden es por `rank`, la relevancia de FTS5, no por fecha ni
+         * título: si buscas una frase, lo que quieres arriba es donde mejor
+         * encaja.
+         */
+        async searchContent(ftsQuery, limit = 60) {
+            if (!ftsQuery) return [];
+            try {
+                const result = await requireDb().query(
+                    `SELECT c.book_id, c.href, c.chapter,
+                            snippet(book_content, 3, '«', '»', '…', 12) AS excerpt,
+                            b.title, b.author, b.type
+                       FROM book_content c
+                       JOIN books b ON b.id = c.book_id
+                      WHERE book_content MATCH ?
+                      ORDER BY rank
+                      LIMIT ?`,
+                    [ftsQuery, limit]
+                );
+                return (result.values || []).map((row) => ({
+                    bookId: row.book_id,
+                    href: row.href,
+                    chapter: row.chapter,
+                    excerpt: row.excerpt,
+                    title: row.title,
+                    author: row.author,
+                    type: row.type,
+                }));
+            } catch {
+                // Una consulta que FTS5 no entiende no puede tumbar la
+                // búsqueda: se devuelve vacío y la pantalla lo cuenta.
+                return [];
+            }
         },
 
         // El binario lo gestiona el plugin nativo; estos dos métodos existen para

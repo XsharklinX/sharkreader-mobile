@@ -133,11 +133,20 @@ describe('controlador del gesto', () => {
         // Un arrastre corto interrumpido no completa: el usuario no llegó a
         // expresar que quería pasar página. Pasado el umbral sí completa, y eso
         // se prueba aparte en «interrupción del sistema».
-        const { drag, onCancel } = setup();
-        drag.down(at(300));
-        drag.move(at(270));
-        drag.cancel();
-        expect(onCancel).toHaveBeenCalled();
+        //
+        // El reloj se controla porque 30 px en un instante son un golpe seco y
+        // completarían por velocidad, no por distancia.
+        vi.useFakeTimers();
+        try {
+            const { drag, onCancel } = setup();
+            drag.down(at(300));
+            vi.advanceTimersByTime(400);
+            drag.move(at(270));
+            drag.cancel();
+            expect(onCancel).toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('desactivado no hace nada: hay que poder apagarlo en gama baja', () => {
@@ -176,13 +185,22 @@ describe('interrupción del sistema', () => {
     });
 
     it('devuelve la página si no había llegado al umbral', () => {
-        const { drag, onCommit, onCancel } = build();
-        drag.down({ clientX: 300, clientY: 200 });
-        drag.move({ clientX: 275, clientY: 205 });
-        drag.cancel();
+        // El tiempo se controla a mano: 25 px recorridos en un instante son un
+        // golpe seco y completarían por velocidad. Lo que se quiere probar aquí
+        // es el arrastre lento y corto, así que el reloj tiene que avanzar.
+        vi.useFakeTimers();
+        try {
+            const { drag, onCommit, onCancel } = build();
+            drag.down({ clientX: 300, clientY: 200 });
+            vi.advanceTimersByTime(400);
+            drag.move({ clientX: 275, clientY: 205 });
+            drag.cancel();
 
-        expect(onCommit).not.toHaveBeenCalled();
-        expect(onCancel).toHaveBeenCalledOnce();
+            expect(onCommit).not.toHaveBeenCalled();
+            expect(onCancel).toHaveBeenCalledOnce();
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('no hace nada si el dedo no llegó a arrastrar', () => {
