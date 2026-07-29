@@ -42,11 +42,35 @@
 /**
  * Cada transición declara sus dos fases.
  *
- * `out` es corta a propósito: es tiempo en que el usuario ya ha pedido la página
- * y todavía no la tiene. `in` puede permitirse algo más porque ahí el contenido
- * ya está delante.
+ * Por norma la salida es corta: es tiempo en que el usuario ya ha pedido la
+ * página y todavía no la tiene. La entrada puede permitirse más porque ahí el
+ * contenido ya está delante.
+ *
+ * **`leadsWithOut` invierte ese reparto.** Hay transiciones en las que lo que se
+ * mira es la hoja que se va —el doblado, la hoja suelta—: ahí la salida *es* la
+ * animación y la entrada solo asienta la siguiente. Repartir al revés dejaría el
+ * pliegue en un parpadeo y alargaría la parte que no aporta nada.
  */
 export const PAGE_TRANSITIONS = {
+    curl: {
+        label: 'Doblar hoja',
+        description: 'La hoja se levanta y gira sobre su borde, como el papel.',
+        out: 210,
+        in: 130,
+        curl: true,
+        veil: false,
+        // Ver `leadsWithOut` más abajo.
+        leadsWithOut: true,
+    },
+    paper: {
+        label: 'Hoja suelta',
+        description: 'La hoja se va y deja ver la siguiente, que estaba debajo.',
+        out: 160,
+        in: 120,
+        shift: 100,
+        veil: false,
+        leadsWithOut: true,
+    },
     none: {
         label: 'Ninguna',
         description: 'Cambio instantáneo. Lo más rápido y lo único sin coste.',
@@ -86,7 +110,17 @@ export const PAGE_TRANSITIONS = {
     },
 };
 
-export const DEFAULT_TRANSITION = 'slide';
+/**
+ * El doblado es la de por defecto.
+ *
+ * Es la que se parece a pasar una hoja, y es la única que además responde al
+ * dedo de forma continua: arrastrando despacio se ve la hoja separarse en vez de
+ * esperar a que la animación decida.
+ */
+export const DEFAULT_TRANSITION = 'curl';
+
+/** ¿Esta transición dibuja un pliegue en perspectiva? */
+export const usesCurl = (id) => Boolean(PAGE_TRANSITIONS[id]?.curl);
 
 /**
  * Estado visual de una fase.
@@ -121,6 +155,21 @@ export const phaseState = (id, direction, phase) => {
     const shift = Math.round((spec.shift || 0) * sign) || 0;
     const scale = spec.scale && phase !== 'rest' ? spec.scale : 1;
 
+    // El doblado no se describe con desplazamiento: su geometría la calcula
+    // `pageCurl.js` a partir del progreso, porque tiene que poder seguir al dedo
+    // y no solo recorrer una animación de duración fija.
+    if (spec.curl) {
+        return {
+            curl: true,
+            // Salir es llevar la hoja al final del pliegue; entrar es traer la
+            // siguiente desde su sitio, que apenas se mueve.
+            progress: phase === 'out' ? 1 : 0,
+            direction,
+            veil: 0,
+            duration: phase === 'out' ? spec.out : spec.in,
+        };
+    }
+
     return {
         transform: scale === 1
             ? `translate3d(${shift}px,0,0)`
@@ -154,6 +203,37 @@ const frame = () => new Promise((resolve) => {
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
+ * Pinta un estado, sea de desplazamiento o de pliegue.
+ *
+ * Se separa de `runTurn` porque el doblado necesita `pageCurl.js`, y meterlo
+ * dentro dejaría este módulo con dos responsabilidades: la secuencia temporal y
+ * la geometría. La secuencia es la misma para todas las transiciones.
+ */
+const paint = (element, veil, state, duration, curl) => {
+    if (!element) return;
+    element.style.transitionDuration = `${duration}ms`;
+
+    if (state.curl && curl) {
+        const geometry = curl.state(state.progress, state.direction, element.clientWidth || 0);
+        element.style.transformOrigin = geometry.origin;
+        element.style.transform = geometry.transform;
+        if (veil) {
+            veil.style.transitionDuration = `${duration}ms`;
+            veil.style.background = curl.shade(state.direction);
+            veil.style.opacity = String(geometry.shade);
+        }
+        return;
+    }
+
+    element.style.transform = state.transform;
+    if (veil) {
+        veil.style.transitionDuration = `${duration}ms`;
+        veil.style.background = '';
+        veil.style.opacity = String(state.veil);
+    }
+};
+
+/**
  * Ejecuta el paso de página con su animación.
  *
  * A diferencia de la versión anterior, **esta función es la que cambia la
@@ -170,22 +250,18 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  *   Se salta la fase de salida. Lo usa el arrastre: el dedo ya ha movido la
  *   página fuera, y volver a sacarla daría un salto.
  * @param {boolean} [options.reducedMotion]
+ * @param {{state: Function, shade: Function, perspective: number}} [options.curl]
+ *   Geometría del pliegue. Se inyecta en lugar de importarla para que este
+ *   módulo siga siendo puro tiempo y orden, sin saber de perspectivas.
  * @returns {{done: Promise<void>, cancel: () => void}}
  */
 export const runTurn = ({
     element, veil, id, direction, commit, skipOut = false, reducedMotion = false,
+    curl = null,
 }) => {
     let cancelled = false;
 
-    const apply = (state, duration) => {
-        if (!element) return;
-        element.style.transitionDuration = `${duration}ms`;
-        element.style.transform = state.transform;
-        if (veil) {
-            veil.style.transitionDuration = `${duration}ms`;
-            veil.style.opacity = String(state.veil);
-        }
-    };
+    const apply = (state, duration) => paint(element, veil, state, duration, curl);
 
     const settle = () => {
         if (!element) return;
@@ -195,10 +271,13 @@ export const runTurn = ({
         // veía sutilmente distinto que en reposo.
         element.style.transitionDuration = '';
         element.style.transform = '';
+        element.style.transformOrigin = '';
+        element.style.perspective = '';
         element.style.willChange = '';
         if (veil) {
             veil.style.transitionDuration = '';
             veil.style.opacity = '';
+            veil.style.background = '';
         }
     };
 
@@ -213,7 +292,14 @@ export const runTurn = ({
         // La capa se promueve **antes** de empezar y una sola vez. Promoverla al
         // arrancar la animación fuerza una rasterización a mitad del primer
         // fotograma, que es el tirón inicial que se notaba.
-        if (element) element.style.willChange = 'transform';
+        if (element) {
+            element.style.willChange = 'transform';
+            // La perspectiva se pone antes del primer fotograma: cambiarla a
+            // mitad del giro reencuadra la hoja de golpe.
+            if (PAGE_TRANSITIONS[id]?.curl && curl) {
+                element.style.perspective = `${curl.perspective}px`;
+            }
+        }
         await frame();
         if (cancelled) { settle(); return; }
 

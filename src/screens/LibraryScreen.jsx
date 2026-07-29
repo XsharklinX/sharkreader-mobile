@@ -7,6 +7,7 @@ import { selectBooks, FILTERS, SORTS } from '../library/useLibrary.js';
 import { minutesToday } from '../stats/derive.js';
 import { buildSeries } from '../library/collections.js';
 import ContentResults from '../library/ContentResults.jsx';
+import Bookshelf from '../library/Bookshelf.jsx';
 import CatalogScreen from '../catalog/CatalogScreen.jsx';
 import { useContentIndex } from '../library/useContentIndex.js';
 import {
@@ -30,7 +31,35 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
     const [importChoice, setImportChoice] = useState(false);
     const [catalogOpen, setCatalogOpen] = useState(false);
 
+    // Rejilla o estante. Es preferencia de la app, se configura en Ajustes y se
+    // puede cambiar al vuelo desde la propia biblioteca.
+    const shelfView = (statsApi?.preferences?.libraryView || 'grid') === 'shelf';
+
     const browsing = Boolean(query.trim()) || filter !== 'all';
+
+    /**
+     * Pinta una colección de libros con la vista elegida.
+     *
+     * Se hace con un ayudante y no repitiendo el JSX en los tres sitios donde se
+     * listan libros: la vista de estante se añadió después y, si estuviera
+     * copiada, aparecería en unos listados y no en otros.
+     */
+    const renderBooks = (list) => (shelfView
+        ? (
+            <Bookshelf
+                books={list}
+                width={typeof window === 'undefined' ? 0 : window.innerWidth}
+                onOpen={openBook}
+                onLongPress={setDetail}
+            />
+        )
+        : (
+            <div className={`grid-books${compact ? ' compact' : ''}`}>
+                {list.map((book) => (
+                    <BookCard key={book.id} book={book} onOpen={openBook} onLongPress={setDetail} />
+                ))}
+            </div>
+        ));
 
     // ── Búsqueda dentro de los libros ────────────────────────────────────────
     //
@@ -312,11 +341,7 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                                         <h2 className="section-title">Libros</h2>
                                         <span className="section-meta">{visible.length}</span>
                                     </div>
-                                    <div className={`grid-books${compact ? ' compact' : ''}`}>
-                                        {visible.map((book) => (
-                                            <BookCard key={book.id} book={book} onOpen={openBook} onLongPress={setDetail} />
-                                        ))}
-                                    </div>
+                                    {renderBooks(visible)}
                                 </div>
                             )}
 
@@ -412,11 +437,7 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                             <h2 className="section-title">Toda la biblioteca</h2>
                             <span className="section-meta">{books.length}</span>
                         </div>
-                        <div className={`grid-books${compact ? ' compact' : ''}`}>
-                            {selectBooks(books, { sort }).map((book) => (
-                                <BookCard key={book.id} book={book} onOpen={openBook} onLongPress={setDetail} />
-                            ))}
-                        </div>
+                        {renderBooks(selectBooks(books, { sort }))}
                     </div>
                 </>
             )}

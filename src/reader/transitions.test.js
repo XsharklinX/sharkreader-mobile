@@ -17,13 +17,30 @@ describe('catálogo de transiciones', () => {
         expect(transitionDuration('none')).toBe(0);
     });
 
-    it('la fase de salida es más corta que la de entrada', () => {
+    it('la salida es corta salvo cuando es la protagonista', () => {
         // Salir es tiempo en que el usuario ya ha pedido la página y aún no la
-        // tiene. Entrar puede permitirse más porque el contenido ya está ahí.
+        // tiene, así que conviene que sea breve.
         Object.entries(PAGE_TRANSITIONS).forEach(([id, spec]) => {
-            if (spec.out === 0) return;
+            if (spec.out === 0 || spec.leadsWithOut) return;
             expect(spec.out, id).toBeLessThan(spec.in);
         });
+    });
+
+    it('las que enseñan la hoja que se va invierten el reparto', () => {
+        // Ahí la salida **es** la animación que se mira. Al revés, el pliegue
+        // quedaría en un parpadeo y se alargaría la parte que no aporta nada.
+        Object.entries(PAGE_TRANSITIONS)
+            .filter(([, spec]) => spec.leadsWithOut)
+            .forEach(([id, spec]) => {
+                expect(spec.out, id).toBeGreaterThan(spec.in);
+            });
+        expect(PAGE_TRANSITIONS.curl.leadsWithOut).toBe(true);
+    });
+
+    it('hay al menos seis formas de pasar página', () => {
+        // Con dos opciones no hay nada que elegir. Una app de lectura que se
+        // usa horas al día tiene que dejar ajustar esto.
+        expect(Object.keys(PAGE_TRANSITIONS).length).toBeGreaterThanOrEqual(6);
     });
 
     it('ninguna dura tanto como para estorbar al pasar páginas seguidas', () => {
@@ -38,6 +55,15 @@ describe('catálogo de transiciones', () => {
 });
 
 describe('phaseState', () => {
+    it('el doblado se describe por progreso, no por desplazamiento', () => {
+        // Tiene que poder seguir al dedo, y un desplazamiento fijo solo sirve
+        // para una animación de duración cerrada.
+        const out = phaseState('curl', 'next', 'out');
+        expect(out.curl).toBe(true);
+        expect(out.progress).toBe(1);
+        expect(phaseState('curl', 'next', 'in').progress).toBe(0);
+    });
+
     it('nunca toca la opacidad del texto: solo transform y velo', () => {
         // Es el arreglo del temblor. Animar la opacidad de un elemento con texto
         // hace que el WebView cambie de suavizado subpíxel a escala de grises
@@ -65,7 +91,10 @@ describe('phaseState', () => {
         // en cada fotograma. Era la tercera causa del temblor.
         Object.keys(PAGE_TRANSITIONS).forEach((id) => {
             ['out', 'in'].forEach((phase) => {
-                const match = phaseState(id, 'next', phase).transform.match(/(-?[\d.]+)px/);
+                // El doblado no describe su geometría aquí: la calcula
+                // `pageCurl.js` a partir del progreso, y allí se comprueba.
+                const { transform } = phaseState(id, 'next', phase);
+                const match = transform?.match(/(-?[\d.]+)px/);
                 if (!match) return;
                 expect(Number.isInteger(Number(match[1])), `${id}/${phase}`).toBe(true);
             });

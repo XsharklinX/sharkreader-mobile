@@ -85,7 +85,9 @@ describe('controlador del gesto', () => {
         const { drag, onMove } = setup();
         drag.down(at(300));
         drag.move(at(200));
-        expect(onMove).toHaveBeenCalledWith(-100);
+        // Además del desplazamiento recibe el progreso y el sentido, que es lo
+        // que el doblado de hoja necesita para seguir al dedo.
+        expect(onMove).toHaveBeenCalledWith(-100, expect.any(Number), 'next');
     });
 
     it('un movimiento vertical cancela: era scroll o selección', () => {

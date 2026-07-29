@@ -425,3 +425,166 @@
     /* La onda se queda quieta: el estado lo dice el texto de al lado. */
     .waveform.on i { animation: none; transform: scaleY(.7); }
 }
+
+/* ═══ Selector de animación ═════════════════════════════════════════════════
+ *
+ * Cada opción es una maqueta que se anima al tocarla. Antes eran siete filas con
+ * nombre y frase explicativa, y para elegir había que leerlas todas, imaginarse
+ * cada una y probarlas cerrando y abriendo la hoja. Nadie hace eso.
+ *
+ * Las rayas sustituyen al texto a propósito: a este tamaño el texto sería
+ * ilegible y lo que se juzga es el movimiento.
+ */
+
+.turn-picker {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: var(--sp-2);
+}
+
+.turn-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: var(--sp-2) 6px;
+    background: none;
+    border: 2px solid transparent;
+    border-radius: var(--r-md);
+    color: var(--text-2);
+    font: inherit;
+    font-size: var(--t-micro);
+    cursor: pointer;
+}
+
+.turn-option.on { border-color: var(--accent); color: var(--text); }
+.turn-option.on .turn-name { font-weight: 650; }
+
+.turn-name { text-align: center; line-height: 1.2; }
+
+/* Escenario de la maqueta. `perspective` aquí y no en la hoja: el pliegue
+   necesita un punto de fuga en el padre, igual que en el lector. */
+.turn-demo {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    border-radius: 5px;
+    background: var(--surface-3);
+    overflow: hidden;
+    perspective: 260px;
+}
+
+.demo-under,
+.demo-sheet {
+    position: absolute;
+    inset: 0;
+    border-radius: 4px;
+}
+
+/* La de debajo, más apagada: es la que se destapa. */
+.demo-under { background: var(--surface-2); }
+
+.demo-sheet {
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 0 7px;
+    backface-visibility: hidden;
+}
+
+/* Las «líneas de texto». La última más corta, como un párrafo de verdad. */
+.demo-sheet i { display: block; height: 2px; border-radius: 1px; background: var(--text-3); opacity: .55; }
+.demo-sheet i:last-child { width: 58%; }
+
+/* Cada animación reproduce el movimiento real de su transición, con la misma
+   proporción entre las dos fases. */
+.demo-curl.playing .demo-sheet    { animation: demo-curl 900ms ease-in-out; transform-origin: left center; }
+.demo-paper.playing .demo-sheet   { animation: demo-paper 760ms cubic-bezier(.32,.72,.24,1); }
+.demo-slide.playing .demo-sheet   { animation: demo-slide 620ms cubic-bezier(.32,.72,.24,1); }
+.demo-push.playing .demo-sheet    { animation: demo-push 780ms cubic-bezier(.32,.72,.24,1); }
+.demo-fade.playing .demo-sheet    { animation: demo-fade 620ms linear; }
+.demo-zoom.playing .demo-sheet    { animation: demo-zoom 660ms ease-in-out; }
+
+/* «Ninguna» también se anima: un corte seco es información —dice que no hay
+   animación— y una maqueta quieta parecería que la opción está rota. */
+.demo-none.playing .demo-sheet    { animation: demo-none 420ms steps(2, jump-none); }
+
+@keyframes demo-curl {
+    0%   { transform: rotateY(0deg) translateX(0); }
+    58%  { transform: rotateY(-76deg) translateX(-16%); }
+    59%  { transform: rotateY(76deg) translateX(16%); opacity: 0; }
+    60%  { transform: rotateY(0deg) translateX(0); opacity: 1; }
+    100% { transform: rotateY(0deg) translateX(0); }
+}
+
+@keyframes demo-paper {
+    0%   { transform: translateX(0); }
+    55%  { transform: translateX(-100%); }
+    56%  { transform: translateX(0); opacity: 0; }
+    57%  { opacity: 1; }
+    100% { transform: translateX(0); }
+}
+
+@keyframes demo-slide {
+    0%   { transform: translateX(0); }
+    45%  { transform: translateX(-24%); }
+    46%  { transform: translateX(24%); }
+    100% { transform: translateX(0); }
+}
+
+@keyframes demo-push {
+    0%   { transform: translateX(0); }
+    48%  { transform: translateX(-62%); }
+    49%  { transform: translateX(62%); }
+    100% { transform: translateX(0); }
+}
+
+/* El fundido de la maqueta sí usa opacidad: es un rectángulo con rayas, no
+   texto, así que aquí no hay glifos que se puedan re-rasterizar. */
+@keyframes demo-fade {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0; }
+}
+
+@keyframes demo-zoom {
+    0%   { transform: scale(1); }
+    45%  { transform: scale(.9); opacity: .3; }
+    46%  { transform: scale(1.06); opacity: .3; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes demo-none {
+    0%, 49%   { opacity: 1; }
+    50%, 100% { opacity: 1; transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .turn-demo .demo-sheet { animation: none !important; }
+}
+
+/* El dock con tres botones en vez de cuatro: las notas han subido a la barra
+   superior con el resto de lo que sitúa al lector en el libro. */
+.reader-dock.three { grid-template-columns: repeat(3, 1fr); }
+
+/* Contador sobre un botón de la barra superior. Más pequeño que el del dock
+   porque el botón también lo es. */
+.icon-btn { position: relative; }
+
+.icon-badge {
+    position: absolute;
+    top: 2px;
+    right: 1px;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 3px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--reader-bg, var(--accent-ink));
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 15px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}

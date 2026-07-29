@@ -1197,10 +1197,20 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
    epub.js renderiza el capítulo entero pero `.reader { overflow:hidden }` lo
    recortaba a la primera pantalla: era la causa de que el modo scroll no
    hiciera nada. */
+/* Modo continuo: el contenedor es el que desplaza, y el gestor «continuous» de
+   epub.js va añadiendo capítulos alrededor del actual. Sin `overflow-y: auto`
+   aquí el contenido crece pero no se puede recorrer.
+
+   `transform: none` es obligatorio: el pliegue y el arrastre escriben un
+   transform en este mismo elemento, y un elemento con transform crea un contexto
+   que rompe el desplazamiento nativo. Desplazando no hay páginas que animar, así
+   que no se pierde nada. */
 .reader-viewport.scrolled {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
+    overscroll-behavior-y: contain;
+    transform: none !important;
+    perspective: none !important;
 }
 
 /* Las animaciones se aplican al contenedor, no dentro del iframe: epub.js lo
@@ -2078,3 +2088,50 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 /* Sin transición a propósito: un fundido gradual repinta por zonas, que es
    exactamente lo que se está intentando evitar. Y por el mismo motivo esta
    regla se salta `prefers-reduced-motion`: no es decoración, es la función. */
+
+/* ═══ Biblioteca como estante ═══════════════════════════════════════════════
+ *
+ * Le da peso físico a la colección: se ve cuántos libros hay como se ve en una
+ * estantería de verdad. Y las portadas se apoyan en una línea, lo que arregla un
+ * defecto real de la rejilla — los EPUB traen portadas de proporciones muy
+ * distintas y sus bordes inferiores quedaban a alturas distintas.
+ */
+
+.shelves { display: flex; flex-direction: column; gap: var(--sp-5); }
+
+.shelf { display: flex; flex-direction: column; }
+
+/* Columnas fijas, no `auto-fill`: un anaquel con un hueco a la derecha se ve mal.
+   Los huecos que falten los rellena `.shelf-gap`. */
+.shelf-books {
+    display: grid;
+    grid-template-columns: repeat(var(--per-shelf, 3), 1fr);
+    gap: var(--sp-3);
+    align-items: end;
+    padding: 0 var(--sp-2);
+}
+
+/* Las portadas descansan sobre la tabla, así que se alinean por abajo. */
+.shelf-books .book-card { align-self: end; }
+
+.shelf-gap { display: block; }
+
+/* La tabla del anaquel. El degradado da el canto y la sombra: sin él es una
+   línea, y una línea no se lee como madera. */
+.shelf-board {
+    height: 11px;
+    margin-top: -2px;
+    border-radius: 0 0 3px 3px;
+    background:
+        linear-gradient(180deg,
+            color-mix(in srgb, var(--text-3) 42%, transparent) 0%,
+            color-mix(in srgb, var(--text-3) 22%, transparent) 45%,
+            transparent 100%);
+    /* La sombra que proyectan los libros sobre la tabla. */
+    box-shadow: 0 -3px 8px -3px rgba(0, 0, 0, .45);
+}
+
+/* Dos pestañas en vez de tres: Ajustes estaba duplicado con el de la cabecera de
+   la biblioteca, y dos caminos al mismo sitio en la misma pantalla hacen dudar
+   de si llevan a lo mismo. */
+.tabbar.two { justify-content: space-evenly; }

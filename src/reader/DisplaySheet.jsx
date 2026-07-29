@@ -3,6 +3,7 @@ import Sheet, { Row, Group, Segmented } from '../ui/Sheet.jsx';
 import Switch from '../ui/Switch.jsx';
 import { READER_THEMES } from './typography.js';
 import { PAGE_TRANSITIONS } from './transitions.js';
+import TransitionPicker from './TransitionPicker.jsx';
 import { AUTOSCROLL_SPEEDS } from './useAutoScroll.js';
 import { SPREAD_MODES } from './spread.js';
 import { RULER_MODES } from './ruler.js';
@@ -21,9 +22,10 @@ import { IconSun, IconColumns, IconRotate, IconEink, IconRuler } from '../ui/ico
  * se hace aquí— obligaba a recorrer la lista entera, y las opciones frecuentes
  * competían por atención con las que se tocan una vez en la vida.
  *
- * Ahora hay dos niveles. Arriba **el tema y el brillo**, que son el motivo por
- * el que se abre esta hoja el 90 % de las veces. Debajo, cuatro filas que llevan
- * a lo demás. El reparto no es por parentesco técnico sino por momento de uso:
+ * Ahora hay dos niveles. Arriba **el tema**, que es el motivo por el que se abre
+ * esta hoja casi siempre. Debajo, cuatro filas que llevan a lo demás. El brillo
+ * y el filtro cálido tienen su propia hoja con botón en la barra superior:
+ * estaban en una franja invisible del borde izquierdo que nadie encontraba. El reparto no es por parentesco técnico sino por momento de uso:
  * gestos y orientación van juntos porque los dos se configuran una vez y no se
  * vuelven a mirar.
  *
@@ -38,8 +40,6 @@ export default function DisplaySheet({
     theme, onChangeTheme,
     flow, onChangeFlow,
     transition, onChangeTransition,
-    dim, onChangeDim,
-    warm, onChangeWarm,
     spread, onChangeSpread, columns,
     orientation, onChangeOrientation,
     ruler, onChangeRuler,
@@ -72,24 +72,16 @@ export default function DisplaySheet({
                         no hay página que pasar ni que repartir. */}
                     {flow !== 'scrolled' && (
                         <>
-                            <Group label="Al pasar página">
-                                <div className="option-list">
-                                    {Object.entries(PAGE_TRANSITIONS).map(([id, option]) => (
-                                        <button
-                                            key={id}
-                                            type="button"
-                                            className={`option${transition === id ? ' on' : ''}`}
-                                            onClick={() => onChangeTransition(id)}
-                                            aria-pressed={transition === id}
-                                        >
-                                            <span className="option-txt">
-                                                <span className="option-name">{option.label}</span>
-                                                <span className="option-desc">{option.description}</span>
-                                            </span>
-                                            <span className="option-mark" aria-hidden="true" />
-                                        </button>
-                                    ))}
-                                </div>
+                            {/* Se elige mirando, no leyendo: cada maqueta hace
+                                el movimiento de su transición al tocarla. */}
+                            <Group
+                                label="Al pasar página"
+                                hint={PAGE_TRANSITIONS[transition]?.description}
+                            >
+                                <TransitionPicker
+                                    value={transition}
+                                    onChange={onChangeTransition}
+                                />
                             </Group>
 
                             <Segmented
@@ -148,26 +140,6 @@ export default function DisplaySheet({
                         hint="Como poner una cuartilla bajo el renglón. Se arrastra con el dedo y
                               salta de línea en línea, para no cortar las letras por la mitad."
                     />
-
-                    {/* Quitar azul es distinto de atenuar: de madrugada lo que
-                        molesta es el componente azul, no el brillo. */}
-                    <Group
-                        label="Filtro cálido"
-                        hint="Reduce la luz azul para leer de noche sin forzar la vista."
-                    >
-                        <div className="slider-row">
-                            <input
-                                type="range"
-                                min={0}
-                                max={55}
-                                value={Math.round((warm || 0) * 100)}
-                                onChange={(event) => onChangeWarm(Number(event.target.value) / 100)}
-                                aria-label="Filtro cálido"
-                                className="warm-slider"
-                            />
-                            <span className="slider-val">{Math.round((warm / 0.55) * 100)}%</span>
-                        </div>
-                    </Group>
 
                     {autoScroll && (
                         <Group
@@ -289,25 +261,6 @@ export default function DisplaySheet({
                                 El modo tinta electrónica impone negro sobre blanco.
                             </p>
                         )}
-                    </Group>
-
-                    <Group
-                        label="Brillo"
-                        hint="Baja por debajo del mínimo del sistema. También se ajusta deslizando
-                              por el borde izquierdo mientras lees."
-                    >
-                        <div className="slider-row">
-                            <IconSun size={16} />
-                            <input
-                                type="range"
-                                min={0}
-                                max={72}
-                                value={Math.round(dim * 100)}
-                                onChange={(event) => onChangeDim(Number(event.target.value) / 100)}
-                                aria-label="Atenuar la pantalla"
-                            />
-                            <span className="slider-val">{Math.round((dim / 0.72) * 100)}%</span>
-                        </div>
                     </Group>
 
                     <div className="rows">

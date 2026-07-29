@@ -5,9 +5,11 @@ import { buildReaderStyles, DEFAULT_TYPOGRAPHY, READER_THEMES, EINK_OVERRIDES } 
 import { mapStatus, progressLabel } from './locationMap.js';
 import { createRefreshCounter, flashScreen, DEFAULT_REFRESH_EVERY } from './einkRefresh.js';
 import ReadingRuler from './ReadingRuler.jsx';
+import BrightnessSheet from './BrightnessSheet.jsx';
 import ReaderSettingsSheet from './ReaderSettingsSheet.jsx';
 import DisplaySheet from './DisplaySheet.jsx';
-import { runTurn, DEFAULT_TRANSITION } from './transitions.js';
+import { runTurn, DEFAULT_TRANSITION, usesCurl } from './transitions.js';
+import { curlState, shadeGradient, PERSPECTIVE } from './pageCurl.js';
 import { buildFontFaceCss } from './fontLoader.js';
 import { useHistory } from './useHistory.js';
 import FootnoteSheet from './FootnoteSheet.jsx';
@@ -16,7 +18,6 @@ import { createPageDrag } from './pageDrag.js';
 import TocDrawer from './TocDrawer.jsx';
 import SelectionToolbar from './SelectionToolbar.jsx';
 import AnnotationsPanel from './AnnotationsPanel.jsx';
-import DimZone from './DimZone.jsx';
 import SpeechBar from './SpeechBar.jsx';
 import SpeechSheet from './SpeechSheet.jsx';
 import { useSpeech } from './useSpeech.js';
@@ -157,6 +158,8 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
      */
     const transitionRef = useRef(effectiveTransition);
     transitionRef.current = effectiveTransition;
+    const flowRef = useRef(typography.flow);
+    flowRef.current = typography.flow;
     const turnRef = useRef(null);
     const veilRef = useRef(null);
 
@@ -198,10 +201,15 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         turnRef.current = runTurn({
             element: viewportRef.current,
             veil: veilRef.current,
-            id: transitionRef.current,
+            // Desplazando el cambio es instantáneo: el contenedor tiene el
+            // desplazamiento nativo y escribirle un transform lo rompería.
+            id: flowRef.current === 'scrolled' ? 'none' : transitionRef.current,
             direction,
             skipOut: fromDrag,
             reducedMotion: reducedMotionRef.current,
+            // La geometría del pliegue se inyecta: `transitions.js` se ocupa del
+            // orden y del tiempo, `pageCurl.js` de las perspectivas.
+            curl: { state: curlState, shade: shadeGradient, perspective: PERSPECTIVE },
             commit: () => (direction === 'next' ? engine.next() : engine.prev()),
         });
 
@@ -221,12 +229,46 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
      */
     const dragRef = useRef(null);
     if (!dragRef.current) {
-        const setShift = (shift) => {
+        /**
+         * Mueve la hoja con el dedo.
+         *
+         * **Aquí estaba el temblor.** Antes se escribía
+         * `translateX(${shift}px)` con el desplazamiento crudo del puntero, que
+         * viene con decimales, y sin promover la capa. Sin capa compuesta el
+         * WebView vuelve a maquetar y a pintar el texto en cada fotograma, y al
+         * caer en posiciones fraccionarias cada letra se dibuja distinta cada
+         * vez. Por eso solo se notaba arrastrando despacio: es cuando hay
+         * decenas de fotogramas seguidos con el texto a medio píxel.
+         *
+         * Dos cambios: redondear a píxel entero —a 60 fps, un píxel de
+         * granularidad es invisible— y `translate3d`, que sube la hoja a una
+         * capa de la GPU y la mueve como un mapa de bits ya rasterizado.
+         */
+        const setShift = (shift, progress, direction) => {
             const node = viewportRef.current;
             if (!node) return;
             node.classList.add('dragging');
             node.classList.remove('releasing');
-            node.style.transform = `translateX(${shift}px)`;
+
+            if (usesCurl(transitionRef.current)) {
+                const state = curlState(progress, direction, node.clientWidth);
+                node.style.transformOrigin = state.origin;
+                node.style.transform = state.transform;
+                paintShade(state.shade, direction);
+                return;
+            }
+
+            node.style.transformOrigin = '';
+            node.style.transform = `translate3d(${Math.round(shift)}px,0,0)`;
+        };
+
+        /** Sombra del pliegue. Vive en el velo, que ya está sobre la página. */
+        const paintShade = (opacity, direction) => {
+            const veil = veilRef.current;
+            if (!veil) return;
+            veil.style.background = shadeGradient(direction);
+            veil.style.opacity = String(opacity);
+            veil.style.transitionDuration = '0ms';
         };
 
         const release = () => {
@@ -235,16 +277,51 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             node.classList.remove('dragging');
             node.classList.add('releasing');
             node.style.transform = '';
+            node.style.transformOrigin = '';
+
+            const veil = veilRef.current;
+            if (veil) {
+                // La sombra se desvanece con la vuelta de la hoja, no de golpe.
+                veil.style.transitionDuration = '';
+                veil.style.opacity = '';
+                veil.style.background = '';
+            }
         };
 
         dragRef.current = createPageDrag({
+            /**
+             * La capa se promueve al **empezar** el gesto.
+             *
+             * Promoverla en el primer `move` fuerza una rasterización a mitad
+             * del primer fotograma del arrastre: es el tirón que se notaba justo
+             * al empezar a deslizar.
+             */
+            onStart: () => {
+                const node = viewportRef.current;
+                if (!node) return;
+                node.style.willChange = 'transform';
+                if (usesCurl(transitionRef.current)) {
+                    node.style.perspective = `${PERSPECTIVE}px`;
+                }
+            },
+            onEnd: () => {
+                const node = viewportRef.current;
+                if (!node) return;
+                // Se retira al acabar: una capa compuesta permanente mantiene el
+                // texto con otro suavizado que el resto de la app.
+                node.style.willChange = '';
+                node.style.perspective = '';
+            },
             // El ancho del documento del libro, no el del contenedor: los
             // eventos llegan en coordenadas del iframe y el contenedor es más
             // ancho por los márgenes de lectura.
             getWidth: () => engineRef.current?.contentWidth()
                 || viewportRef.current?.clientWidth
                 || window.innerWidth,
-            isEnabled: () => transitionRef.current !== 'none'
+            // Desplazando no hay páginas que arrastrar: el gesto vertical es del
+            // navegador y el horizontal no significa nada.
+            isEnabled: () => flowRef.current !== 'scrolled'
+                && transitionRef.current !== 'none'
                 && !engineRef.current?.selectionText(),
             onMove: setShift,
             onCancel: release,
@@ -837,7 +914,6 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             {!eink && dim > 0 && <div className="reader-dim" style={{ opacity: dim }} aria-hidden="true" />}
             {!eink && warm > 0 && <div className="reader-warm" style={{ opacity: warm }} aria-hidden="true" />}
 
-            {!eink && <DimZone value={dim} onChange={setDim} />}
 
             {ruler !== 'off' && state === 'ready' && (
                 <ReadingRuler
@@ -882,10 +958,20 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     <span className="reader-book">{book.name}</span>
                     {location.chapter && <span className="reader-chapter">{location.chapter}</span>}
                 </div>
-                {/* Índice y búsqueda van arriba, junto al título y al marcador:
-                    los tres responden a «dónde estoy y a dónde voy». Abajo
-                    quedan solo los ajustes de lectura, que es lo que se toca
-                    mientras se lee y no para navegar. */}
+                {/* Arriba va lo que responde a «dónde estoy, a dónde voy y qué
+                    he marcado». Abajo, solo los ajustes de lectura.
+
+                    El brillo estaba en una franja invisible del borde izquierdo:
+                    no se veía, no se sabía que existía y arrastrar ahí también lo
+                    interpretaba el gesto de pasar página. Ahora es un botón. */}
+                <button
+                    type="button"
+                    className="icon-btn"
+                    onClick={() => setPanel('brightness')}
+                    aria-label="Brillo"
+                >
+                    <IconSun size={20} />
+                </button>
                 <button
                     type="button"
                     className="icon-btn"
@@ -901,6 +987,15 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     aria-label="Índice"
                 >
                     <IconList size={21} />
+                </button>
+                <button
+                    type="button"
+                    className={`icon-btn${annotationCount ? ' has-data' : ''}`}
+                    onClick={() => setPanel('annotations')}
+                    aria-label={`Notas y subrayados (${annotationCount})`}
+                >
+                    <IconHighlight size={20} />
+                    {annotationCount > 0 && <span className="icon-badge">{annotationCount}</span>}
                 </button>
                 <button
                     type="button"
@@ -985,7 +1080,9 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     —el número de notas—. La versión anterior metía icono y
                     palabra en 60 px de ancho: el texto salía a 10 px, ilegible,
                     y el objetivo tocable quedaba en la mitad de lo que debería. */}
-                <nav className="reader-dock" aria-label="Herramientas de lectura">
+                {/* Tres, no cuatro: las notas han subido arriba con el resto de
+                    lo que sitúa al lector en el libro. */}
+                <nav className="reader-dock three" aria-label="Herramientas de lectura">
                     <button
                         type="button"
                         className="dock-btn"
@@ -1001,15 +1098,6 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                         aria-label="Pantalla y lectura"
                     >
                         <IconSun size={23} />
-                    </button>
-                    <button
-                        type="button"
-                        className={`dock-btn${annotationCount ? ' has-data' : ''}`}
-                        onClick={() => setPanel('annotations')}
-                        aria-label={`Notas y subrayados (${annotationCount})`}
-                    >
-                        <IconHighlight size={23} />
-                        {annotationCount > 0 && <span className="dock-badge">{annotationCount}</span>}
                     </button>
                     <button
                         type="button"
@@ -1068,6 +1156,16 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 />
             )}
 
+            {panel === 'brightness' && (
+                <BrightnessSheet
+                    dim={dim}
+                    onChangeDim={setDim}
+                    warm={warm}
+                    onChangeWarm={setWarm}
+                    onClose={() => setPanel(null)}
+                />
+            )}
+
             {panel === 'goto' && (
                 <GoToSheet
                     totalLocations={totalLocations}
@@ -1085,10 +1183,6 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     onChangeFlow={(flow) => setTypography({ ...typography, flow })}
                     transition={transition}
                     onChangeTransition={setTransition}
-                    dim={dim}
-                    onChangeDim={setDim}
-                    warm={warm}
-                    onChangeWarm={setWarm}
                     spread={spread}
                     onChangeSpread={setSpread}
                     columns={columns}

@@ -21,6 +21,9 @@ export const createEpubEngine = () => {
     let book = null;
     let rendition = null;
     let destroyed = false;
+    // Contenedor del lector. Se guarda porque en modo continuo hay que medir lo
+    // visible contra él y no contra el iframe, que ahí mide miles de píxeles.
+    let container = null;
 
     return {
         /**
@@ -33,9 +36,25 @@ export const createEpubEngine = () => {
             flow = 'paginated', fontCss, hyphenLang,
         } = {}) {
             book = ePub(data);
+            container = element;
+
+            // ── El modo continuo necesita otro gestor de vistas ─────────────
+            //
+            // Esto es lo que hacía que «desplazamiento» solo funcionara por
+            // capítulos. epub.js tiene dos gestores y el flow **no** elige entre
+            // ellos: `manager` viene con el valor «default», que monta un único
+            // documento cada vez. Con `flow: 'scrolled-doc'` eso da un capítulo
+            // que se desplaza y se acaba, sin nada detrás — había que salir y
+            // volver a entrar para seguir, que es exactamente lo descrito.
+            //
+            // El gestor «continuous» va añadiendo y quitando capítulos alrededor
+            // del que se está leyendo, así que el libro entero se recorre de una
+            // tirada y el porcentaje sube sin cortes.
+            const scrolled = flow === 'scrolled';
+
             rendition = book.renderTo(element, {
-                // scrolled-doc desplaza en vertical en lugar de paginar.
-                flow: flow === 'scrolled' ? 'scrolled-doc' : 'paginated',
+                flow: scrolled ? 'scrolled' : 'paginated',
+                manager: scrolled ? 'continuous' : 'default',
                 width: '100%',
                 height: '100%',
                 spread: 'none',
@@ -376,7 +395,13 @@ export const createEpubEngine = () => {
          */
         visibleText() {
             const contents = [].concat(rendition?.getContents?.() || []);
+            const scrolled = rendition?.settings?.flow === 'scrolled';
             const parts = [];
+
+            // Desplazando, lo visible se decide contra el contenedor del lector y
+            // no contra el iframe: en modo continuo el iframe de un capítulo mide
+            // miles de píxeles de alto y casi todo él queda fuera de la pantalla.
+            const stage = scrolled ? container?.getBoundingClientRect() : null;
 
             contents.forEach((content) => {
                 const doc = content?.document;
@@ -389,9 +414,21 @@ export const createEpubEngine = () => {
                 blocks.forEach((element) => {
                     const rect = element.getBoundingClientRect();
                     if (rect.width === 0 && rect.height === 0) return;
-                    // En modo paginado, epub.js desplaza las columnas: lo visible
-                    // es lo que cae dentro del ancho de la ventana del iframe.
-                    if (rect.right < 0 || rect.left > width) return;
+
+                    if (scrolled) {
+                        // Filtro vertical. Antes se usaba el horizontal también
+                        // aquí, y como desplazando todo cae dentro del ancho, la
+                        // voz se llevaba el capítulo entero de una vez: por eso
+                        // parecía leer «por fases» en lugar de seguir la lectura.
+                        const top = stage?.top ?? 0;
+                        const bottom = stage?.bottom ?? (view.innerHeight || 0);
+                        if (rect.bottom < top || rect.top > bottom) return;
+                    } else if (rect.right < 0 || rect.left > width) {
+                        // En modo paginado, epub.js desplaza las columnas: lo
+                        // visible es lo que cae dentro del ancho del iframe.
+                        return;
+                    }
+
                     const text = (element.textContent || '').trim();
                     if (text) parts.push(text);
                 });
@@ -677,6 +714,7 @@ export const createEpubEngine = () => {
             try { book?.destroy(); } catch { /* ya destruido */ }
             rendition = null;
             book = null;
+            container = null;
         },
     };
 };

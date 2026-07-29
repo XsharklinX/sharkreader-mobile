@@ -61,7 +61,9 @@ export const dragOffset = ({ dx, width, atStart, atEnd }) => {
  * No toca el DOM: recibe funciones para mover y confirmar, de modo que la
  * lógica se puede probar sin navegador.
  */
-export const createPageDrag = ({ getWidth, onMove, onCommit, onCancel, isEnabled }) => {
+export const createPageDrag = ({
+    getWidth, onMove, onCommit, onCancel, isEnabled, onStart, onEnd,
+}) => {
     let start = null;
 
     const reset = () => { start = null; };
@@ -70,6 +72,9 @@ export const createPageDrag = ({ getWidth, onMove, onCommit, onCancel, isEnabled
         down(event) {
             if (isEnabled && !isEnabled()) return;
             start = { x: event.clientX, y: event.clientY, time: Date.now(), dragging: false };
+            // Aviso de que puede empezar un arrastre, para que quien dibuja tenga
+            // tiempo de preparar la capa antes del primer movimiento.
+            onStart?.();
         },
 
         move(event) {
@@ -88,13 +93,21 @@ export const createPageDrag = ({ getWidth, onMove, onCommit, onCancel, isEnabled
             }
 
             start.dx = dx;
-            onMove(dragOffset({ dx, width: getWidth() }));
+            const width = getWidth();
+            const offset = dragOffset({ dx, width });
+            // Se pasa también el progreso y el sentido: el doblado de hoja
+            // necesita saber cuánto se ha recorrido, no solo cuántos píxeles.
+            onMove(
+                offset,
+                width > 0 ? Math.min(1, Math.abs(offset) / width) : 0,
+                dx < 0 ? 'next' : 'prev'
+            );
         },
 
         up(event) {
             if (!start) return false;
             const dragging = start.dragging;
-            if (!dragging) { reset(); return false; }
+            if (!dragging) { reset(); onEnd?.(); return false; }
 
             const result = resolveDrag({
                 dx: event.clientX - start.x,
@@ -102,6 +115,7 @@ export const createPageDrag = ({ getWidth, onMove, onCommit, onCancel, isEnabled
                 elapsed: Date.now() - start.time,
             });
             reset();
+            onEnd?.();
 
             if (result.commit) onCommit(result.direction);
             else onCancel();
@@ -122,6 +136,7 @@ export const createPageDrag = ({ getWidth, onMove, onCommit, onCancel, isEnabled
          * sitio se lee como que la app ha fallado.
          */
         cancel() {
+            onEnd?.();
             if (!start?.dragging) { reset(); return; }
             const { commit, direction } = resolveDrag({
                 dx: start.dx || 0,

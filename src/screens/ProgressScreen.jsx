@@ -3,7 +3,7 @@ import AchievementsPanel from '../stats/AchievementsPanel.jsx';
 import {
     buildHeatmap, buildSeries, buildSummary, topBooks, peakHour, formatMinutes,
 } from '../stats/derive.js';
-import { IconChart, IconFlame, IconClock, IconTrophy } from '../ui/icons.jsx';
+import { IconChart, IconFlame, IconClock, IconTrophy, IconSettings } from '../ui/icons.jsx';
 
 const PERIODS = [
     { id: 'week', label: 'Semana' },
@@ -31,7 +31,7 @@ const Goal = ({ label, done, target }) => {
  * Son la misma pregunta —«¿cómo voy?»— y separarlos gastaba una de las cinco
  * ranuras de la barra inferior en algo que se consulta de vez en cuando.
  */
-export default function ProgressScreen({ library, stats: statsApi }) {
+export default function ProgressScreen({ library, stats: statsApi, onGoToSettings }) {
     const [tab, setTab] = useState('stats');
     const [period, setPeriod] = useState('week');
     const books = library?.books || [];
@@ -55,6 +55,17 @@ export default function ProgressScreen({ library, stats: statsApi }) {
                         {hasData ? `${formatMinutes(summary.totalMinutes)} de lectura en total` : 'Aún sin datos'}
                     </p>
                 </div>
+                {/* Ajustes ha salido de la barra inferior —estaba duplicado con
+                    el de la biblioteca— así que tiene que estar alcanzable
+                    también desde aquí. */}
+                <button
+                    type="button"
+                    className="icon-btn"
+                    onClick={() => onGoToSettings?.()}
+                    aria-label="Ajustes"
+                >
+                    <IconSettings size={21} />
+                </button>
             </header>
 
             <div className="segmented">

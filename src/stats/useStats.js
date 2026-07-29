@@ -26,6 +26,8 @@ export const DEFAULT_PREFERENCES = {
     materialYou: false,
     // Bloqueo con huella, cara o PIN al abrir la app.
     appLock: false,
+    // Cómo se ven los libros: 'grid' (rejilla) o 'shelf' (estante).
+    libraryView: 'grid',
 };
 
 /**

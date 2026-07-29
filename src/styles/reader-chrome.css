@@ -319,3 +319,19 @@
     .reader-viewport,
     .turn-veil { transition: none !important; }
 }
+
+/* ── Doblado de hoja ──────────────────────────────────────────────────────── */
+
+/* La hoja gira sobre su borde en perspectiva. `backface-visibility: hidden` es
+   obligatorio: sin él, pasado el punto en que la hoja empieza a darse la vuelta,
+   el WebView pinta el texto invertido en espejo. */
+.reader-viewport {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform-style: preserve-3d;
+}
+
+/* Con el doblado, el velo lleva un degradado en vez de un color plano: es la
+   sombra que proyecta la hoja al levantarse, más oscura junto al doblez. Por eso
+   `background` se escribe desde JS y aquí no se fija. */
+.turn-veil { transition-property: opacity; }
