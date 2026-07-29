@@ -32,6 +32,16 @@ export default function App() {
 
     useReadingClock(reading, library.updateBook);
 
+    // El tema de la interfaz se aplica al cargar las preferencias, no solo al
+    // entrar en Ajustes: si no, la app arrancaba siempre en oscuro aunque el
+    // usuario hubiera elegido claro.
+    useEffect(() => {
+        document.documentElement.classList.toggle(
+            'theme-light',
+            stats.preferences.appTheme === 'light'
+        );
+    }, [stats.preferences.appTheme]);
+
     const closeReader = useCallback(() => {
         setReadingId(null);
         // El reloj de lectura escribe las estadísticas directamente en la base de
@@ -126,6 +136,7 @@ export default function App() {
                 onProgress={handleProgress}
                 onAnnotationsChange={handleAnnotations}
                 onExportAnnotations={handleExportAnnotations}
+                preferences={stats.preferences}
             />
         );
     }

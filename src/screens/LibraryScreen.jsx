@@ -10,13 +10,6 @@ import {
     IconSearch, IconSort, IconPlus, IconClose, IconBook, IconFolder, IconGrid, IconSettings,
 } from '../ui/icons.jsx';
 
-const greeting = (hour = new Date().getHours()) => {
-    if (hour < 6) return 'Buenas noches';
-    if (hour < 13) return 'Buenos días';
-    if (hour < 21) return 'Buenas tardes';
-    return 'Buenas noches';
-};
-
 export default function LibraryScreen({ library, stats: statsApi, onOpenBook, onGoToSettings }) {
     const { books, status, error, importing, importFiles, importFolder, clearError } = library;
 
@@ -25,7 +18,9 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
     const [filter, setFilter] = useState('all');
     const [sort, setSort] = useState('recent');
     const [showSort, setShowSort] = useState(false);
-    const [compact, setCompact] = useState(false);
+    // La densidad viene de ajustes, pero se puede cambiar al vuelo desde la
+    // propia biblioteca sin tener que ir allí.
+    const [compact, setCompact] = useState(statsApi?.preferences?.density === 'compact');
     const [detail, setDetail] = useState(null);
     const [notice, setNotice] = useState(null);
     const [importChoice, setImportChoice] = useState(false);

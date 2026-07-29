@@ -236,6 +236,62 @@ public class SharkPickerPlugin extends Plugin {
         }
     }
 
+    /**
+     * Cuánto ocupa la app, desglosado.
+     *
+     * Una biblioteca de 200 libros son cientos de megas y hasta ahora no había
+     * forma de saberlo desde la app. Se mide el directorio privado por partes
+     * para que el usuario sepa qué puede borrar sin perder libros.
+     */
+    @PluginMethod
+    public void getStorageUsage(PluginCall call) {
+        File filesDir = getContext().getFilesDir();
+        long books = sizeOf(new File(filesDir, BOOKS_DIR));
+        long cache = sizeOf(getContext().getCacheDir());
+        // La base de datos guarda metadata, progreso, anotaciones y las portadas
+        // en base64: es lo segundo que más ocupa después de los propios libros.
+        long database = sizeOf(new File(filesDir.getParentFile(), "databases"));
+
+        JSObject result = new JSObject();
+        result.put("books", books);
+        result.put("database", database);
+        result.put("cache", cache);
+        result.put("total", books + database + cache);
+        call.resolve(result);
+    }
+
+    /** Borra la caché. Nunca toca libros ni base de datos. */
+    @PluginMethod
+    public void clearCache(PluginCall call) {
+        long freed = sizeOf(getContext().getCacheDir());
+        deleteContents(getContext().getCacheDir());
+
+        JSObject result = new JSObject();
+        result.put("freed", freed);
+        call.resolve(result);
+    }
+
+    private long sizeOf(File file) {
+        if (file == null || !file.exists()) return 0;
+        if (file.isFile()) return file.length();
+
+        long total = 0;
+        File[] children = file.listFiles();
+        if (children == null) return 0;
+        for (File child : children) total += sizeOf(child);
+        return total;
+    }
+
+    private void deleteContents(File dir) {
+        if (dir == null || !dir.isDirectory()) return;
+        File[] children = dir.listFiles();
+        if (children == null) return;
+        for (File child : children) {
+            if (child.isDirectory()) deleteContents(child);
+            child.delete();
+        }
+    }
+
     /** El almacenamiento privado es la única zona en la que el plugin escribe o borra. */
     private boolean isInsideBooksDir(File file) {
         return file.getAbsolutePath().startsWith(booksDir().getAbsolutePath() + File.separator);

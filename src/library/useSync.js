@@ -9,7 +9,24 @@ import { usePorts } from '../ports/index.js';
 const CONFIG_KEY = 'sync';
 const LAST_KEY = 'syncLastAt';
 
-export const DEFAULT_SYNC = { url: '', user: '', password: '', auto: false };
+/**
+ * ¿Estamos en wifi?
+ *
+ * Se usa la Network Information API en lugar de un plugin: el WebView de
+ * Android la expone y evita añadir una dependencia nativa para leer un dato.
+ * Si el navegador no la implementa se asume que sí hay wifi — es preferible
+ * sincronizar de más que dejar la función muerta en un dispositivo que no
+ * informa del tipo de red.
+ */
+const onWifi = () => {
+    const connection = navigator.connection
+        || navigator.mozConnection
+        || navigator.webkitConnection;
+    if (!connection?.type) return true;
+    return connection.type === 'wifi' || connection.type === 'ethernet';
+};
+
+export const DEFAULT_SYNC = { url: '', user: '', password: '', auto: false, wifiOnly: true };
 
 /**
  * Sincronización de la biblioteca.
@@ -114,10 +131,19 @@ export const useSync = (library) => {
     // remoto a medio escribir.
     useEffect(() => {
         if (!config.auto || !config.url || library.status !== 'ready') return;
+
+        // «Solo con wifi» se comprueba de verdad. Un interruptor que no hace
+        // nada es peor que no ofrecerlo: el usuario cree que está ahorrando
+        // datos y no lo está.
+        if (config.wifiOnly && !onWifi()) {
+            setMessage('Sin wifi: la sincronización automática se ha saltado.');
+            return;
+        }
+
         sync();
         // Solo al arrancar, no cada vez que cambie la biblioteca.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [config.auto, config.url, library.status]);
+    }, [config.auto, config.url, config.wifiOnly, library.status]);
 
     return {
         config,

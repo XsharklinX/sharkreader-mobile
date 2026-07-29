@@ -1477,3 +1477,107 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .bs-field { display: flex; flex-direction: column; gap: 4px; }
 
 .bs-candidate-cover { width: 34px; border-radius: 4px; flex: none; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Ajustes
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Tarjeta de perfil: reaprovecha nivel, racha y logros ya calculados, y le da
+   a la pantalla más fría de la app un motivo para visitarla. */
+.profile-card {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    padding: var(--sp-4);
+    border-radius: var(--r-lg);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--sf-1)), var(--sf-1));
+}
+
+.profile-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--r-full);
+    display: grid;
+    place-items: center;
+    font-size: 24px;
+    background: var(--sf-3);
+    flex: none;
+}
+
+.profile-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.profile-info b { font-size: var(--t-heading); font-weight: 700; letter-spacing: -0.012em; }
+.profile-info > span { font-size: var(--t-tiny); color: var(--text-2); }
+.profile-stats { display: flex; gap: var(--sp-4); margin-top: 3px; }
+.profile-stats span { font-size: var(--t-tiny); color: var(--accent); font-weight: 600; }
+
+/* Reparto del almacenamiento en una sola barra: ver que los libros ocupan el
+   80% es lo que hace entender que borrar la caché no libera gran cosa. */
+.storage-bar {
+    display: flex;
+    height: 10px;
+    border-radius: var(--r-full);
+    background: var(--sf-3);
+    overflow: hidden;
+}
+.storage-bar i { display: block; height: 100%; }
+
+.storage-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2) var(--sp-4);
+    font-size: var(--t-tiny);
+    color: var(--text-2);
+}
+.storage-legend .mono { color: var(--text-3); }
+
+.storage-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: var(--r-full);
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+/* Estado de la sincronización, arriba de su pantalla */
+.sync-status {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: var(--r-md);
+    background: color-mix(in srgb, var(--ok) 12%, var(--sf-1));
+}
+.sync-status.error { background: color-mix(in srgb, var(--risk) 12%, var(--sf-1)); }
+.sync-dot { width: 9px; height: 9px; border-radius: var(--r-full); background: var(--ok); flex: none; }
+.sync-status.error .sync-dot { background: var(--risk); }
+
+/* Privacidad: el cero es el argumento, así que se enseña grande. */
+.privacy-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: var(--sp-5) var(--sp-4);
+    border-radius: var(--r-lg);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--ok) 14%, var(--sf-1)), var(--sf-1));
+    text-align: center;
+}
+.privacy-hero b {
+    font-family: var(--font-mono);
+    font-size: 46px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: var(--ok);
+}
+.privacy-hero > span { font-size: var(--t-small); font-weight: 600; }
+.privacy-hero .option-desc { margin-top: var(--sp-2); max-width: 34ch; }
+
+/* Destello al llegar desde el buscador: sin esto, abrir «Solo con wifi» te
+   deja mirando una pantalla entera sin saber cuál de las filas era. */
+.setting-flash { animation: setting-flash 2.2s var(--ease); border-radius: var(--r-sm); }
+@keyframes setting-flash {
+    0%, 70% { background: var(--accent-soft); }
+    100% { background: transparent; }
+}

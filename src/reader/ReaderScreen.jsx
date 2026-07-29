@@ -37,7 +37,7 @@ const estimateLeft = (book, progress) => {
     return left > 0 ? left : null;
 };
 
-export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsChange, onExportAnnotations }) {
+export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsChange, onExportAnnotations, preferences = {} }) {
     const ports = usePorts();
     const viewportRef = useRef(null);
     const engineRef = useRef(null);
@@ -290,7 +290,9 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     const autoScroll = useAutoScroll({
         onNext: () => engineRef.current?.next(),
         onPrev: () => engineRef.current?.prev(),
-        enabled: state === 'ready',
+        // La captura de teclas de volumen se desactiva si el usuario la apagó
+        // en ajustes: un interruptor que no hace nada es peor que no ofrecerlo.
+        enabled: state === 'ready' && (preferences.volumeKeys ?? true),
     });
 
     // ── Diccionario e imagen de cita ─────────────────────────────────────────
