@@ -1,25 +1,28 @@
 import React from 'react';
 import {
-    FONT_FAMILIES, TYPOGRAPHY_PRESETS, READER_THEMES,
+    FONT_FAMILIES, TYPOGRAPHY_PRESETS,
     applyPreset, matchingPreset, clampFontSize, clampMargin,
     FONT_SIZE_MIN, FONT_SIZE_MAX, MARGIN_MIN, MARGIN_MAX,
 } from './typography.js';
 
 /**
- * Ajustes de lectura.
+ * Ajustes de **texto**. Solo texto.
  *
- * Sube desde abajo para que los controles queden al alcance del pulgar, y usa
- * pasos y segmentos en lugar de deslizadores: acertar un valor exacto
+ * El tema, el modo de paginación, la animación y el brillo viven en la hoja de
+ * pantalla, detrás de su propio botón. Antes estaba todo aquí y obligaba a
+ * recorrer una lista larga para cambiar algo tan habitual como el fondo.
+ *
+ * Los controles son pasos y segmentos, no deslizadores: acertar un valor exacto
  * arrastrando en móvil es incómodo, y lo que el usuario quiere expresar es «un
  * poco más grande», no «19 píxeles».
- *
- * Los temas se muestran con el color que aplican, no con su nombre: se elige un
- * fondo de lectura mirándolo, no leyendo una etiqueta.
  */
 
-const Stepper = ({ label, value, unit, min, max, step, onChange, format }) => (
+const Stepper = ({ label, value, unit, min, max, step, onChange }) => (
     <div className="setting">
-        <span className="setting-label">{label}</span>
+        <span className="setting-label">
+            {label}
+            <span className="setting-value">{value}{unit || ''}</span>
+        </span>
         <div className="stepper">
             <button
                 type="button"
@@ -29,7 +32,7 @@ const Stepper = ({ label, value, unit, min, max, step, onChange, format }) => (
             >
                 <span style={{ fontSize: 17, fontWeight: 600 }}>−</span>
             </button>
-            <span className="stepper-val">{format ? format(value) : `${value}${unit || ''}`}</span>
+            <span className="stepper-preview" style={{ fontSize: Math.min(22, Math.max(11, value)) }}>Aa</span>
             <button
                 type="button"
                 onClick={() => onChange(value + step)}
@@ -61,7 +64,26 @@ const Segmented = ({ label, value, options, onChange }) => (
     </div>
 );
 
-export default function ReaderSettingsSheet({ typography, theme, onChangeTypography, onChangeTheme, onClose }) {
+const Switch = ({ label, hint, checked, onChange }) => (
+    <div className="setting setting-row">
+        <span className="setting-label">
+            <span>
+                {label}
+                {hint && <span className="option-desc" style={{ display: 'block' }}>{hint}</span>}
+            </span>
+        </span>
+        <button
+            type="button"
+            className={`switch${checked ? ' on' : ''}`}
+            onClick={() => onChange(!checked)}
+            role="switch"
+            aria-checked={!!checked}
+            aria-label={label}
+        />
+    </div>
+);
+
+export default function ReaderSettingsSheet({ typography, onChangeTypography, onClose }) {
     const set = (changes) => onChangeTypography({ ...typography, ...changes });
     const activePreset = matchingPreset(typography);
 
@@ -71,27 +93,23 @@ export default function ReaderSettingsSheet({ typography, theme, onChangeTypogra
                 className="sheet"
                 onClick={(event) => event.stopPropagation()}
                 role="dialog"
-                aria-label="Ajustes de lectura"
+                aria-label="Ajustes de texto"
             >
                 <span className="grip" aria-hidden="true" />
 
                 <div className="setting">
-                    <span className="setting-label">Tema</span>
-                    <div className="themes">
-                        {Object.entries(READER_THEMES).map(([id, option]) => (
-                            <div className="theme-item" key={id}>
-                                <button
-                                    type="button"
-                                    className={`theme-swatch${theme === id ? ' on' : ''}`}
-                                    style={{ background: option.bg, color: option.text }}
-                                    onClick={() => onChangeTheme(id)}
-                                    aria-label={option.label}
-                                    aria-pressed={theme === id}
-                                >
-                                    Aa
-                                </button>
-                                <span className="theme-name">{option.label}</span>
-                            </div>
+                    <span className="setting-label">Ajustes rápidos</span>
+                    <div className="pills">
+                        {Object.entries(TYPOGRAPHY_PRESETS).map(([id, preset]) => (
+                            <button
+                                key={id}
+                                type="button"
+                                className={`pill${activePreset === id ? ' on' : ''}`}
+                                onClick={() => onChangeTypography(applyPreset(typography, id))}
+                                aria-pressed={activePreset === id}
+                            >
+                                {preset.label}
+                            </button>
                         ))}
                     </div>
                 </div>
@@ -115,23 +133,13 @@ export default function ReaderSettingsSheet({ typography, theme, onChangeTypogra
                 </div>
 
                 <Stepper
-                    label="Tamaño del texto"
+                    label="Tamaño"
                     value={typography.fontSize}
                     unit=" px"
                     min={FONT_SIZE_MIN}
                     max={FONT_SIZE_MAX}
                     step={1}
                     onChange={(value) => set({ fontSize: clampFontSize(value) })}
-                />
-
-                <Stepper
-                    label="Márgenes"
-                    value={typography.margin}
-                    unit=" px"
-                    min={MARGIN_MIN}
-                    max={MARGIN_MAX}
-                    step={4}
-                    onChange={(value) => set({ margin: clampMargin(value) })}
                 />
 
                 <Segmented
@@ -147,81 +155,47 @@ export default function ReaderSettingsSheet({ typography, theme, onChangeTypogra
                 />
 
                 <Segmented
-                    label="Separación entre párrafos"
+                    label="Márgenes"
+                    value={typography.margin}
+                    options={[
+                        { value: 0, label: 'Sin' },
+                        { value: 12, label: 'Poco' },
+                        { value: 20, label: 'Normal' },
+                        { value: 36, label: 'Amplio' },
+                    ]}
+                    onChange={(margin) => set({ margin: clampMargin(margin) })}
+                />
+
+                <Segmented
+                    label="Entre párrafos"
                     value={typography.paragraphSpacing}
                     options={[
-                        { value: 0.3, label: 'Poca' },
-                        { value: 0.7, label: 'Media' },
-                        { value: 1.2, label: 'Mucha' },
+                        { value: 0.3, label: 'Poco' },
+                        { value: 0.7, label: 'Normal' },
+                        { value: 1.2, label: 'Mucho' },
                     ]}
                     onChange={(paragraphSpacing) => set({ paragraphSpacing })}
                 />
 
-                <Segmented
-                    label="Modo de lectura"
-                    value={typography.flow || 'paginated'}
-                    options={[
-                        { value: 'paginated', label: 'Páginas' },
-                        { value: 'scrolled', label: 'Scroll' },
-                    ]}
-                    onChange={(flow) => set({ flow })}
+                <Switch
+                    label="Justificar"
+                    checked={typography.justify}
+                    onChange={(justify) => set({ justify })}
                 />
 
-                <div className="setting setting-row">
-                    <span className="setting-label">
-                        Modo dislexia
-                        <span className="setting-value">más aire entre letras</span>
-                    </span>
-                    <button
-                        type="button"
-                        className={`switch${typography.dyslexia ? ' on' : ''}`}
-                        onClick={() => set({ dyslexia: !typography.dyslexia })}
-                        role="switch"
-                        aria-checked={!!typography.dyslexia}
-                        aria-label="Modo dislexia"
-                    />
-                </div>
+                <Switch
+                    label="Partir palabras"
+                    hint="Evita huecos grandes al justificar"
+                    checked={typography.hyphens}
+                    onChange={(hyphens) => set({ hyphens })}
+                />
 
-                <div className="setting setting-row">
-                    <span className="setting-label">Justificar el texto</span>
-                    <button
-                        type="button"
-                        className={`switch${typography.justify ? ' on' : ''}`}
-                        onClick={() => set({ justify: !typography.justify })}
-                        role="switch"
-                        aria-checked={typography.justify}
-                        aria-label="Justificar el texto"
-                    />
-                </div>
-
-                <div className="setting setting-row">
-                    <span className="setting-label">Partir palabras al final de línea</span>
-                    <button
-                        type="button"
-                        className={`switch${typography.hyphens ? ' on' : ''}`}
-                        onClick={() => set({ hyphens: !typography.hyphens })}
-                        role="switch"
-                        aria-checked={typography.hyphens}
-                        aria-label="Partir palabras"
-                    />
-                </div>
-
-                <div className="setting">
-                    <span className="setting-label">Ajustes rápidos</span>
-                    <div className="pills">
-                        {Object.entries(TYPOGRAPHY_PRESETS).map(([id, preset]) => (
-                            <button
-                                key={id}
-                                type="button"
-                                className={`pill${activePreset === id ? ' on' : ''}`}
-                                onClick={() => onChangeTypography(applyPreset(typography, id))}
-                                aria-pressed={activePreset === id}
-                            >
-                                {preset.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+                <Switch
+                    label="Modo dislexia"
+                    hint="Más aire entre letras y palabras, sin justificar"
+                    checked={typography.dyslexia}
+                    onChange={(dyslexia) => set({ dyslexia })}
+                />
 
                 <button type="button" className="btn btn-primary btn-block" onClick={onClose}>
                     Listo

@@ -28,6 +28,7 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
     const [compact, setCompact] = useState(false);
     const [detail, setDetail] = useState(null);
     const [notice, setNotice] = useState(null);
+    const [importChoice, setImportChoice] = useState(false);
 
     const browsing = Boolean(query.trim()) || filter !== 'all';
 
@@ -162,9 +163,9 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                             <button
                                 type="button"
                                 className="icon-btn"
-                                onClick={() => runImport('files')}
+                                onClick={() => setImportChoice(true)}
                                 disabled={!!importing}
-                                aria-label="Importar libros"
+                                aria-label="Añadir libros"
                             >
                                 <IconPlus size={22} />
                             </button>
@@ -381,6 +382,52 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                 >
                     <IconBook size={24} />
                 </button>
+            )}
+
+            {/* El «+» pregunta qué se añade en lugar de abrir directamente el
+                selector de ficheros: importar una carpeta entera es lo que hace
+                la mayoría al estrenar la app, y antes esa opción solo existía en
+                la pantalla de biblioteca vacía. */}
+            {importChoice && (
+                <div className="scrim" onClick={() => setImportChoice(false)} role="presentation">
+                    <section
+                        className="sheet"
+                        onClick={(event) => event.stopPropagation()}
+                        role="dialog"
+                        aria-label="Añadir libros"
+                    >
+                        <span className="grip" aria-hidden="true" />
+                        <h2 className="section-title">Añadir a la biblioteca</h2>
+                        <div className="rows">
+                            <button
+                                type="button"
+                                className="row"
+                                onClick={() => { setImportChoice(false); runImport('files'); }}
+                            >
+                                <span className="row-icon"><IconBook size={20} /></span>
+                                <span className="row-txt">
+                                    <span>Elegir libros</span>
+                                    <span className="row-sub">Uno o varios ficheros sueltos</span>
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                className="row"
+                                onClick={() => { setImportChoice(false); runImport('folder'); }}
+                            >
+                                <span className="row-icon"><IconFolder size={20} /></span>
+                                <span className="row-txt">
+                                    <span>Importar una carpeta</span>
+                                    <span className="row-sub">Todos los libros que contenga, subcarpetas incluidas</span>
+                                </span>
+                            </button>
+                        </div>
+                        <p className="option-desc">
+                            EPUB, PDF, CBZ, TXT y Markdown. Los ficheros se copian dentro de la
+                            app, así que siguen funcionando aunque muevas los originales.
+                        </p>
+                    </section>
+                </div>
             )}
 
             {detail && (

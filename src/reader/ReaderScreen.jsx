@@ -3,6 +3,8 @@ import { createEpubEngine } from './EpubEngine.js';
 import { createGestureHandlers } from './useGestures.js';
 import { buildReaderStyles, DEFAULT_TYPOGRAPHY, READER_THEMES } from './typography.js';
 import ReaderSettingsSheet from './ReaderSettingsSheet.jsx';
+import DisplaySheet from './DisplaySheet.jsx';
+import { runTransition, DEFAULT_TRANSITION } from './transitions.js';
 import TocDrawer from './TocDrawer.jsx';
 import SelectionToolbar from './SelectionToolbar.jsx';
 import AnnotationsPanel from './AnnotationsPanel.jsx';
@@ -22,7 +24,7 @@ import { usePorts } from '../ports/index.js';
 import { formatMinutes } from '../stats/derive.js';
 import {
     IconArrowLeft, IconTextSize, IconList, IconBookmark, IconHighlight, IconSearch,
-    IconVolume, IconClock,
+    IconVolume, IconClock, IconSun,
 } from '../ui/icons.jsx';
 
 const LOCATIONS_KEY = (bookId) => `locations:${bookId}`;
@@ -58,6 +60,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         () => ({ ...DEFAULT_TYPOGRAPHY, ...(book.readerPreferences?.typography || {}) })
     );
     const [theme, setTheme] = useState(book.readerPreferences?.theme || 'dark');
+    const [transition, setTransition] = useState(book.readerPreferences?.transition || DEFAULT_TRANSITION);
 
     const styles = useMemo(() => buildReaderStyles(typography, theme), [typography, theme]);
     const palette = READER_THEMES[theme] || READER_THEMES.dark;
@@ -70,13 +73,31 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     const gesturesRef = useRef(null);
     if (!gesturesRef.current) {
         gesturesRef.current = createGestureHandlers({
-            onNext: () => engineRef.current?.next(),
-            onPrev: () => engineRef.current?.prev(),
+            onNext: () => turnPage('next'),
+            onPrev: () => turnPage('prev'),
             onToggleChrome: () => setChrome((visible) => !visible),
             shouldIgnore: () => Boolean(engineRef.current?.selectionText()),
             getWidth: () => viewportRef.current?.clientWidth || window.innerWidth,
         });
     }
+
+    /**
+     * Pasa página con su animación. La transición va en el contenedor y no
+     * dentro del iframe: epub.js repinta el iframe entero al cambiar de página,
+     * así que animar su contenido daría un parpadeo.
+     */
+    const transitionRef = useRef(transition);
+    transitionRef.current = transition;
+    const cleanupRef = useRef(null);
+
+    const turnPage = (direction) => {
+        const engine = engineRef.current;
+        if (!engine) return;
+        cleanupRef.current?.();
+        cleanupRef.current = runTransition(viewportRef.current, transitionRef.current, direction);
+        if (direction === 'next') engine.next();
+        else engine.prev();
+    };
 
     // ── Carga ────────────────────────────────────────────────────────────────
     useEffect(() => {
@@ -174,8 +195,8 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
 
     useEffect(() => {
         if (state !== 'ready') return;
-        progressRef.current?.({ readerPreferences: { typography, theme } });
-    }, [typography, theme, state]);
+        progressRef.current?.({ readerPreferences: { typography, theme, transition } });
+    }, [typography, theme, transition, state]);
 
     const jumpTo = useCallback((target) => {
         engineRef.current?.display(target);
@@ -339,7 +360,10 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             {/* Los gestos van dentro del iframe (registerContentHooks), no en una
                 capa por encima: así el toque navega y la pulsación larga puede
                 seleccionar texto para subrayar. */}
-            <div className="reader-viewport" ref={viewportRef} />
+            <div
+                className={`reader-viewport${typography.flow === 'scrolled' ? ' scrolled' : ''}`}
+                ref={viewportRef}
+            />
 
             {dim > 0 && <div className="reader-dim" style={{ opacity: dim }} aria-hidden="true" />}
 
@@ -369,61 +393,60 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             </header>
 
             <footer className={`reader-bottom${chrome ? '' : ' hidden'}`}>
-                <div className="progress-pair">
-                    <div className="progress-line">
-                        <div className="progress-label">
-                            <b>Capítulo</b>
-                            <span>{chapterPercent}%</span>
-                        </div>
-                        <span className="bar thin chapter"><i style={{ width: `${chapterPercent}%` }} /></span>
+                {/* Una sola pista con las dos lecturas superpuestas: el avance
+                    del libro en gris de fondo y el del capítulo en acento
+                    encima. Dos barras apiladas ocupaban el doble para decir
+                    casi lo mismo. */}
+                <div className="prog">
+                    <div className="prog-row">
+                        <span className="prog-chapter">
+                            {location.chapter || 'Capítulo'}
+                        </span>
+                        <span className="prog-left mono">
+                            {leftInBook ? `quedan ${formatMinutes(leftInBook)}` : `${percent}%`}
+                        </span>
                     </div>
-                    <div className="progress-line">
-                        <div className="progress-label">
-                            <span>Libro · {percent}%</span>
-                            <span>{leftInBook ? `quedan ${formatMinutes(leftInBook)}` : ''}</span>
-                        </div>
-                        <span className="bar thin bookwide"><i style={{ width: `${percent}%` }} /></span>
+                    <div className="prog-track">
+                        <span className="prog-book" style={{ width: `${percent}%` }} />
+                        <span className="prog-chap" style={{ width: `${chapterPercent}%` }} />
+                    </div>
+                    <div className="prog-row prog-sub">
+                        <span className="mono">cap. {chapterPercent}%</span>
+                        <span className="mono">libro {percent}%</span>
                     </div>
                 </div>
 
                 <div className="reader-tools">
-                    <button type="button" className="icon-btn" onClick={() => setPanel('settings')} aria-label="Ajustes de lectura">
-                        <IconTextSize size={22} />
+                    <button type="button" className="tool" onClick={() => setPanel('settings')} aria-label="Texto">
+                        <IconTextSize size={21} />
+                        <span>Texto</span>
                     </button>
-                    <button type="button" className="icon-btn" onClick={() => setPanel('toc')} aria-label="Índice">
-                        <IconList size={22} />
+                    <button type="button" className="tool" onClick={() => setPanel('display')} aria-label="Pantalla y lectura">
+                        <IconSun size={21} />
+                        <span>Pantalla</span>
                     </button>
-                    <button type="button" className="icon-btn" onClick={() => setPanel('search')} aria-label="Buscar en el libro">
-                        <IconSearch size={22} />
+                    <button type="button" className="tool" onClick={() => setPanel('toc')} aria-label="Índice">
+                        <IconList size={21} />
+                        <span>Índice</span>
                     </button>
                     <button
                         type="button"
-                        className={`icon-btn${annotationCount ? ' on' : ''}`}
+                        className={`tool${annotationCount ? ' on' : ''}`}
                         onClick={() => setPanel('annotations')}
-                        aria-label={`Anotaciones (${annotationCount})`}
+                        aria-label={`Notas (${annotationCount})`}
                     >
-                        <IconHighlight size={22} />
+                        <IconHighlight size={21} />
+                        <span>Notas{annotationCount > 0 ? ` ${annotationCount}` : ''}</span>
                     </button>
                     <button
                         type="button"
-                        className={`icon-btn${autoScroll.running ? ' on' : ''}`}
-                        onClick={autoScroll.toggle}
-                        aria-label={
-                            autoScroll.running
-                                ? `Detener el avance automático (${autoScroll.secondsPerPage} s por página)`
-                                : 'Avance automático'
-                        }
-                    >
-                        <IconClock size={22} />
-                    </button>
-                    <button
-                        type="button"
-                        className={`icon-btn${speech.isSpeaking ? ' on' : ''}`}
+                        className={`tool${speech.isSpeaking ? ' on' : ''}`}
                         onClick={speech.toggle}
                         disabled={!speech.supported}
                         aria-label="Leer en voz alta"
                     >
-                        <IconVolume size={22} />
+                        <IconVolume size={21} />
+                        <span>Voz</span>
                     </button>
                 </div>
             </footer>
@@ -443,12 +466,25 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 />
             )}
 
+            {panel === 'display' && (
+                <DisplaySheet
+                    theme={theme}
+                    onChangeTheme={setTheme}
+                    flow={typography.flow}
+                    onChangeFlow={(flow) => setTypography({ ...typography, flow })}
+                    transition={transition}
+                    onChangeTransition={setTransition}
+                    dim={dim}
+                    onChangeDim={setDim}
+                    autoScroll={autoScroll}
+                    onClose={() => setPanel(null)}
+                />
+            )}
+
             {panel === 'settings' && (
                 <ReaderSettingsSheet
                     typography={typography}
-                    theme={theme}
                     onChangeTypography={setTypography}
-                    onChangeTheme={setTheme}
                     onClose={() => setPanel(null)}
                 />
             )}
