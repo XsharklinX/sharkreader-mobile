@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import BookCard from '../library/BookCard.jsx';
+import Sharky from '../ui/Sharky.jsx';
 import { selectBooks, FILTERS, SORTS } from '../library/useLibrary.js';
+import { minutesToday } from '../stats/derive.js';
 
 /**
  * Biblioteca: rejilla de portadas con búsqueda, filtros y orden.
@@ -8,8 +10,9 @@ import { selectBooks, FILTERS, SORTS } from '../library/useLibrary.js';
  * El estado vive en `useLibrary`, que se instancia una sola vez en App para que
  * cambiar de pestaña no vuelva a leer la base de datos.
  */
-export default function LibraryScreen({ library, onOpenBook }) {
+export default function LibraryScreen({ library, stats: statsApi, onOpenBook }) {
     const { books, status, error, importing, importFiles, importFolder, clearError } = library;
+    const sharkyEnabled = statsApi?.preferences?.sharky ?? false;
 
     const [query, setQuery] = useState('');
     const [filter, setFilter] = useState('all');
@@ -117,6 +120,17 @@ export default function LibraryScreen({ library, onOpenBook }) {
             )}
 
             {notice && <div className="banner" role="status">{notice}</div>}
+
+            {sharkyEnabled && books.length > 0 && (
+                <Sharky
+                    context={{
+                        streak: statsApi?.stats?.streak || 0,
+                        reading: books.filter((book) => book.progress > 0 && !book.isFinished).length,
+                        minutesToday: minutesToday(statsApi?.stats?.minutesByDay),
+                    }}
+                    onDisable={() => statsApi?.savePreferences?.({ sharky: false })}
+                />
+            )}
 
             {importing && (
                 <div className="banner" role="status">

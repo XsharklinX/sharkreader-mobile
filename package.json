@@ -1,6 +1,6 @@
 {
   "name": "sharkreader-mobile",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "SharkReader para Android — lector de EPUB y PDF local-first, sin cuenta y sin nube",
   "author": "David Bonilla",
   "license": "ISC",
@@ -27,6 +27,7 @@
     "@capacitor/core": "^7.0.0",
     "@capacitor/filesystem": "^7.0.0",
     "@capacitor/haptics": "^7.0.0",
+    "@capacitor/local-notifications": "^7.0.7",
     "@capacitor/preferences": "^7.0.0",
     "@capacitor/share": "^7.0.0",
     "@capacitor/status-bar": "^7.0.0",

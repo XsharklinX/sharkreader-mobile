@@ -23,12 +23,13 @@ const applyTheme = (theme) => {
     root.classList.add(`theme-${theme}`);
 };
 
-export default function SettingsScreen({ library }) {
+export default function SettingsScreen({ library, stats: statsApi }) {
     const ports = usePorts();
     const [theme, setTheme] = useState('dark');
     const [info, setInfo] = useState(null);
     const [busy, setBusy] = useState(null);
     const [notice, setNotice] = useState(null);
+    const prefs = statsApi.preferences;
 
     const say = (message) => {
         setNotice(message);
@@ -152,6 +153,84 @@ export default function SettingsScreen({ library }) {
 
             {busy && <div className="banner" role="status">{busy}</div>}
             {notice && <div className="banner" role="status">{notice}</div>}
+
+            <section className="card">
+                <h2 className="card-title">Lectura</h2>
+
+                <label className="setting setting-toggle">
+                    <span className="setting-label">Recordatorio diario</span>
+                    <input
+                        type="checkbox"
+                        checked={prefs.reminders}
+                        onChange={async (event) => {
+                            const result = await statsApi.savePreferences({ reminders: event.target.checked });
+                            if (result?.permissionDenied) {
+                                say('Android no ha concedido el permiso de notificaciones.');
+                            }
+                        }}
+                    />
+                </label>
+
+                {prefs.reminders && (
+                    <label className="setting">
+                        <span className="setting-label">
+                            Hora del aviso
+                            <span className="mono setting-value">
+                                {String(prefs.reminderHour).padStart(2, '0')}:00
+                            </span>
+                        </span>
+                        <input
+                            type="range"
+                            min={6}
+                            max={23}
+                            step={1}
+                            value={prefs.reminderHour}
+                            onChange={(event) =>
+                                statsApi.savePreferences({ reminderHour: Number(event.target.value) })
+                            }
+                        />
+                    </label>
+                )}
+
+                <label className="setting setting-toggle">
+                    <span className="setting-label">Sharky</span>
+                    <input
+                        type="checkbox"
+                        checked={prefs.sharky}
+                        onChange={(event) => statsApi.savePreferences({ sharky: event.target.checked })}
+                    />
+                </label>
+
+                <div className="setting">
+                    <span className="setting-label">
+                        Meta diaria
+                        <span className="mono setting-value">{statsApi.goals.daily} min</span>
+                    </span>
+                    <input
+                        type="range"
+                        min={5}
+                        max={120}
+                        step={5}
+                        value={statsApi.goals.daily}
+                        onChange={(event) => statsApi.saveGoals({ daily: Number(event.target.value) })}
+                    />
+                </div>
+
+                <div className="setting">
+                    <span className="setting-label">
+                        Meta semanal
+                        <span className="mono setting-value">{statsApi.goals.weekly} min</span>
+                    </span>
+                    <input
+                        type="range"
+                        min={30}
+                        max={840}
+                        step={30}
+                        value={statsApi.goals.weekly}
+                        onChange={(event) => statsApi.saveGoals({ weekly: Number(event.target.value) })}
+                    />
+                </div>
+            </section>
 
             <section className="card">
                 <h2 className="card-title">Tus datos</h2>

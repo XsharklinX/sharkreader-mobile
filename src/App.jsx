@@ -8,8 +8,10 @@ import WorkshopScreen from './screens/WorkshopScreen.jsx';
 import SettingsScreen from './screens/SettingsScreen.jsx';
 import ReaderScreen from './reader/ReaderScreen.jsx';
 import PdfReaderScreen from './reader/PdfReaderScreen.jsx';
+import AchievementToast from './ui/AchievementToast.jsx';
 import { useLibrary } from './library/useLibrary.js';
 import { useReadingClock } from './library/useReadingClock.js';
+import { useStats } from './stats/useStats.js';
 import { exportAnnotations } from './library/backup.js';
 
 const SCREENS = {
@@ -25,11 +27,18 @@ export default function App() {
     const [readingId, setReadingId] = useState(null);
 
     const library = useLibrary();
+    const stats = useStats(library.books);
     const reading = library.books.find((book) => book.id === readingId) || null;
 
     useReadingClock(reading, library.updateBook);
 
-    const closeReader = useCallback(() => setReadingId(null), []);
+    const closeReader = useCallback(() => {
+        setReadingId(null);
+        // El reloj de lectura escribe las estadísticas directamente en la base de
+        // datos, así que al salir del lector hay que releerlas para que el
+        // progreso y los logros reflejen la sesión que acaba de terminar.
+        stats.refresh();
+    }, [stats]);
 
     // El botón atrás de Android: dentro del lector vuelve a la biblioteca; fuera
     // de la pestaña principal vuelve a ella; en la raíz, sale de la app.
@@ -101,9 +110,17 @@ export default function App() {
     return (
         <div className="app">
             <main className="app-main">
-                <Screen library={library} onOpenBook={(book) => setReadingId(book.id)} />
+                <Screen
+                    library={library}
+                    stats={stats}
+                    onOpenBook={(book) => setReadingId(book.id)}
+                />
             </main>
             <TabBar active={tab} onChange={setTab} />
+            <AchievementToast
+                achievements={stats.justUnlocked}
+                onDismiss={stats.dismissUnlocked}
+            />
         </div>
     );
 }

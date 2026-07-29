@@ -62,8 +62,11 @@
  *
  * @typedef {Object} NotifierPort
  * @property {() => Promise<boolean>} requestPermission  Pide POST_NOTIFICATIONS (obligatorio desde Android 13).
- * @property {(opts: {id: number, title: string, body: string, at?: Date}) => Promise<void>} schedule
+ * @property {(opts: {id: number, title: string, body: string, at?: Date, every?: string}) => Promise<void>} schedule
  * @property {(id: number) => Promise<void>} cancel
+ * @property {(hour?: number, minute?: number) => Promise<void>} scheduleDailyReminder
+ * @property {(hour?: number) => Promise<void>} scheduleWeeklySummary
+ * @property {() => Promise<void>} cancelAll
  */
 
 /**
