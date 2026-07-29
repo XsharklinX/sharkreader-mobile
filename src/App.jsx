@@ -10,6 +10,7 @@ import ReaderScreen from './reader/ReaderScreen.jsx';
 import PdfReaderScreen from './reader/PdfReaderScreen.jsx';
 import { useLibrary } from './library/useLibrary.js';
 import { useReadingClock } from './library/useReadingClock.js';
+import { exportAnnotations } from './library/backup.js';
 
 const SCREENS = {
     library: LibraryScreen,
@@ -66,6 +67,21 @@ export default function App() {
         library.updateBook(reading.id, changes);
     }, [reading, library]);
 
+    const handleAnnotations = useCallback((bookmarks) => {
+        if (!reading) return;
+        // `annotationsUpdatedAt` es lo que mira el merge de backups para decidir
+        // qué copia de las anotaciones gana al sincronizar entre dispositivos.
+        library.updateBook(reading.id, { bookmarks, annotationsUpdatedAt: Date.now() });
+    }, [reading, library]);
+
+    const handleExportAnnotations = useCallback(async (target) => {
+        try {
+            await exportAnnotations(library.books, target?.id);
+        } catch (exportError) {
+            library.setError?.(exportError?.message || 'No se pudieron exportar las anotaciones.');
+        }
+    }, [library]);
+
     if (reading) {
         const Reader = reading.type === 'pdf' ? PdfReaderScreen : ReaderScreen;
         return (
@@ -74,6 +90,8 @@ export default function App() {
                 book={reading}
                 onClose={closeReader}
                 onProgress={handleProgress}
+                onAnnotationsChange={handleAnnotations}
+                onExportAnnotations={handleExportAnnotations}
             />
         );
     }

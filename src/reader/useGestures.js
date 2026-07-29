@@ -26,8 +26,21 @@ const LONG_PRESS_MS = 480;
  * @param {() => void} handlers.onPrev
  * @param {() => void} handlers.onToggleChrome
  * @param {(point: {x: number, y: number}) => void} [handlers.onLongPress]
+ * @param {() => boolean} [handlers.shouldIgnore]
+ *   Se consulta al soltar el dedo. Sirve para que seleccionar texto dentro del
+ *   libro no acabe pasando página: el gesto se descarta si devuelve true.
+ * @param {() => number} [handlers.getWidth]
+ *   Ancho de referencia para decidir la zona. Necesario cuando los eventos se
+ *   escuchan en el documento de un iframe, que no tiene `clientWidth`.
  */
-export const createGestureHandlers = ({ onNext, onPrev, onToggleChrome, onLongPress }) => {
+export const createGestureHandlers = ({
+    onNext,
+    onPrev,
+    onToggleChrome,
+    onLongPress,
+    shouldIgnore,
+    getWidth,
+}) => {
     let start = null;
     let longPressTimer = null;
 
@@ -57,8 +70,11 @@ export const createGestureHandlers = ({ onNext, onPrev, onToggleChrome, onLongPr
         const dx = event.clientX - start.x;
         const dy = event.clientY - start.y;
         const elapsed = Date.now() - start.time;
-        const width = event.currentTarget?.clientWidth || window.innerWidth;
+        const width = getWidth?.() || event.currentTarget?.clientWidth || window.innerWidth;
         start = null;
+
+        // Hay texto seleccionado: el dedo estaba marcando, no navegando.
+        if (shouldIgnore?.()) return;
 
         const movement = Math.hypot(dx, dy);
 

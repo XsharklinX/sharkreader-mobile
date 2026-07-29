@@ -4,6 +4,16 @@ import { createGestureHandlers } from './useGestures.js';
 import { buildReaderStyles, DEFAULT_TYPOGRAPHY } from './typography.js';
 import ReaderSettingsSheet from './ReaderSettingsSheet.jsx';
 import TocDrawer from './TocDrawer.jsx';
+import SelectionToolbar from './SelectionToolbar.jsx';
+import AnnotationsPanel from './AnnotationsPanel.jsx';
+import {
+    createHighlight,
+    createBookmark,
+    addAnnotation,
+    removeAnnotation,
+    HIGHLIGHT_SWATCHES,
+} from './annotations.js';
+import { normalizeAnnotationKind } from '../core/annotationExport.js';
 import { readBookBlob } from '../adapters/SafPicker.js';
 import { usePorts } from '../ports/index.js';
 
@@ -16,7 +26,7 @@ const LOCATIONS_KEY = (bookId) => `locations:${bookId}`;
  * interpreta el dedo, `typography` construye el CSS del iframe, y este
  * componente une las piezas y persiste el progreso.
  */
-export default function ReaderScreen({ book, onClose, onProgress }) {
+export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsChange, onExportAnnotations }) {
     const ports = usePorts();
     const viewportRef = useRef(null);
     const engineRef = useRef(null);
@@ -24,7 +34,8 @@ export default function ReaderScreen({ book, onClose, onProgress }) {
     const [state, setState] = useState('loading');
     const [error, setError] = useState(null);
     const [chromeVisible, setChromeVisible] = useState(true);
-    const [panel, setPanel] = useState(null); // 'toc' | 'settings' | null
+    const [panel, setPanel] = useState(null); // 'toc' | 'settings' | 'annotations' | null
+    const [selection, setSelection] = useState(null); // { cfiRange, text }
     const [toc, setToc] = useState([]);
     const [location, setLocation] = useState({ cfi: book.lastLocation || null, progress: book.progress || 0, chapter: '' });
 
@@ -62,6 +73,29 @@ export default function ReaderScreen({ book, onClose, onProgress }) {
                     // hace que la segunda apertura sea inmediata.
                     ports.storage.setSetting(LOCATIONS_KEY(book.id), result.generatedLocations).catch(() => {});
                 }
+
+                // Repintar los subrayados guardados. epub.js los dibuja como
+                // overlays sobre el texto, así que hay que volver a añadirlos en
+                // cada apertura: no viven en el EPUB, viven en la biblioteca.
+                (book.bookmarks || [])
+                    .filter((bookmark) => normalizeAnnotationKind(bookmark) === 'highlight')
+                    .forEach((bookmark) => {
+                        engine.addHighlight(
+                            bookmark.cfi,
+                            HIGHLIGHT_SWATCHES[bookmark.color] || HIGHLIGHT_SWATCHES.yellow,
+                            () => setPanel('annotations')
+                        );
+                    });
+
+                // Los gestos se registran dentro del iframe de cada capítulo,
+                // no en una capa por encima: así se puede seleccionar texto.
+                engine.registerContentHooks(gesturesRef.current);
+
+                engine.onSelected((cfiRange) => {
+                    const text = engine.selectionText();
+                    if (text) setSelection({ cfiRange, text });
+                });
+
                 setState('ready');
             } catch (loadError) {
                 if (cancelled) return;
@@ -122,14 +156,83 @@ export default function ReaderScreen({ book, onClose, onProgress }) {
     const goPrev = useCallback(() => engineRef.current?.prev(), []);
     const toggleChrome = useCallback(() => setChromeVisible((visible) => !visible), []);
 
-    const gestures = useMemo(
-        () => createGestureHandlers({ onNext: goNext, onPrev: goPrev, onToggleChrome: toggleChrome }),
-        [goNext, goPrev, toggleChrome]
-    );
+    // Los gestos se crean una sola vez y se guardan en una ref porque el hook de
+    // contenido de epub.js los registra durante la carga, antes de que exista
+    // ningún render posterior.
+    const gesturesRef = useRef(null);
+    if (!gesturesRef.current) {
+        gesturesRef.current = createGestureHandlers({
+            onNext: () => engineRef.current?.next(),
+            onPrev: () => engineRef.current?.prev(),
+            onToggleChrome: () => setChromeVisible((visible) => !visible),
+            // Si hay texto marcado, el dedo estaba seleccionando: no se pasa página.
+            shouldIgnore: () => Boolean(engineRef.current?.selectionText()),
+            getWidth: () => viewportRef.current?.clientWidth || window.innerWidth,
+        });
+    }
 
-    const jumpTo = useCallback((href) => {
-        engineRef.current?.display(href);
+    const jumpTo = useCallback((target) => {
+        engineRef.current?.display(target);
         setPanel(null);
+    }, []);
+
+    // ── Anotaciones ──────────────────────────────────────────────────────────
+    const annotationsRef = useRef(book.bookmarks || []);
+    annotationsRef.current = book.bookmarks || [];
+
+    const commitAnnotations = useCallback((next) => {
+        onAnnotationsChange?.(next);
+    }, [onAnnotationsChange]);
+
+    const highlightSelection = useCallback((color, comment) => {
+        if (!selection) return;
+        const annotation = createHighlight({
+            cfi: selection.cfiRange,
+            text: selection.text,
+            color,
+            comment,
+        });
+        commitAnnotations(addAnnotation(annotationsRef.current, annotation));
+        engineRef.current?.addHighlight(
+            selection.cfiRange,
+            HIGHLIGHT_SWATCHES[color],
+            () => setPanel('annotations')
+        );
+        engineRef.current?.clearSelection();
+        setSelection(null);
+    }, [selection, commitAnnotations]);
+
+    const deleteAnnotation = useCallback((cfi, kind) => {
+        commitAnnotations(removeAnnotation(annotationsRef.current, cfi, kind));
+        if (kind === 'highlight') engineRef.current?.removeHighlight(cfi);
+    }, [commitAnnotations]);
+
+    const toggleBookmark = useCallback(() => {
+        const cfi = location.cfi;
+        if (!cfi) return;
+        const existing = annotationsRef.current.find(
+            (bookmark) => bookmark.cfi === cfi && normalizeAnnotationKind(bookmark) === 'bookmark'
+        );
+        commitAnnotations(existing
+            ? removeAnnotation(annotationsRef.current, cfi, 'bookmark')
+            : addAnnotation(annotationsRef.current, createBookmark({ cfi, label: location.chapter })));
+    }, [location.cfi, location.chapter, commitAnnotations]);
+
+    const copySelection = useCallback(async () => {
+        if (!selection) return;
+        try {
+            await navigator.clipboard.writeText(selection.text);
+        } catch {
+            // Sin permiso de portapapeles no hay alternativa razonable; se
+            // cierra la barra igualmente para no dejar al usuario atascado.
+        }
+        engineRef.current?.clearSelection();
+        setSelection(null);
+    }, [selection]);
+
+    const cancelSelection = useCallback(() => {
+        engineRef.current?.clearSelection();
+        setSelection(null);
     }, []);
 
     if (state === 'error') {
@@ -148,6 +251,10 @@ export default function ReaderScreen({ book, onClose, onProgress }) {
     }
 
     const percent = Math.round((location.progress || 0) * 100);
+    const annotationCount = annotationsRef.current.length;
+    const isBookmarked = annotationsRef.current.some(
+        (bookmark) => bookmark.cfi === location.cfi && normalizeAnnotationKind(bookmark) === 'bookmark'
+    );
 
     return (
         <div className={`reader theme-reader-${theme}`}>
@@ -158,25 +265,37 @@ export default function ReaderScreen({ book, onClose, onProgress }) {
                 </div>
             )}
 
+            {/* Los gestos viven dentro del iframe (ver registerContentHooks),
+                no en una capa por encima: así el toque navega y la pulsación
+                larga sigue pudiendo seleccionar texto para subrayar. */}
             <div className="reader-viewport" ref={viewportRef} />
-
-            {/* Capa de gestos por encima del iframe. epub.js renderiza cada
-                capítulo dentro de un iframe que se queda todos los eventos de
-                puntero, así que sin esta capa las zonas de toque no responden.
-                Contrapartida conocida: mientras esté activa no se puede
-                seleccionar texto dentro del libro. Cuando lleguen los subrayados
-                (v0.4.0) habrá que desactivarla en modo selección. */}
-            <div className="reader-gestures" {...gestures} aria-hidden="true" />
 
             <header className={`reader-top${chromeVisible ? '' : ' hidden'}`}>
                 <button type="button" className="icon-btn ghost" onClick={onClose} aria-label="Volver a la biblioteca">←</button>
                 <span className="reader-chapter">{location.chapter || book.name}</span>
+                <button
+                    type="button"
+                    className="icon-btn ghost"
+                    onClick={toggleBookmark}
+                    aria-label={isBookmarked ? 'Quitar marcador' : 'Añadir marcador'}
+                    aria-pressed={isBookmarked}
+                >
+                    {isBookmarked ? '🔖' : '🏷'}
+                </button>
                 <button type="button" className="icon-btn ghost" onClick={() => setPanel('toc')} aria-label="Índice">☰</button>
             </header>
 
             <footer className={`reader-bottom${chromeVisible ? '' : ' hidden'}`}>
                 <div className="reader-actions">
                     <button type="button" className="icon-btn ghost" onClick={() => setPanel('settings')} aria-label="Ajustes de lectura">Aa</button>
+                    <button
+                        type="button"
+                        className="icon-btn ghost"
+                        onClick={() => setPanel('annotations')}
+                        aria-label="Anotaciones"
+                    >
+                        🖍{annotationCount > 0 && <span className="badge mono">{annotationCount}</span>}
+                    </button>
                     <div className="reader-progress" aria-hidden="true">
                         <span className="reader-bar"><i style={{ width: `${percent}%` }} /></span>
                     </div>
@@ -205,6 +324,25 @@ export default function ReaderScreen({ book, onClose, onProgress }) {
                     onChangeTypography={setTypography}
                     onChangeTheme={setTheme}
                     onClose={() => setPanel(null)}
+                />
+            )}
+
+            {panel === 'annotations' && (
+                <AnnotationsPanel
+                    bookmarks={annotationsRef.current}
+                    onJump={jumpTo}
+                    onDelete={deleteAnnotation}
+                    onExport={() => onExportAnnotations?.(book)}
+                    onClose={() => setPanel(null)}
+                />
+            )}
+
+            {selection && (
+                <SelectionToolbar
+                    text={selection.text}
+                    onHighlight={highlightSelection}
+                    onCopy={copySelection}
+                    onCancel={cancelSelection}
                 />
             )}
         </div>

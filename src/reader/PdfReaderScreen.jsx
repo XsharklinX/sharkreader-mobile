@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createGestureHandlers } from './useGestures.js';
 import { READER_THEMES } from './typography.js';
+import AnnotationsPanel from './AnnotationsPanel.jsx';
+import {
+    createBookmark,
+    addAnnotation,
+    removeAnnotation,
+    HIGHLIGHT_SWATCHES,
+} from './annotations.js';
+import { normalizeAnnotationKind } from '../core/annotationExport.js';
 import { readBookBlob } from '../adapters/SafPicker.js';
 
 /**
@@ -19,7 +27,13 @@ import { readBookBlob } from '../adapters/SafPicker.js';
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 4;
 
-export default function PdfReaderScreen({ book, onClose, onProgress }) {
+export default function PdfReaderScreen({
+    book,
+    onClose,
+    onProgress,
+    onAnnotationsChange,
+    onExportAnnotations,
+}) {
     const canvasRef = useRef(null);
     const docRef = useRef(null);
     const renderTaskRef = useRef(null);
@@ -150,6 +164,28 @@ export default function PdfReaderScreen({ book, onClose, onProgress }) {
         [goNext, goPrev, toggleChrome]
     );
 
+    // ── Anotaciones ──────────────────────────────────────────────────────────
+    // En PDF la posición es el número de página serializado, no un CFI. Es el
+    // mismo convenio que usa el escritorio, así que las anotaciones viajan en
+    // un backup sin conversión.
+    const [showAnnotations, setShowAnnotations] = useState(false);
+    const annotations = book.bookmarks || [];
+
+    const pageIsBookmarked = annotations.some(
+        (bookmark) => bookmark.cfi === String(page) && normalizeAnnotationKind(bookmark) === 'bookmark'
+    );
+
+    const toggleBookmark = () => {
+        const cfi = String(page);
+        onAnnotationsChange?.(pageIsBookmarked
+            ? removeAnnotation(annotations, cfi, 'bookmark')
+            : addAnnotation(annotations, createBookmark({ cfi, label: `Página ${page}` })));
+    };
+
+    const deleteAnnotation = (cfi, kind) => {
+        onAnnotationsChange?.(removeAnnotation(annotations, cfi, kind));
+    };
+
     if (state === 'error') {
         return (
             <div className="reader">
@@ -183,6 +219,23 @@ export default function PdfReaderScreen({ book, onClose, onProgress }) {
             <header className={`reader-top${chromeVisible ? '' : ' hidden'}`}>
                 <button type="button" className="icon-btn ghost" onClick={onClose} aria-label="Volver a la biblioteca">←</button>
                 <span className="reader-chapter">{book.name}</span>
+                <button
+                    type="button"
+                    className="icon-btn ghost"
+                    onClick={toggleBookmark}
+                    aria-label={pageIsBookmarked ? 'Quitar marcador' : 'Marcar esta página'}
+                    aria-pressed={pageIsBookmarked}
+                >
+                    {pageIsBookmarked ? '🔖' : '🏷'}
+                </button>
+                <button
+                    type="button"
+                    className="icon-btn ghost"
+                    onClick={() => setShowAnnotations(true)}
+                    aria-label="Anotaciones"
+                >
+                    🖍{annotations.length > 0 && <span className="badge mono">{annotations.length}</span>}
+                </button>
                 <button
                     type="button"
                     className="icon-btn ghost"
@@ -220,6 +273,20 @@ export default function PdfReaderScreen({ book, onClose, onProgress }) {
                 />
                 <span className="reader-page mono">página {page} de {total}</span>
             </footer>
+
+            {showAnnotations && (
+                <AnnotationsPanel
+                    bookmarks={annotations}
+                    onJump={(cfi) => {
+                        const target = Number(cfi);
+                        if (Number.isFinite(target)) setPage(Math.min(Math.max(1, target), total || 1));
+                        setShowAnnotations(false);
+                    }}
+                    onDelete={deleteAnnotation}
+                    onExport={() => onExportAnnotations?.(book)}
+                    onClose={() => setShowAnnotations(false)}
+                />
+            )}
 
             {showOutline && (
                 <div className="sheet-backdrop" onClick={() => setShowOutline(false)} role="presentation">

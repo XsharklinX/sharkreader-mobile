@@ -134,3 +134,55 @@ describe('pulsación larga', () => {
         vi.useRealTimers();
     });
 });
+
+describe('convivencia con la selección de texto', () => {
+    it('un toque con texto seleccionado no pasa página', () => {
+        const onNext = vi.fn();
+        const onToggleChrome = vi.fn();
+        const handlers = createGestureHandlers({
+            onNext,
+            onPrev: vi.fn(),
+            onToggleChrome,
+            shouldIgnore: () => true,
+        });
+
+        handlers.onPointerDown(event(380));
+        handlers.onPointerUp(event(380));
+
+        expect(onNext).not.toHaveBeenCalled();
+        expect(onToggleChrome).not.toHaveBeenCalled();
+    });
+
+    it('sin selección activa el gesto funciona con normalidad', () => {
+        const onNext = vi.fn();
+        const handlers = createGestureHandlers({
+            onNext,
+            onPrev: vi.fn(),
+            onToggleChrome: vi.fn(),
+            shouldIgnore: () => false,
+        });
+
+        handlers.onPointerDown(event(380));
+        handlers.onPointerUp(event(380));
+
+        expect(onNext).toHaveBeenCalledOnce();
+    });
+
+    it('getWidth manda sobre el ancho del elemento, para eventos dentro del iframe', () => {
+        const onPrev = vi.fn();
+        const handlers = createGestureHandlers({
+            onNext: vi.fn(),
+            onPrev,
+            onToggleChrome: vi.fn(),
+            // El documento del iframe no tiene clientWidth: sin getWidth, un
+            // toque en x=100 se compararía contra window.innerWidth.
+            getWidth: () => 1000,
+        });
+
+        // x=100 sobre 1000 px cae en la zona izquierda (<28%).
+        handlers.onPointerDown({ clientX: 100, clientY: 300, currentTarget: {} });
+        handlers.onPointerUp({ clientX: 100, clientY: 300, currentTarget: {} });
+
+        expect(onPrev).toHaveBeenCalledOnce();
+    });
+});

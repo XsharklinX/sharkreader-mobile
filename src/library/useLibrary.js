@@ -102,6 +102,17 @@ export const useLibrary = () => {
         }
     }, [ports, books]);
 
+    /**
+     * Aplica el resultado de fusionar un backup: reemplaza la lista en memoria y
+     * persiste todos los registros de una vez.
+     */
+    const replaceAll = useCallback(async (mergedBooks) => {
+        setBooks(mergedBooks);
+        await ports.storage.putBooks(
+            mergedBooks.map((book) => toStoredBookRecord(book, {}, { includeFile: false }))
+        );
+    }, [ports]);
+
     return {
         books,
         status,
@@ -111,6 +122,8 @@ export const useLibrary = () => {
         importFolder: () => runImport('folder'),
         updateBook,
         removeBook,
+        replaceAll,
+        setError,
         clearError: () => setError(null),
     };
 };

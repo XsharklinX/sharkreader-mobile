@@ -73,6 +73,64 @@ export const createEpubEngine = () => {
 
         display: (target) => rendition?.display(target),
 
+        /**
+         * Registra los gestos **dentro** del iframe de cada capítulo.
+         *
+         * La alternativa —una capa transparente por encima— bloquea la selección
+         * de texto, que es justo lo que hace falta para subrayar. Registrando los
+         * eventos en el documento del iframe conviven las dos cosas: el gesto se
+         * evalúa y, si hay texto seleccionado, se descarta.
+         *
+         * El hook se ejecuta con cada capítulo que epub.js monta, así que hay que
+         * registrarlo una sola vez y dejar que él lo aplique a todos.
+         */
+        registerContentHooks(handlers) {
+            if (!rendition) return;
+            rendition.hooks.content.register((contents) => {
+                const doc = contents.document;
+                doc.addEventListener('pointerdown', handlers.onPointerDown, { passive: true });
+                doc.addEventListener('pointerup', handlers.onPointerUp, { passive: true });
+                doc.addEventListener('pointercancel', handlers.onPointerCancel, { passive: true });
+            });
+        },
+
+        /** Texto seleccionado ahora mismo dentro del capítulo visible. */
+        selectionText() {
+            const contents = rendition?.getContents?.() || [];
+            for (const content of [].concat(contents)) {
+                const selected = content?.window?.getSelection?.()?.toString?.() || '';
+                if (selected.trim()) return selected.trim();
+            }
+            return '';
+        },
+
+        clearSelection() {
+            const contents = rendition?.getContents?.() || [];
+            [].concat(contents).forEach((content) => {
+                try { content?.window?.getSelection?.()?.removeAllRanges?.(); } catch { /* ignorar */ }
+            });
+        },
+
+        /** Pinta un subrayado. epub.js lo dibuja como overlay SVG sobre el texto. */
+        addHighlight(cfiRange, color, onClick) {
+            if (!rendition || !cfiRange) return;
+            try {
+                rendition.annotations.highlight(
+                    cfiRange,
+                    {},
+                    () => onClick?.(cfiRange),
+                    `sr-hl-${color}`,
+                    { fill: color, 'fill-opacity': '0.32', 'mix-blend-mode': 'multiply' }
+                );
+            } catch {
+                // Un CFI que ya no existe (libro reemplazado) no debe romper la vista.
+            }
+        },
+
+        removeHighlight(cfiRange) {
+            try { rendition?.annotations.remove(cfiRange, 'highlight'); } catch { /* ya no estaba */ }
+        },
+
         applyStyles(styles) {
             if (!rendition) return;
             rendition.themes.default(styles);
