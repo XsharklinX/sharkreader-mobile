@@ -2079,3 +2079,35 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     border-radius: 2px;
     padding: 0 2px;
 }
+
+/* ═══ Bloqueo de la app ═════════════════════════════════════════════════════ */
+
+.app-lock {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-3);
+    padding: var(--sp-6);
+    /* Opaco y no translúcido: el sentido de esta pantalla es que no se vea lo
+       que hay detrás, y un desenfoque siempre deja adivinar las portadas. */
+    background: var(--bg);
+    text-align: center;
+}
+
+.app-lock-art {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    color: var(--accent);
+}
+
+.app-lock-title { font-size: var(--t-h1); font-weight: 700; }
+.app-lock-body { color: var(--text-2); max-width: 30ch; }

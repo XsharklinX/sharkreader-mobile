@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Accesos directos estáticos: los que existen siempre, haya libros o no.
+    Los de libros concretos son dinámicos y los publica SharkShortcutsPlugin,
+    porque dependen de qué se esté leyendo.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="add-book"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_add_short"
+        android:shortcutLongLabel="@string/shortcut_add_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="sharkreader://import"
+            android:targetPackage="com.sharkreader.mobile"
+            android:targetClass="com.sharkreader.mobile.MainActivity" />
+    </shortcut>
+</shortcuts>

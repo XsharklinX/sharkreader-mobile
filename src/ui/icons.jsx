@@ -234,3 +234,11 @@ export const IconQuote = (p) => (
         <path d="M18.3 6.5c-2.5 1.1-4 3.3-4 5.9v5.1h5.2v-5.2H17c0-1.9.8-3.3 2.4-4.2z" />
     </Svg>
 );
+
+export const IconLock = (p) => (
+    <Svg {...p}>
+        <rect x="4.5" y="10.5" width="15" height="9.5" rx="2" />
+        <path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7" />
+        <path d="M12 14.3v2.2" />
+    </Svg>
+);

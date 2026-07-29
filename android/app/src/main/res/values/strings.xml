@@ -4,4 +4,7 @@
     <string name="title_activity_main">SharkReader</string>
     <string name="package_name">com.sharkreader.mobile</string>
     <string name="custom_url_scheme">com.sharkreader.mobile</string>
+    <string name="widget_description">Tu lectura en curso, con su progreso</string>
+    <string name="shortcut_add_short">Añadir</string>
+    <string name="shortcut_add_long">Añadir un libro</string>
 </resources>

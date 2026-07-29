@@ -101,6 +101,17 @@ export const buildBookRecord = async (picked) => {
         await writeConvertedBook(picked.path, blob);
     }
 
+    // DOCX sigue el mismo camino que el texto plano: mammoth lo pasa a HTML
+    // respetando los estilos de Word —«Título 1» se convierte en <h1>, no en un
+    // párrafo en negrita— y de ahí sale un EPUB con capítulos de verdad.
+    if (extension === 'docx') {
+        const { docxToHtml, titleFromHtml } = await import('./docx.js');
+        const { html } = await docxToHtml(blob);
+        title = titleFromHtml(html) || titleFromFileName(picked.name);
+        blob = await textToEpub('', { title, html });
+        await writeConvertedBook(picked.path, blob);
+    }
+
     if (extension === 'cbz') {
         const pages = await listComicPages(blob);
         if (pages.length === 0) throw new Error('El CBZ no contiene imágenes.');

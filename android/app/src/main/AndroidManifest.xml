@@ -38,9 +38,38 @@
                 <data android:mimeType="application/x-cbz" />
                 <data android:mimeType="text/plain" />
                 <data android:mimeType="text/markdown" />
+                <data android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
             </intent-filter>
 
+            <!-- Esquema propio: lo usan los accesos directos del icono y el
+                 widget para decir qué libro abrir. Va en su propio filtro
+                 porque no lleva tipo MIME y mezclarlo con el de arriba haría
+                 que la app se ofreciera para abrir cualquier enlace. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="sharkreader" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
         </activity>
+
+        <!-- Widget de continuar leyendo. No se refresca por temporizador: lo
+             actualiza la app cuando cambia el libro o el progreso. -->
+        <receiver
+            android:name=".ContinueWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_continue_info" />
+        </receiver>
 
         <!-- Servicio de lectura en voz alta. `mediaPlayback` es el tipo correcto:
              Android exige declarar para qué se usa un servicio en primer plano
@@ -86,6 +115,10 @@
          lectura se corta al salir de la app. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
+    <!-- Bloqueo de la app. No es obligatorio declararla desde Android 11, pero
+         sin ella el diálogo no aparece en versiones anteriores. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
     <!-- La app funciona entera sin conexión -->
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />

@@ -96,6 +96,9 @@ dependencies {
     // lectura en voz alta se controle desde la pantalla de bloqueo y los
     // auriculares.
     implementation "androidx.media:media:1.7.0"
+    // Bloqueo con huella, cara o PIN. `biometric` unifica las tres APIs que
+    // Android ha tenido para esto y añade el diálogo del sistema.
+    implementation "androidx.biometric:biometric:1.1.0"
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"

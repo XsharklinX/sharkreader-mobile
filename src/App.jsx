@@ -15,6 +15,9 @@ import { useReadingClock } from './library/useReadingClock.js';
 import { useStats } from './stats/useStats.js';
 import { useSync } from './library/useSync.js';
 import { exportAnnotations } from './library/backup.js';
+import { publishShortcuts, publishWidget, bookIdFromUrl, isImportUrl } from './adapters/Shortcuts.js';
+import { readDynamicColors, applyDynamicColors, clearDynamicColors } from './adapters/SystemTheme.js';
+import AppLock from './ui/AppLock.jsx';
 
 // Tres pantallas. Logros vive dentro de Progreso y Workshop dentro de Ajustes.
 const SCREENS = {
@@ -43,6 +46,23 @@ export default function App() {
             stats.preferences.appTheme === 'light'
         );
     }, [stats.preferences.appTheme]);
+
+    // Material You: la interfaz sigue el fondo de pantalla. Viene apagado — el
+    // azul es la identidad de la app y cambiarlo sin permiso no procede.
+    //
+    // Nunca toca el lector: los temas de lectura están elegidos por contraste y
+    // fatiga visual, y teñir la página del libro con el fondo de pantalla sería
+    // empeorar la lectura para decorar.
+    useEffect(() => {
+        const dark = stats.preferences.appTheme !== 'light';
+        if (!stats.preferences.materialYou) { clearDynamicColors(); return undefined; }
+
+        let alive = true;
+        readDynamicColors().then(({ available, colors }) => {
+            if (alive) applyDynamicColors(available ? colors : null, dark);
+        });
+        return () => { alive = false; };
+    }, [stats.preferences.materialYou, stats.preferences.appTheme]);
 
     const closeReader = useCallback(() => {
         setReadingId(null);
@@ -74,6 +94,48 @@ export default function App() {
 
         return () => { listener?.remove(); };
     }, [library.status]);
+
+    // Accesos directos del icono y widget de continuar leyendo.
+    //
+    // Se recalculan al cambiar el orden de lectura reciente, no en cada página:
+    // reescribir SharedPreferences y redibujar el widget en cada cambio de
+    // página sería trabajo constante para mover una barra un píxel.
+    const recentKey = library.books
+        .map((book) => `${book.id}:${book.lastReadDate || 0}`)
+        .sort()
+        .join('|');
+
+    useEffect(() => {
+        if (library.status !== 'ready') return;
+        publishShortcuts(library.books);
+        publishWidget(library.books);
+        // `recentKey` es la dependencia real: cambia solo cuando cambia el orden
+        // de lectura, no en cada render de la biblioteca.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [library.status, recentKey]);
+
+    // Abrir el libro que pide un acceso directo o el widget.
+    useEffect(() => {
+        if (library.status !== 'ready') return undefined;
+
+        let listener;
+        const openFromUrl = (url) => {
+            if (isImportUrl(url)) { setTab('library'); return; }
+            const id = bookIdFromUrl(url);
+            // El libro puede haberse borrado desde que se creó el acceso
+            // directo: abrir uno inexistente sería peor que no hacer nada.
+            if (id && library.books.some((book) => book.id === id)) setReadingId(id);
+        };
+
+        CapApp.getLaunchUrl().then((result) => {
+            if (result?.url) openFromUrl(result.url);
+        }).catch(() => {});
+
+        CapApp.addListener('appUrlOpen', ({ url }) => openFromUrl(url))
+            .then((handle) => { listener = handle; });
+
+        return () => { listener?.remove(); };
+    }, [library.status, library.books]);
 
     // El botón atrás de Android. Este es el **único** oyente de la app: lo que
     // decide qué se cierra es la pila de `backStack`, empezando por la capa más
@@ -136,11 +198,17 @@ export default function App() {
         }
     }, [library]);
 
+    // El bloqueo envuelve todo, también el lector: si no, un acceso directo
+    // abriría el libro directamente y saltaría la pantalla de bloqueo entera.
+    const lock = (content) => (
+        <AppLock enabled={Boolean(stats.preferences.appLock)}>{content}</AppLock>
+    );
+
     if (reading) {
         const Reader = reading.type === 'pdf' ? PdfReaderScreen
             : reading.type === 'comic' ? ComicReaderScreen
             : ReaderScreen;
-        return (
+        return lock(
             <Reader
                 key={reading.id}
                 book={reading}
@@ -156,7 +224,7 @@ export default function App() {
 
     const Screen = SCREENS[tab];
 
-    return (
+    return lock(
         <div className="app">
             <main className="app-main">
                 <Screen

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fondo del widget. Esquinas generosas porque Android 12 recorta los widgets
+     con radio propio y un fondo cuadrado asoma por las esquinas. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#12171D" />
+    <corners android:radius="20dp" />
+</shape>

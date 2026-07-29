@@ -34,6 +34,7 @@ export const CATEGORIES = [
             { id: 'theme', label: 'Tema de la aplicación', keywords: 'oscuro claro noche modo color' },
             { id: 'density', label: 'Densidad de la biblioteca', keywords: 'rejilla compacta portadas tamaño' },
             { id: 'font-scale', label: 'Tamaño de la interfaz', keywords: 'letra texto grande accesibilidad' },
+            { id: 'material-you', label: 'Colores del sistema', keywords: 'material you fondo pantalla dinamico tema android acento' },
         ],
     },
     {
@@ -66,6 +67,7 @@ export const CATEGORIES = [
         summary: 'Permisos y conexiones',
         items: [
             { id: 'permissions', label: 'Permisos concedidos', keywords: 'android notificaciones internet acceso' },
+            { id: 'app-lock', label: 'Bloquear la aplicación', keywords: 'huella dactilar cara pin patron biometria seguridad candado' },
             { id: 'connections', label: 'Conexiones a internet', keywords: 'red openlibrary diccionario webdav datos' },
             { id: 'clear-dict', label: 'Borrar la caché del diccionario', keywords: 'limpiar palabras guardadas' },
             { id: 'policy', label: 'Política de privacidad', keywords: 'legal términos datos' },

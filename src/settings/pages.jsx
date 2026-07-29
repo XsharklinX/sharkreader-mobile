@@ -11,6 +11,8 @@ import { getMobileAddons } from '../library/workshop.js';
 import { formatBytes, useStorageUsage } from './storage.js';
 import { relativeTime } from './SettingsHome.jsx';
 import { IconBell, IconChevronRight, IconShare, IconFolder, IconTrash } from '../ui/icons.jsx';
+import Switch from '../ui/Switch.jsx';
+import { isLockAvailable, authenticate } from '../ui/AppLock.jsx';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Piezas compartidas
@@ -184,6 +186,21 @@ export const AppearancePage = ({ stats }) => {
                 <p className="option-desc">
                     Es independiente del tema de lectura: puedes leer en sepia con la
                     interfaz oscura.
+                </p>
+            </section>
+
+            <section className="section" data-setting="material-you">
+                <h2 className="bs-heading">Colores del sistema</h2>
+                <Switch
+                    label="Material You"
+                    hint="La interfaz toma los colores de tu fondo de pantalla (Android 12 o superior)"
+                    checked={Boolean(prefs.materialYou)}
+                    onChange={(materialYou) => stats.savePreferences({ materialYou })}
+                />
+                <p className="option-desc">
+                    No afecta a los temas de lectura: esos están elegidos por contraste
+                    y fatiga visual, no por gusto, y teñir la página del libro con el
+                    fondo de pantalla empeoraría la lectura.
                 </p>
             </section>
 
@@ -539,8 +556,29 @@ const CONNECTIONS = [
     },
 ];
 
-export const PrivacyPage = ({ notify }) => {
+export const PrivacyPage = ({ notify, stats }) => {
     const ports = usePorts();
+    const [lockStatus, setLockStatus] = useState(null);
+
+    useEffect(() => {
+        isLockAvailable().then(setLockStatus).catch(() => {});
+    }, []);
+
+    /**
+     * Activar el bloqueo exige autenticarse en el momento.
+     *
+     * Sin esa comprobación se podría activar en un móvil donde la huella no
+     * funcione, y el bloqueo dejaría fuera al propio dueño en el siguiente
+     * arranque sin forma de desactivarlo.
+     */
+    const toggleLock = async (enabled) => {
+        if (!enabled) { stats.savePreferences({ appLock: false }); return; }
+        const result = await authenticate();
+        if (result.ok) stats.savePreferences({ appLock: true });
+        else if (result.reason === 'error') {
+            notify?.('No se pudo verificar tu identidad. El bloqueo sigue desactivado.');
+        }
+    };
 
     return (
         <>
@@ -551,6 +589,31 @@ export const PrivacyPage = ({ notify }) => {
                     Sin cuentas, sin telemetría, sin publicidad. SharkReader no tiene
                     servidores propios.
                 </p>
+            </section>
+
+            <section className="section" data-setting="app-lock">
+                <h2 className="bs-heading">Bloquear la aplicación</h2>
+                {lockStatus?.available ? (
+                    <>
+                        <Switch
+                            label="Pedir huella, cara o PIN al abrir"
+                            checked={Boolean(stats?.preferences?.appLock)}
+                            onChange={toggleLock}
+                        />
+                        <p className="option-desc">
+                            Oculta la biblioteca hasta que te identifiques. Se vuelve a
+                            pedir si dejas la app en segundo plano más de medio minuto.
+                            No cifra los ficheros: impide que alguien con tu móvil en la
+                            mano vea qué lees y qué has subrayado.
+                        </p>
+                    </>
+                ) : (
+                    <p className="option-desc">
+                        {lockStatus?.reason === 'not-enrolled'
+                            ? 'Este móvil admite bloqueo, pero no tienes huella ni PIN configurados. Añádelos en los ajustes de Android para poder usarlo.'
+                            : 'Este dispositivo no admite bloqueo biométrico.'}
+                    </p>
+                )}
             </section>
 
             <section className="section" data-setting="permissions">

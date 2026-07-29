@@ -11,7 +11,7 @@ import JSZip from 'jszip';
  * Los cómics sí necesitan visor propio: son imágenes, no texto reflowable.
  */
 
-export const SUPPORTED_EXTENSIONS = ['epub', 'pdf', 'txt', 'md', 'markdown', 'cbz'];
+export const SUPPORTED_EXTENSIONS = ['epub', 'pdf', 'txt', 'md', 'markdown', 'cbz', 'docx'];
 
 export const extensionOf = (name = '') =>
     String(name).toLowerCase().split('.').pop() || '';
@@ -21,8 +21,8 @@ export const bookTypeOf = (name = '') => {
     const ext = extensionOf(name);
     if (ext === 'pdf') return 'pdf';
     if (ext === 'cbz') return 'comic';
-    // TXT y Markdown se convierten a EPUB en la importación, así que a partir
-    // de ese momento son un EPUB más para el resto de la app.
+    // TXT, Markdown y DOCX se convierten a EPUB en la importación, así que a
+    // partir de ese momento son un EPUB más para el resto de la app.
     return 'epub';
 };
 
@@ -141,8 +141,11 @@ const xmlEscape = (text) => String(text)
  * @param {{title: string, author?: string, markdown?: boolean}} meta
  * @returns {Promise<Blob>}
  */
-export const textToEpub = async (text, { title, author = '', markdown = false }) => {
-    const html = markdown ? markdownToHtml(text) : plainTextToHtml(text);
+export const textToEpub = async (text, { title, author = '', markdown = false, html: preHtml } = {}) => {
+    // `html` permite entrar con el documento ya convertido —es lo que hace
+    // DOCX, que llega como HTML de mammoth— reutilizando todo el resto:
+    // troceado en capítulos, OPF, índice y empaquetado.
+    const html = preHtml ?? (markdown ? markdownToHtml(text) : plainTextToHtml(text));
     const chapters = splitIntoChapters(html);
     const zip = new JSZip();
 

@@ -56,6 +56,7 @@ public class SharkPickerPlugin extends Plugin {
         "application/vnd.comicbook+zip",
         "text/plain",
         "text/markdown",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // DOCX
         "application/zip",
         "application/octet-stream" // muchos proveedores no etiquetan bien EPUB ni CBZ
     };

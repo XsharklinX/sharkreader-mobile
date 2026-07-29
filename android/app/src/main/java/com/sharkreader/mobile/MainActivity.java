@@ -13,6 +13,10 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SharkPickerPlugin.class);
         registerPlugin(SharkSpeechPlugin.class);
         registerPlugin(SharkKeysPlugin.class);
+        registerPlugin(SharkShortcutsPlugin.class);
+        registerPlugin(SharkWidgetPlugin.class);
+        registerPlugin(SharkThemePlugin.class);
+        registerPlugin(SharkLockPlugin.class);
         super.onCreate(savedInstanceState);
 
         SharkPickerPlugin.setPendingIntent(getIntent());

@@ -22,6 +22,10 @@ export const DEFAULT_PREFERENCES = {
     // aquí y no en cada libro porque quien invierte los lados los quiere
     // invertidos en todos.
     gestureGrid: null,
+    // Material You: la interfaz sigue el fondo de pantalla (Android 12+).
+    materialYou: false,
+    // Bloqueo con huella, cara o PIN al abrir la app.
+    appLock: false,
 };
 
 /**
