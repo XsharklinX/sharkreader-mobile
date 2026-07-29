@@ -102,6 +102,73 @@ export const createEpubEngine = () => {
             });
         },
 
+        /**
+         * Texto de lo que está visible ahora mismo en pantalla.
+         *
+         * Para la lectura en voz alta hay que leer **exactamente** lo que se ve,
+         * no el capítulo entero: si no, la voz seguiría leyendo contenido de
+         * páginas que el usuario todavía no tiene delante. Se filtran los
+         * elementos cuyo rectángulo cae fuera de la columna visible.
+         */
+        visibleText() {
+            const contents = [].concat(rendition?.getContents?.() || []);
+            const parts = [];
+
+            contents.forEach((content) => {
+                const doc = content?.document;
+                const view = content?.window;
+                if (!doc || !view) return;
+
+                const width = view.innerWidth || 0;
+                const blocks = doc.querySelectorAll('p, li, blockquote, h1, h2, h3, h4, h5, h6, td');
+
+                blocks.forEach((element) => {
+                    const rect = element.getBoundingClientRect();
+                    if (rect.width === 0 && rect.height === 0) return;
+                    // En modo paginado, epub.js desplaza las columnas: lo visible
+                    // es lo que cae dentro del ancho de la ventana del iframe.
+                    if (rect.right < 0 || rect.left > width) return;
+                    const text = (element.textContent || '').trim();
+                    if (text) parts.push(text);
+                });
+            });
+
+            return parts.join(' ');
+        },
+
+        /**
+         * Resalta la frase que se está leyendo en voz alta.
+         *
+         * Se hace envolviendo coincidencias con un `<mark>` propio en lugar de
+         * con anotaciones de epub.js: es temporal, no debe persistir ni entrar
+         * en el sistema de subrayados del usuario.
+         */
+        highlightSpoken(sentence) {
+            const contents = [].concat(rendition?.getContents?.() || []);
+
+            contents.forEach((content) => {
+                const doc = content?.document;
+                if (!doc) return;
+
+                doc.querySelectorAll('.sr-speaking').forEach((element) => {
+                    element.classList.remove('sr-speaking');
+                });
+
+                if (!sentence) return;
+
+                const needle = sentence.trim().slice(0, 60);
+                if (needle.length < 8) return;
+
+                const blocks = doc.querySelectorAll('p, li, blockquote, h1, h2, h3, h4, h5, h6, td');
+                for (const element of blocks) {
+                    if ((element.textContent || '').includes(needle)) {
+                        element.classList.add('sr-speaking');
+                        break;
+                    }
+                }
+            });
+        },
+
         /** Texto seleccionado ahora mismo dentro del capítulo visible. */
         selectionText() {
             const contents = rendition?.getContents?.() || [];

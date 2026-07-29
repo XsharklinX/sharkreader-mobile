@@ -7,6 +7,8 @@ import TocDrawer from './TocDrawer.jsx';
 import SelectionToolbar from './SelectionToolbar.jsx';
 import AnnotationsPanel from './AnnotationsPanel.jsx';
 import DimZone from './DimZone.jsx';
+import SpeechBar from './SpeechBar.jsx';
+import { useSpeech } from './useSpeech.js';
 import {
     createHighlight, createBookmark, addAnnotation, removeAnnotation, HIGHLIGHT_SWATCHES,
 } from './annotations.js';
@@ -15,7 +17,7 @@ import { readBookBlob } from '../adapters/SafPicker.js';
 import { usePorts } from '../ports/index.js';
 import { formatMinutes } from '../stats/derive.js';
 import {
-    IconArrowLeft, IconTextSize, IconList, IconBookmark, IconHighlight, IconSearch,
+    IconArrowLeft, IconTextSize, IconList, IconBookmark, IconHighlight, IconSearch, IconVolume,
 } from '../ui/icons.jsx';
 
 const LOCATIONS_KEY = (bookId) => `locations:${bookId}`;
@@ -174,6 +176,22 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         setPanel(null);
     }, []);
 
+    // ── Lectura en voz alta ──────────────────────────────────────────────────
+    const speech = useSpeech({
+        // Lee solo lo visible, no el capítulo entero: si no, la voz seguiría
+        // leyendo contenido de páginas que el usuario aún no tiene delante.
+        getPageText: useCallback(() => engineRef.current?.visibleText() || '', []),
+        onSentence: useCallback((sentence) => {
+            engineRef.current?.highlightSpoken(sentence);
+        }, []),
+        onNextPage: useCallback(async () => {
+            const engine = engineRef.current;
+            if (!engine) return false;
+            await engine.next();
+            return true;
+        }, []),
+    });
+
     // ── Anotaciones ──────────────────────────────────────────────────────────
     const annotationsRef = useRef(book.bookmarks || []);
     annotationsRef.current = book.bookmarks || [];
@@ -326,8 +344,21 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     >
                         <IconHighlight size={22} />
                     </button>
+                    <button
+                        type="button"
+                        className={`icon-btn${speech.isSpeaking ? ' on' : ''}`}
+                        onClick={speech.toggle}
+                        disabled={!speech.supported}
+                        aria-label="Leer en voz alta"
+                    >
+                        <IconVolume size={22} />
+                    </button>
                 </div>
             </footer>
+
+            {speech.state !== 'idle' && (
+                <SpeechBar speech={speech} onClose={speech.stop} />
+            )}
 
             {(panel === 'toc' || panel === 'search') && (
                 <TocDrawer

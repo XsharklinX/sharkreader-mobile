@@ -775,6 +775,48 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .switch.on::after { transform: translateX(18px); background: var(--accent-ink); }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   Lectura en voz alta
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Patrón de reproductor: mientras algo suena, su control tiene prioridad sobre
+   el resto de la interfaz, así que va anclado abajo y siempre visible —también
+   con la interfaz del lector oculta. */
+.speechbar {
+    position: absolute;
+    left: var(--sp-3);
+    right: var(--sp-3);
+    bottom: calc(var(--safe-bottom) + var(--sp-3));
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4);
+    border-radius: var(--r-lg);
+    background: var(--sf-3);
+    color: var(--text);
+    box-shadow: var(--el-3);
+    animation: toast-in 0.24s var(--ease) both;
+}
+
+.speech-icon { color: var(--accent); flex: none; display: grid; place-items: center; }
+.speech-info { flex: 1; display: flex; flex-direction: column; gap: 0; min-width: 0; }
+.speech-state { font-size: var(--t-small); font-weight: 600; }
+.speech-cfg { min-height: 22px; padding: 0; text-align: left; font-size: var(--t-micro); font-weight: 500; }
+
+.speech-play {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--r-full);
+    border: 0;
+    background: var(--accent);
+    color: var(--accent-ink);
+    display: grid;
+    place-items: center;
+    flex: none;
+}
+.speech-play:active { transform: scale(0.94); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
    Selección y anotaciones
    ═══════════════════════════════════════════════════════════════════════════ */
 

@@ -171,6 +171,13 @@ export const buildReaderStyles = (typography, themeId) => {
             'font-style': 'italic',
         },
         '::selection': { 'background': 'rgba(56,189,248,.35)' },
+        // Párrafo que está sonando en la lectura en voz alta. Es un resaltado
+        // temporal, no un subrayado del usuario: no persiste ni se guarda.
+        '.sr-speaking': {
+            'background': 'rgba(56,189,248,.16) !important',
+            'border-radius': '3px',
+            'box-shadow': '0 0 0 4px rgba(56,189,248,.16)',
+        },
     };
 };
 
