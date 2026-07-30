@@ -6,7 +6,6 @@ import { mapStatus, progressLabel } from './locationMap.js';
 import { createRefreshCounter, flashScreen, DEFAULT_REFRESH_EVERY } from './einkRefresh.js';
 import Loading from '../ui/Loading.jsx';
 import ReadingRuler from './ReadingRuler.jsx';
-import BrightnessSheet from './BrightnessSheet.jsx';
 import ReaderSettingsSheet from './ReaderSettingsSheet.jsx';
 import DisplaySheet from './DisplaySheet.jsx';
 import BookInfoSheet from './BookInfoSheet.jsx';
@@ -952,20 +951,14 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     <span className="reader-book">{book.name}</span>
                     {location.chapter && <span className="reader-chapter">{location.chapter}</span>}
                 </button>
-                {/* Arriba va lo que responde a «dónde estoy, a dónde voy y qué
-                    he marcado». Abajo, solo los ajustes de lectura.
+                {/* Arriba, solo lo que sitúa en el libro: dónde estoy, a dónde
+                    voy y qué he marcado. Abajo, los ajustes de lectura.
 
-                    El brillo estaba en una franja invisible del borde izquierdo:
-                    no se veía, no se sabía que existía y arrastrar ahí también lo
-                    interpretaba el gesto de pasar página. Ahora es un botón. */}
-                <button
-                    type="button"
-                    className="icon-btn"
-                    onClick={() => setPanel('brightness')}
-                    aria-label="Brillo"
-                >
-                    <IconSun size={20} />
-                </button>
+                    Eran seis iconos del mismo peso en una fila y no se
+                    distinguían de un vistazo. El brillo baja a la hoja de
+                    Pantalla —donde el usuario espera encontrar lo que cambia el
+                    aspecto— y las notas pasan al cajón del índice, junto a las
+                    marcas, que es donde ya vivía la otra mitad de lo mismo. */}
                 <button
                     type="button"
                     className="icon-btn"
@@ -981,15 +974,6 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     aria-label="Índice"
                 >
                     <IconList size={21} />
-                </button>
-                <button
-                    type="button"
-                    className={`icon-btn${annotationCount ? ' has-data' : ''}`}
-                    onClick={() => setPanel('annotations')}
-                    aria-label={`Notas y subrayados (${annotationCount})`}
-                >
-                    <IconHighlight size={20} />
-                    {annotationCount > 0 && <span className="icon-badge">{annotationCount}</span>}
                 </button>
                 <button
                     type="button"
@@ -1131,6 +1115,8 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 <TocDrawer
                     toc={toc}
                     initialTab={panel === 'search' ? 'search' : 'toc'}
+                    onOpenAnnotations={() => setPanel('annotations')}
+                    annotationCount={annotationCount}
                     currentChapter={location.chapter}
                     bookmarks={annotationsRef.current}
                     onSelect={jumpTo}
@@ -1148,16 +1134,6 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                         setGrid(next);
                         onPreferencesChange?.({ gestureGrid: next });
                     }}
-                    onClose={() => setPanel(null)}
-                />
-            )}
-
-            {panel === 'brightness' && (
-                <BrightnessSheet
-                    dim={dim}
-                    onChangeDim={setDim}
-                    warm={warm}
-                    onChangeWarm={setWarm}
                     onClose={() => setPanel(null)}
                 />
             )}
@@ -1183,6 +1159,10 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 <DisplaySheet
                     theme={theme}
                     onChangeTheme={setTheme}
+                    dim={dim}
+                    onChangeDim={setDim}
+                    warm={warm}
+                    onChangeWarm={setWarm}
                     flow={typography.flow}
                     onChangeFlow={(flow) => setTypography({ ...typography, flow })}
                     transition={transition}

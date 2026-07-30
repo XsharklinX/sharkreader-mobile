@@ -13,7 +13,7 @@ import { normalizeAnnotationKind, normalizeAnnotationText } from '../core/annota
  */
 export default function TocDrawer({
     toc, initialTab = 'toc', currentChapter, bookmarks = [],
-    onSelect, onClose, onSearch,
+    onSelect, onClose, onSearch, onOpenAnnotations, annotationCount = 0,
 }) {
     const [tab, setTab] = useState(initialTab);
     const [query, setQuery] = useState('');
@@ -150,7 +150,23 @@ export default function TocDrawer({
                     )}
 
                     {tab === 'marks' && (
-                        marks.length === 0 ? (
+                        <>
+                        {/* Notas y subrayados están una capa más adentro, no en la
+                            barra de arriba: allí eran uno de seis iconos del mismo
+                            peso, y aquí quedan junto a las marcas, que es la otra
+                            mitad de lo mismo —lo que has dejado señalado en el
+                            libro—. */}
+                        {onOpenAnnotations && (
+                            <button
+                                type="button"
+                                className="drawer-item drawer-more"
+                                onClick={onOpenAnnotations}
+                            >
+                                <span>Notas y subrayados</span>
+                                {annotationCount > 0 && <b>{annotationCount}</b>}
+                            </button>
+                        )}
+                        {marks.length === 0 ? (
                             <p className="drawer-empty">
                                 Todavía no has puesto ningún marcador. Toca el centro
                                 de la pantalla y usa el icono de marcador para dejar
@@ -173,7 +189,8 @@ export default function TocDrawer({
                                     </span>
                                 </button>
                             ))
-                        )
+                        )}
+                        </>
                     )}
                 </div>
             </aside>

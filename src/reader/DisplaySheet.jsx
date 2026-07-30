@@ -37,6 +37,7 @@ const SWATCH_TEXT = 'Del libro que nunca';
 
 export default function DisplaySheet({
     theme, onChangeTheme,
+    dim, onChangeDim, warm, onChangeWarm,
     flow, onChangeFlow,
     transition, onChangeTransition,
     spread, onChangeSpread, columns,
@@ -199,9 +200,48 @@ export default function DisplaySheet({
         <Sheet title="Pantalla" onClose={onClose} pages={pages}>
             {({ openPage }) => (
                 <>
-                    {/* El tema primero: es el motivo por el que se abre esta hoja
-                        casi siempre. Con texto de libro en cada muestra, porque
-                        lo que se elige es cómo se verá una página. */}
+                    {/* ── Brillo ──────────────────────────────────────────────
+                        Baja aquí desde la barra de arriba, que tenía seis iconos
+                        del mismo peso y no se distinguía ninguno. Este es el sitio
+                        que le corresponde: lo que cambia el aspecto de la página
+                        está todo junto, y cuando cambia la luz de la habitación se
+                        toca esto y el tema en el mismo gesto.
+
+                        Son dos controles y no uno porque atenuar y quitar azul no
+                        se usan en el mismo momento: atenuar baja por debajo del
+                        mínimo del sistema para leer a oscuras, y el filtro cálido
+                        quita el componente azul, que es lo que molesta de
+                        madrugada aunque el brillo ya esté bajo. */}
+                    <Group label="Brillo">
+                        <div className="slider-row">
+                            <IconSun size={17} />
+                            <input
+                                type="range"
+                                min={0}
+                                max={72}
+                                value={Math.round((dim || 0) * 100)}
+                                onChange={(event) => onChangeDim(Number(event.target.value) / 100)}
+                                aria-label="Atenuar la pantalla"
+                            />
+                            <span className="slider-val">
+                                {Math.round(((dim || 0) / 0.72) * 100)}%
+                            </span>
+                        </div>
+                        <div className="slider-row">
+                            <input
+                                type="range"
+                                min={0}
+                                max={100}
+                                value={Math.round((warm || 0) * 100)}
+                                onChange={(event) => onChangeWarm(Number(event.target.value) / 100)}
+                                aria-label="Filtro cálido"
+                            />
+                            <span className="slider-val">{Math.round((warm || 0) * 100)}%</span>
+                        </div>
+                    </Group>
+
+                    {/* El tema: con texto de libro en cada muestra, porque lo que
+                        se elige es cómo se verá una página. */}
                     <Group label="Tema">
                         <div className="theme-grid">
                             {Object.entries(READER_THEMES)

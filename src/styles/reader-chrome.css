@@ -160,7 +160,6 @@
     padding: 6px 12px;
     border-radius: var(--r-md);
     background: var(--chrome-bg);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, .28);
     white-space: nowrap;
     pointer-events: none;
     max-width: 60vw;
@@ -209,7 +208,7 @@
     grid-template-columns: repeat(4, 1fr);
     gap: 2px;
     padding: 4px;
-    border-radius: 18px;
+    border-radius: var(--r-lg);
     background: color-mix(in srgb, currentColor 8%, transparent);
 }
 
@@ -222,7 +221,7 @@
        40 con una palabra dentro. */
     height: 52px;
     border: 0;
-    border-radius: 14px;
+    border-radius: var(--r-md);
     background: none;
     color: inherit;
     cursor: pointer;
@@ -320,3 +319,18 @@
     .turn-veil { transition: none !important; }
 }
 
+
+
+/* Fila que lleva a las notas desde el cajón de marcas. Va antes de la lista
+   porque es un destino, no un resultado: mezclada entre los marcadores parecería
+   uno más. */
+.drawer-more {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    font-weight: 600;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: var(--sp-2);
+}
+.drawer-more b { font-family: var(--font-mono); font-size: var(--t-micro); color: var(--text-3); font-weight: 400; }

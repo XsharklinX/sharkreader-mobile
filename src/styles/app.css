@@ -1034,7 +1034,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     animation: toast-in 0.24s var(--ease) both;
 }
 
-.speech-icon { color: var(--accent); flex: none; display: grid; place-items: center; }
+.speech-icon { color: var(--text-2); flex: none; display: grid; place-items: center; }
 .speech-info { flex: 1; display: flex; flex-direction: column; gap: 0; min-width: 0; }
 .speech-state { font-size: var(--t-small); font-weight: 600; }
 .speech-cfg { min-height: 22px; padding: 0; text-align: left; font-size: var(--t-micro); font-weight: 500; }
@@ -1143,9 +1143,28 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .streak-sub { font-size: var(--t-tiny); color: var(--text-3); font-family: var(--font-mono); }
 
 .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-2); }
-.stat-box { background: var(--sf-1); border-radius: var(--r-md); padding: var(--sp-4); display: flex; flex-direction: column; gap: 2px; }
-.stat-n { font-family: var(--font-mono); font-size: var(--t-title); font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; }
-.stat-l { font-size: var(--t-tiny); color: var(--text-3); }
+/* Las cajas se separan con línea, no con fondo: cuatro rectángulos de superficie
+   seguidos pesaban más que las cifras que contienen. */
+.stat-box {
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* La cifra en la serif de los títulos y la etiqueta en versalitas
+   monoespaciadas: es el mismo tratamiento que el cajón lateral, para que las
+   cifras de la app se lean igual estén donde estén. */
+.stat-n { font-family: var(--font-title); font-size: var(--t-display); font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.stat-l {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--text-3);
+}
 
 .chart { display: flex; align-items: flex-end; gap: 4px; height: 128px; }
 .chart-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: var(--sp-1); height: 100%; }
@@ -1281,7 +1300,8 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     letter-spacing: 0.08em;
     text-transform: uppercase;
     font-weight: 650;
-    color: var(--accent);
+    /* La categoría gramatical es una etiqueta, no un enlace. */
+    color: var(--text-3);
 }
 .dict-defs { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: var(--sp-2); }
 .dict-defs li { font-size: var(--t-small); line-height: 1.55; color: var(--text-2); }
@@ -1606,7 +1626,14 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .profile-info b { font-size: var(--t-heading); font-weight: 700; letter-spacing: -0.012em; }
 .profile-info > span { font-size: var(--t-tiny); color: var(--text-2); }
 .profile-stats { display: flex; gap: var(--sp-4); margin-top: 3px; }
-.profile-stats span { font-size: var(--t-tiny); color: var(--accent); font-weight: 600; }
+/* Las cifras del perfil son datos, no acciones: en acento eran tres usos más
+   del color en una pantalla que ya tiene interruptores encendidos, y competían
+   con ellos. En monoespaciada además dejan de bailar al cambiar de valor. */
+.profile-stats span {
+    font-family: var(--font-mono);
+    font-size: var(--t-tiny);
+    color: var(--text-2);
+}
 
 /* Reparto del almacenamiento en una sola barra: ver que los libros ocupan el
    80% es lo que hace entender que borrar la caché no libera gran cosa. */
@@ -1730,7 +1757,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--accent);
+    color: var(--text-3);
 }
 .footnote-text {
     font-family: var(--font-read);

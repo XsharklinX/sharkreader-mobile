@@ -8,6 +8,7 @@ import CollectionsSheet from './CollectionsSheet.jsx';
 import { resizeCoverDataUrl } from '../core/coverResize.js';
 import { usePorts } from '../ports/index.js';
 import { formatMinutes, estimateRemaining } from '../stats/derive.js';
+import { normalizeDescription } from '../core/epubMeta.js';
 
 
 /**
@@ -50,10 +51,12 @@ export default function BookSheet({ book, onClose, onOpen, onUpdate, onDelete, o
     // La sinopsis de un EPUB llega a menudo con HTML dentro. Se muestra como
     // texto plano: renderizar HTML de un fichero ajeno dentro de la app no
     // compensa por lo poco que aporta.
-    const synopsis = String(book.description || '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
+    //
+    // Va por el mismo normalizador que la ficha del lector. Antes tenía su propia
+    // limpieza aquí, que borraba las etiquetas sin dejar nada en su sitio y no
+    // resolvía las entidades: dos sitios de la app enseñaban la misma sinopsis de
+    // dos formas distintas, y esta con `&#160;` sueltos y frases pegadas.
+    const synopsis = normalizeDescription(book.description);
 
     const say = (message) => {
         setNotice(message);
