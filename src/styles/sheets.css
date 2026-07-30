@@ -97,9 +97,12 @@
 .sheet-row-hint { font-size: var(--t-micro); color: var(--text-3); line-height: 1.35; }
 
 /* El valor actual, para no tener que entrar a comprobarlo. */
+/* El valor actual de una fila es un dato, no una acción: va en gris. En acento
+   competía con el control que sí está activo, y con cuatro filas seguidas el
+   acento aparecía cuatro veces en media pantalla. */
 .sheet-row-value {
     font-size: var(--t-micro);
-    color: var(--accent);
+    color: var(--text-2);
     flex: none;
     font-family: var(--font-mono);
     max-width: 40%;

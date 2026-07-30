@@ -54,52 +54,20 @@ export default function DisplaySheet({
 
     const pages = {
         paging: {
-            title: 'Paginación',
+            title: 'Columnas',
             render: () => (
-                <>
-                    <Segmented
-                        label="Modo de lectura"
-                        value={flow === 'scrolled' ? 'scrolled' : 'paginated'}
-                        options={[
-                            { value: 'paginated', label: 'Páginas' },
-                            { value: 'scrolled', label: 'Desplazamiento' },
-                        ]}
-                        onChange={onChangeFlow}
-                    />
-
-                    {/* Ni animación ni columnas tienen sentido desplazando: ahí
-                        no hay página que pasar ni que repartir. */}
-                    {flow !== 'scrolled' && (
-                        <>
-                            {/* Dos opciones, así que un segmentado y no una
-                                rejilla de maquetas. Las siete miniaturas que
-                                había eran el mismo dibujo repetido siete veces:
-                                ocupaban media hoja sin distinguir nada. */}
-                            <Segmented
-                                label="Al pasar página"
-                                value={transition}
-                                options={Object.entries(PAGE_TRANSITIONS)
-                                    .map(([id, spec]) => ({ value: id, label: spec.label }))}
-                                onChange={onChangeTransition}
-                                hint={PAGE_TRANSITIONS[transition]?.description}
-                            />
-
-                            <Segmented
-                                label="Columnas"
-                                value={spread || 'auto'}
-                                options={Object.entries(SPREAD_MODES)
-                                    .map(([id, option]) => ({ value: id, label: option.label }))}
-                                onChange={onChangeSpread}
-                                hint={`Ahora mismo ${columns === 2 ? 'dos' : 'una'}. En horizontal, una sola
-                                       columna da noventa caracteres por línea y el ojo pierde el
-                                       salto de línea.`}
-                            />
-                        </>
-                    )}
-                </>
+                <Segmented
+                    label="Columnas"
+                    value={spread || 'auto'}
+                    options={Object.entries(SPREAD_MODES)
+                        .map(([id, option]) => ({ value: id, label: option.label }))}
+                    onChange={onChangeSpread}
+                    hint={`Ahora mismo ${columns === 2 ? 'dos' : 'una'}. En horizontal, una sola
+                           columna da noventa caracteres por línea y el ojo pierde el
+                           salto de línea.`}
+                />
             ),
         },
-
         gestures: {
             title: 'Gestos y orientación',
             render: () => (
@@ -263,14 +231,41 @@ export default function DisplaySheet({
                         )}
                     </Group>
 
+                    {/* Modo de lectura y paso de página, al primer nivel.
+                        
+                        Estaban detrás de la fila «Paginación», así que cambiar de
+                        páginas a desplazamiento eran cinco toques: abrir el
+                        chrome, esta hoja, la subpágina, elegir y cerrar. Son los
+                        dos ajustes que más se tocan de toda la hoja y ahora se ven
+                        al abrirla. Detrás de la fila se quedan las columnas, que
+                        se eligen una vez y no se vuelven a mirar. */}
+                    <Segmented
+                        label="Modo de lectura"
+                        value={flow === 'scrolled' ? 'scrolled' : 'paginated'}
+                        options={[
+                            { value: 'paginated', label: 'Páginas' },
+                            { value: 'scrolled', label: 'Desplazamiento' },
+                        ]}
+                        onChange={onChangeFlow}
+                    />
+
+                    {flow !== 'scrolled' && (
+                        <Segmented
+                            label="Al pasar página"
+                            value={transition}
+                            options={Object.entries(PAGE_TRANSITIONS)
+                                .map(([id, spec]) => ({ value: id, label: spec.label }))}
+                            onChange={onChangeTransition}
+                            hint={PAGE_TRANSITIONS[transition]?.description}
+                        />
+                    )}
+
                     <div className="rows">
                         <Row
                             icon={<IconColumns size={18} />}
-                            label="Paginación"
-                            hint="Páginas o desplazamiento, animación, columnas"
-                            value={flow === 'scrolled'
-                                ? 'Desplazamiento'
-                                : columns === 2 ? '2 columnas' : PAGE_TRANSITIONS[transition]?.label}
+                            label="Columnas"
+                            hint="Cuántas caben en horizontal"
+                            value={columns === 2 ? '2 columnas' : 'Una columna'}
                             onClick={() => openPage('paging')}
                         />
                         <Row
