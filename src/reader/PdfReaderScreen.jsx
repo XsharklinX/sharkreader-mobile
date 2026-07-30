@@ -12,7 +12,7 @@ import {
 import { normalizeAnnotationKind } from '../core/annotationExport.js';
 import { readBookBlob } from '../adapters/SafPicker.js';
 import {
-    IconArrowLeft, IconBookmark, IconList, IconHighlight, IconSun, IconClose,
+    IconArrowLeft, IconBookmark, IconList, IconHighlight, IconSun, IconClose, IconBook,
 } from '../ui/icons.jsx';
 
 /**
@@ -211,7 +211,10 @@ export default function PdfReaderScreen({
         <div className="reader reader-pdf" style={{ '--reader-bg': READER_THEMES[theme]?.bg }}>
             {state === 'loading' && (
                 <div className="reader-loading">
-                    <span className="empty-art" aria-hidden="true" style={{fontSize:32}}>🦈</span>
+                    {/* Un emoji lo dibuja el sistema con su propio estilo y no
+                        se parece a nada del resto de la app. Aquí va el icono de
+                        la propia app, que sí es nuestro. */}
+                    <span className="empty-art" aria-hidden="true"><IconBook size={30} /></span>
                     <p className="empty-body">Abriendo {book.name}…</p>
                 </div>
             )}

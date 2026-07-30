@@ -15,7 +15,7 @@ import {
     IconSearch, IconSort, IconClose, IconBook, IconFolder, IconGrid, IconSettings,
     IconCloud, IconMenu,
 } from '../ui/icons.jsx';
-import MainMenu from '../ui/MainMenu.jsx';
+import SideMenu from '../ui/SideMenu.jsx';
 
 export default function LibraryScreen({ library, stats: statsApi, onOpenBook, onGoToSettings, onNavigate }) {
     const { books, status, error, importing, importFiles, importFolder, clearError } = library;
@@ -201,7 +201,7 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
 
     return (
         <div className="screen">
-            <header className="head">
+            <header className="head bar">
                 {searching ? (
                     <div className="search" style={{ flex: 1 }}>
                         <IconSearch size={19} />
@@ -235,19 +235,23 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                             onClick={() => setMenuOpen(true)}
                             aria-label="Menú"
                         >
-                            <IconMenu size={22} />
+                            <IconMenu size={21} />
                         </button>
 
-                        {/* Sin el lema. Ocupaba dos líneas en un móvil estrecho y
-                            decía lo que la propia rejilla de portadas ya dice. */}
+                        {/* La marca apilada, como en la versión de escritorio:
+                            «Shark» arriba en azul, «Reader» debajo en blanco. En
+                            una línea ocupaba 160 px de los 390 que hay y dejaba
+                            los iconos sin sitio; apilada ocupa 70 y se lee como
+                            un logotipo en vez de como un título. */}
                         <div className="head-txt">
                             <h1 className="brand">
-                                Shark<span>Reader</span>
+                                <span className="brand-1">Shark</span>
+                                <span className="brand-2">Reader</span>
                             </h1>
                         </div>
                         <div className="head-actions">
                             <button type="button" className="icon-btn" onClick={() => setSearching(true)} aria-label="Buscar">
-                                <IconSearch size={21} />
+                                <IconSearch size={20} />
                             </button>
                             {/* Añadir libros vive en el menú, con sus dos formas
                                 explicadas. Un «+» aquí era el mismo destino con
@@ -259,7 +263,7 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                                 aria-expanded={showSort}
                                 aria-label="Ordenar y ver"
                             >
-                                <IconSort size={21} />
+                                <IconSort size={20} />
                             </button>
                             <button
                                 type="button"
@@ -267,7 +271,7 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                                 onClick={() => onGoToSettings?.()}
                                 aria-label="Ajustes"
                             >
-                                <IconSettings size={21} />
+                                <IconSettings size={20} />
                             </button>
                         </div>
                     </>
@@ -474,8 +478,9 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                 la mayoría al estrenar la app, y antes esa opción solo existía en
                 la pantalla de biblioteca vacía. */}
             {menuOpen && (
-                <MainMenu
+                <SideMenu
                     stats={statsApi}
+                    books={books}
                     onNavigate={(target) => {
                         if (target === 'catalog') setCatalogOpen(true);
                         else if (target === 'import-folder') runImport('folder');

@@ -43,7 +43,7 @@ export function getAppAnniversaryEvent(joinedAt, now = Date.now(), lang = 'es') 
     if (years < 1) return null;
     const l = lang === 'en' ? 'en' : 'es';
     const message = l === 'en'
-        ? `🦈 ${years} year${years > 1 ? 's' : ''} since you joined SharkReader!`
-        : `🦈 ¡${years} año${years > 1 ? 's' : ''} desde que llegaste a SharkReader!`;
+        ? `${years} year${years > 1 ? 's' : ''} since you joined SharkReader!`
+        : `¡${years} año${years > 1 ? 's' : ''} desde que llegaste a SharkReader!`;
     return { id: 'app-anniversary', years, message };
 }

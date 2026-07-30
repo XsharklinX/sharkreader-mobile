@@ -27,7 +27,7 @@ import { resizeCoverDataUrl } from '../core/coverResize.js';
 
 /** Emojis de partida. Ni banderas ni caras concretas: no representan a nadie. */
 export const AVATAR_EMOJIS = [
-    '🦈', '📚', '🐙', '🦉', '🌙', '☕', '🪐', '🍂',
+    '📚', '🌙', '☕', '🪐', '🍂', '✒️', '🕯️', '🎧',
     '🎧', '🖋️', '🗝️', '🧭', '🕯️', '🫧', '🐈', '🦊',
 ];
 
@@ -61,7 +61,7 @@ export default function ProfileSheet({ profile, onChange, onClose }) {
                         <span className="profile-avatar lg">
                             {profile?.photo
                                 ? <img src={profile.photo} alt="" />
-                                : <span aria-hidden="true">{profile?.emoji || '🦈'}</span>}
+                                : <span aria-hidden="true">{profile?.emoji || '📚'}</span>}
                         </span>
                         <div className="profile-edit-txt">
                             <b>{name.trim() || 'Sin nombre'}</b>
@@ -94,7 +94,7 @@ export default function ProfileSheet({ profile, onChange, onClose }) {
                                 <button
                                     key={emoji}
                                     type="button"
-                                    className={`avatar-option${!profile?.photo && (profile?.emoji || '🦈') === emoji ? ' on' : ''}`}
+                                    className={`avatar-option${!profile?.photo && (profile?.emoji || '📚') === emoji ? ' on' : ''}`}
                                     onClick={() => save({ emoji, photo: null })}
                                     aria-label={`Usar ${emoji}`}
                                     aria-pressed={!profile?.photo && profile?.emoji === emoji}

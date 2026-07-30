@@ -66,7 +66,7 @@ export default function SettingsHome({ library, stats, sync, onOpenCategory, onO
                 <span className="profile-avatar">
                     {profile?.photo
                         ? <img src={profile.photo} alt="" />
-                        : <span aria-hidden="true">{profile?.emoji || '🦈'}</span>}
+                        : <span aria-hidden="true">{profile?.emoji || '📚'}</span>}
                 </span>
                 <div className="profile-info">
                     <b>

@@ -657,3 +657,56 @@
 /* «Con datos» no es un aviso de calidad sino de coste: va en el color de acento,
    que en esta app significa «información», no en el de advertencia. */
 .tag.net { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+
+
+/* ── Ficha del libro ─────────────────────────────────────────────────────────
+ *
+ * Ver `BookInfoSheet.jsx`: se abre tocando el título en la barra del lector.
+ */
+
+.info-top { display: flex; gap: var(--sp-4); align-items: stretch; }
+
+.info-cover {
+    width: 82px;
+    flex: none;
+    border-radius: var(--r-sm);
+    overflow: hidden;
+    aspect-ratio: 2 / 3;
+    background: var(--sf-3);
+}
+.info-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.info-now { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+
+/* La cifra grande en la serif de los títulos: es el dato que se viene a mirar. */
+.info-pct { font-family: var(--font-title); font-size: 30px; font-weight: 700; line-height: 1; margin: 0 0 var(--sp-1); }
+.info-pct b { font-weight: 700; }
+
+.info-chapter { font-size: var(--t-small); color: var(--text); margin: 0; }
+.info-page { font-size: var(--t-micro); color: var(--text-3); margin: 0 0 var(--sp-2); }
+
+/* La sinopsis va en la serif de lectura: es texto del libro, no un ajuste. */
+.info-synopsis {
+    font-family: var(--font-read);
+    font-size: var(--t-body);
+    line-height: 1.62;
+    color: var(--text);
+    margin: 0;
+}
+.info-synopsis.vacia { color: var(--text-3); font-style: italic; }
+
+.info-datos {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--sp-2) var(--sp-4);
+    margin: 0;
+}
+.info-datos dt {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    padding-top: 2px;
+}
+.info-datos dd { margin: 0; font-size: var(--t-small); color: var(--text); }

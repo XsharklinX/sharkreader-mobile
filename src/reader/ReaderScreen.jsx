@@ -9,6 +9,7 @@ import ReadingRuler from './ReadingRuler.jsx';
 import BrightnessSheet from './BrightnessSheet.jsx';
 import ReaderSettingsSheet from './ReaderSettingsSheet.jsx';
 import DisplaySheet from './DisplaySheet.jsx';
+import BookInfoSheet from './BookInfoSheet.jsx';
 import { runTurn, DEFAULT_TRANSITION, normalizeTransition } from './transitions.js';
 import { buildFontFaceCss } from './fontLoader.js';
 import { useHistory } from './useHistory.js';
@@ -936,10 +937,21 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 <button type="button" className="icon-btn" onClick={onClose} aria-label="Volver a la biblioteca">
                     <IconArrowLeft size={22} />
                 </button>
-                <div className="reader-title">
+                {/* El título abre la ficha del libro.
+                    
+                    Era una etiqueta muerta, y la sinopsis solo se podía leer
+                    saliendo del libro y buscando la portada en la biblioteca.
+                    «¿De qué iba esto?» se pregunta justo al volver tras unos
+                    días, o sea dentro del libro. */}
+                <button
+                    type="button"
+                    className="reader-title"
+                    onClick={() => setPanel('info')}
+                    aria-label={`Ficha de ${book.name}`}
+                >
                     <span className="reader-book">{book.name}</span>
                     {location.chapter && <span className="reader-chapter">{location.chapter}</span>}
-                </div>
+                </button>
                 {/* Arriba va lo que responde a «dónde estoy, a dónde voy y qué
                     he marcado». Abajo, solo los ajustes de lectura.
 
@@ -1155,6 +1167,14 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     totalLocations={totalLocations}
                     currentLocation={currentLocationIndex}
                     onGo={goToTarget}
+                    onClose={() => setPanel(null)}
+                />
+            )}
+
+            {panel === 'info' && (
+                <BookInfoSheet
+                    book={book}
+                    location={location}
                     onClose={() => setPanel(null)}
                 />
             )}

@@ -132,4 +132,4 @@ export const languageNames = {
     en: 'English',
 };
 
-export const RANDOM_EMOJIS = ['🦈', '🐙', '🐳', '🦖', '🐬', '🐧', '🐢', '🦀', '🦁', '🦊', '🦉', '🐻'];
+export const RANDOM_EMOJIS = ['📚', '🌙', '☕', '🪐', '🍂', '✒️', '🕯️', '🎧', '🗺️', '🔭', '🎭', '🧭'];

@@ -280,8 +280,17 @@ export const IconRuler = (p) => (
  * esta app existe y abre el índice del libro. Con tres rayas iguales los dos
  * iconos son el mismo dibujo.
  */
+/**
+ * Tres líneas iguales y con más cuerpo que el resto del juego.
+ *
+ * Las tenía desiguales —la última más corta— y al trazo fino de 1.75 de los demás
+ * iconos. Eso lo dejaba en un garabato débil justo al lado de la marca, que va en
+ * serif y con peso 700: el contraste de pesos era lo que hacía que la barra
+ * pareciera montada con piezas de dos sitios distintos. Iguales y a trazo 2
+ * aguantan la mirada al lado del nombre.
+ */
 export const IconMenu = (p) => (
-    <Svg {...p}>
-        <path d="M4 7h16M4 12h16M4 17h11" />
+    <Svg {...p} strokeWidth="2">
+        <path d="M4 7h16M4 12h16M4 17h16" />
     </Svg>
 );

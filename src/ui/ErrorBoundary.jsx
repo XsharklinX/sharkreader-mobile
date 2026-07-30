@@ -1,4 +1,5 @@
 import React from 'react';
+import { IconBook } from './icons.jsx';
 
 /**
  * Red de seguridad para errores de render.
@@ -50,7 +51,7 @@ export default class ErrorBoundary extends React.Component {
 
         return (
             <div className="crash">
-                <span className="empty-art" aria-hidden="true" style={{ fontSize: 34 }}>🦈</span>
+                <span className="empty-art" aria-hidden="true"><IconBook size={30} /></span>
                 <h1 className="empty-title">Algo se ha roto</h1>
                 <p className="empty-body">
                     La app ha encontrado un error del que no puede recuperarse sola.
