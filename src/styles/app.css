@@ -71,7 +71,12 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
  * desplazar: la biblioteca son 136 portadas y al bajar dejabas de tener a mano la
  * búsqueda.
  */
-.head.bar {
+/* Se llama `topbar` y no `bar` porque `.bar` ya existe: es la barra de progreso
+   —`display: block`, `overflow: hidden`, `border-radius: 999px`—. Con `head bar`
+   la cabecera heredaba esas tres: se volvía un bloque, así que la marca caía
+   debajo del botón de menú, el recorte cortaba lo que sobraba y el radio completo
+   la dejaba con forma de pastilla. */
+.head.topbar {
     position: sticky;
     top: 0;
     z-index: 12;
@@ -87,8 +92,13 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 
 /* Los iconos de la barra, al color del texto y no al gris secundario.
    A 20 px de trazo fino sobre este azul, el gris se leía como desactivado. */
-.head.bar .icon-btn { color: var(--text); min-width: 44px; }
-.head.bar .head-actions { gap: 0; }
+.head.topbar .icon-btn { color: var(--text); min-width: 44px; }
+.head.topbar .head-actions { gap: 0; }
+
+/* La marca pegada al botón de menú, no centrada: `justify-content: space-between`
+   la dejaba flotando en medio de la barra, que es donde no está en la versión de
+   escritorio ni en ninguna barra de aplicación. */
+.head.topbar .head-txt { flex: 1; }
 .head-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 /* Los títulos van en la serif, no en la sans de los controles: es lo que hace
    que la app se lea como un lector y no como un panel de ajustes. */

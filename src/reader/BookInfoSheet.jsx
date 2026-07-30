@@ -1,5 +1,6 @@
 import React from 'react';
 import Sheet, { Group } from '../ui/Sheet.jsx';
+import { normalizeDescription } from '../core/epubMeta.js';
 
 /**
  * Ficha del libro que se está leyendo.
@@ -24,12 +25,12 @@ export default function BookInfoSheet({ book, location, onClose }) {
     const done = Math.round((book.progress || 0) * 100);
     const cover = book.coverUrl || book.coverBase64;
 
-    // La descripción de un EPUB viene con etiquetas dentro más veces que no: los
-    // catálogos la guardan como fragmento de HTML. Se limpia en vez de descartarla.
-    const sinopsis = String(book.description || '')
-        .replace(/<[^>]*>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
+    // Se normaliza también aquí, no solo al importar. Los libros que ya están en
+    // la biblioteca se guardaron con la versión anterior, que borraba las
+    // etiquetas sin dejar nada en su sitio y no resolvía las entidades: en la
+    // ficha se leían `&#160;` sueltos y frases pegadas. Ver `normalizeDescription`.
+    const sinopsis = normalizeDescription(book.description);
+    const parrafos = sinopsis ? sinopsis.split(/\n{2,}/) : [];
 
     const datos = [
         ['Autor', book.author],
@@ -64,9 +65,18 @@ export default function BookInfoSheet({ book, location, onClose }) {
                     </div>
 
                     <Group label="Sinopsis">
-                        <p className={`info-synopsis${sinopsis ? '' : ' vacia'}`}>
-                            {sinopsis || 'Este libro no trae sinopsis en sus metadatos.'}
-                        </p>
+                        {parrafos.length > 0 ? (
+                            <div className="info-synopsis">
+                                {parrafos.map((parrafo, indice) => (
+                                    // eslint-disable-next-line react/no-array-index-key
+                                    <p key={indice}>{parrafo}</p>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="info-synopsis vacia">
+                                Este libro no trae sinopsis en sus metadatos.
+                            </p>
+                        )}
                     </Group>
 
                     {datos.length > 0 && (

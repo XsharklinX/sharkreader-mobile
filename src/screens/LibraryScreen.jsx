@@ -201,7 +201,7 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
 
     return (
         <div className="screen">
-            <header className="head bar">
+            <header className="head topbar">
                 {searching ? (
                     <div className="search" style={{ flex: 1 }}>
                         <IconSearch size={19} />

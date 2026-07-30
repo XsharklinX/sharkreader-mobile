@@ -43,6 +43,63 @@ function stripHtml(value) {
     return String(value || '').replace(/<\/?[^>]+(>|$)/g, '').trim();
 }
 
+/** Entidades HTML que aparecen de verdad en los metadatos de un EPUB. */
+const ENTIDADES = {
+    amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+    ndash: '–', mdash: '—', hellip: '…', laquo: '«',
+    raquo: '»', lsquo: '‘', rsquo: '’', ldquo: '“',
+    rdquo: '”', aacute: 'á', eacute: 'é', iacute: 'í',
+    oacute: 'ó', uacute: 'ú', ntilde: 'ñ', uuml: 'ü',
+};
+
+/**
+ * La sinopsis de un EPUB, legible.
+ *
+ * El campo `dc:description` es texto plano según la especificación, y en la
+ * práctica casi nadie lo respeta: llega con `<p>` y `<br>` dentro, y con
+ * entidades sin resolver. Antes se pasaba por un `stripHtml` que borraba las
+ * etiquetas **sin dejar nada en su sitio**, así que `<p>Una familia poderosa.</p>`
+ * seguido de otro párrafo salía como «poderosa.Un asesino» —frases pegadas— y los
+ * `&#160;` se leían tal cual en la ficha.
+ *
+ * Aquí los saltos de párrafo se conservan como línea en blanco, el resto de
+ * etiquetas dejan un espacio, y las entidades se resuelven.
+ */
+export function normalizeDescription(value) {
+    let text = String(value || '');
+
+    // Lo que separa párrafos, a línea en blanco. Va antes de borrar etiquetas:
+    // después ya no habría forma de saber dónde acababa cada uno.
+    text = text.replace(/<\/(p|div|li|h[1-6]|blockquote)\s*>/gi, '\n\n');
+    text = text.replace(/<br\s*\/?>/gi, '\n');
+
+    // El resto deja un espacio, no nada: pegar dos palabras es peor que separarlas.
+    text = text.replace(/<[^>]*>/g, ' ');
+
+    // Las entidades, al final. Si se resolvieran antes, un `&lt;script&gt;` dentro
+    // del texto se convertiría en etiqueta y lo borraría el paso anterior.
+    text = text.replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)));
+    text = text.replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)));
+    text = text.replace(/&([a-z]+);/gi, (match, name) => ENTIDADES[name.toLowerCase()] ?? match);
+
+    // El espacio duro pasa a espacio normal. Dentro de una sinopsis no significa
+    // nada —nadie quiere impedir un salto de línea a mitad de un resumen— y en
+    // cambio impide que el texto se reparta bien en una hoja estrecha.
+    // Escrito como escape y no como el carácter literal: un espacio duro dentro
+    // del código fuente es invisible, y cualquier herramienta que normalice el
+    // fichero por el camino lo convierte en espacio normal y deja esta línea sin
+    // hacer nada. Pasó: en Node funcionaba y en las pruebas no.
+    text = text.replace(/\u00a0/g, ' ');
+
+    // Espacios dentro de cada línea, sin tocar los saltos.
+    return text
+        .split('\n')
+        .map((line) => line.replace(/[^\S\n]+/g, ' ').trim())
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
 function normalizeZipPath(baseDir, href) {
     if (!href) return '';
     const decoded = decodeURIComponent(href.split('#')[0].split('?')[0]);
@@ -119,7 +176,7 @@ export async function extractEpubMeta(file) {
         // 4. Extract metadata
         const title = getTextNS(opfDoc, DC, 'title');
         const creator = getTextNS(opfDoc, DC, 'creator');
-        const description = stripHtml(getTextNS(opfDoc, DC, 'description'));
+        const description = normalizeDescription(getTextNS(opfDoc, DC, 'description'));
         const publisher = getTextNS(opfDoc, DC, 'publisher');
         const subject = [...new Set(getSubjects(opfDoc))].join(', ');
 

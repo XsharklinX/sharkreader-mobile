@@ -693,6 +693,10 @@
     color: var(--text);
     margin: 0;
 }
+/* Los párrafos se separan con espacio, no con sangría: en una hoja estrecha una
+   sangría de primera línea se lee como un error de alineación. */
+.info-synopsis p { margin: 0; max-width: none; }
+.info-synopsis p + p { margin-top: 0.7em; }
 .info-synopsis.vacia { color: var(--text-3); font-style: italic; }
 
 .info-datos {
