@@ -365,6 +365,20 @@ export const createEpubEngine = () => {
          * Se devuelve el rectángulo del **contenedor**, que es el área que se ve
          * de verdad.
          */
+        /**
+         * La ventana del iframe del capítulo visible.
+         *
+         * La necesita el rasterizado del doblado: es el documento del que hay que
+         * sacar la imagen de la página.
+         */
+        contentWindow() {
+            const contents = [].concat(rendition?.getContents?.() || []);
+            for (const content of contents) {
+                if (content?.window?.document?.body) return content.window;
+            }
+            return null;
+        },
+
         viewportRect() {
             const rect = container?.getBoundingClientRect();
             return rect

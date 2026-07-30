@@ -32,13 +32,15 @@ describe('catálogo de transiciones', () => {
 
     it('ninguna dura tanto como para estorbar al pasar páginas seguidas', () => {
         Object.keys(PAGE_TRANSITIONS).forEach((id) => {
-            expect(transitionDuration(id), id).toBeLessThanOrEqual(280);
+            expect(transitionDuration(id), id).toBeLessThanOrEqual(320);
         });
     });
 
-    it('la de por defecto es el doblado de hoja', () => {
-        expect(DEFAULT_TRANSITION).toBe('curl');
-        expect(usesCurl(DEFAULT_TRANSITION)).toBe(true);
+    it('la de por defecto existe y no es el doblado todavía', () => {
+        // El doblado está construido pero le falta acertar la página al
+        // rasterizar; hasta entonces no puede ser la de por defecto.
+        expect(PAGE_TRANSITIONS[DEFAULT_TRANSITION]).toBeTruthy();
+        expect(usesCurl(DEFAULT_TRANSITION)).toBe(false);
     });
 
     it('solo el doblado usa la geometría del pliegue', () => {
@@ -84,26 +86,12 @@ describe('phaseState', () => {
         });
     });
 
-    it('el doblado se describe por progreso, no por desplazamiento', () => {
-        // Tiene que poder seguir al dedo, y un desplazamiento fijo solo sirve
-        // para una animación de duración cerrada.
+    it('el doblado no mueve el contenedor: lo pinta PageFold', () => {
+        // La página nueva está quieta debajo mientras la vieja se dobla encima.
+        // Su geometría vive en `pageFold.js`, no aquí.
         const enter = phaseState('curl', 'next', 'enter');
-        expect(enter.curl).toBe(true);
-        expect(enter.progress).toBe(1);
-    });
-
-    it('el doblado también informa de que es doblado en reposo', () => {
-        // Quien pinta necesita saber que debe devolver la hoja con la geometría
-        // del pliegue, no con un translate3d.
-        const rest = phaseState('curl', 'next', 'rest');
-        expect(rest.curl).toBe(true);
-        expect(rest.progress).toBe(0);
-    });
-
-    it('la hoja nueva se dobla al contrario que la que se fue', () => {
-        // Baja por el lado por el que se levantó la anterior.
-        expect(phaseState('curl', 'next', 'enter').direction).toBe('prev');
-        expect(phaseState('curl', 'prev', 'enter').direction).toBe('next');
+        expect(enter.transform).toMatch(/translate3d\(0px?,0,0\)/);
+        expect(enter.veil).toBe(0);
     });
 
     it('«ninguna» se queda en reposo', () => {
@@ -225,18 +213,4 @@ describe('runTurn', () => {
         expect(commit).toHaveBeenCalled();
     });
 
-    it('el doblado pide su geometría a quien se la inyecte', async () => {
-        const { element, veil } = build();
-        const state = vi.fn(() => ({ transform: 'rotateY(0deg)', origin: 'left center', shade: 0 }));
-        const shade = vi.fn(() => 'linear-gradient(to right, #000, transparent)');
-
-        await runTurn({
-            element, veil, id: 'curl', direction: 'next',
-            commit: () => {},
-            curl: { state, shade },
-        }).done;
-
-        expect(state).toHaveBeenCalled();
-        expect(shade).toHaveBeenCalledWith('prev');
-    });
 });

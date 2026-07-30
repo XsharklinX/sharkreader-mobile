@@ -346,3 +346,51 @@
    sombra que proyecta la hoja al levantarse, más oscura junto al doblez. Por eso
    `background` se escribe desde JS y aquí no se fija. */
 .turn-veil { transition-property: opacity; }
+
+/* ── Doblado de hoja ──────────────────────────────────────────────────────────
+ *
+ * Tres capas sobre la página nueva: la hoja vieja plana, su dorso reflejado y las
+ * sombras. Ver `pageFold.js`: el dorso es un espejo sobre la línea del doblez,
+ * que es exactamente lo que hace el papel al plegarse — por eso se ve nítido y
+ * no deformado, y por eso el texto sale al revés.
+ */
+.fold {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.fold-flat,
+.fold-back,
+.fold-shade,
+.fold-shadow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: block;
+}
+
+.fold-flat,
+.fold-back {
+    /* Las dos copias se promueven a capa: durante el arrastre solo cambian su
+       recorte y su transformación, así que la GPU las mueve sin repintar. */
+    will-change: clip-path, transform;
+    backface-visibility: hidden;
+}
+
+.fold-shade {
+    right: 0;
+    bottom: 0;
+    will-change: clip-path, opacity;
+}
+
+/* La sombra que la hoja doblada proyecta sobre la de debajo. Estrecha: una
+   amplia parece niebla, no dos hojas a un milímetro. */
+.fold-shadow {
+    top: 0;
+    bottom: 0;
+    opacity: 0;
+    will-change: left, opacity;
+}

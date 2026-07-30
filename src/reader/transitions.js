@@ -70,10 +70,22 @@
  * pliegue en un parpadeo y alargaría la parte que no aporta nada.
  */
 export const PAGE_TRANSITIONS = {
+    /**
+     * Doblado de hoja. Es la de por defecto.
+     *
+     * Lo que se dobla es una **imagen de la página que se va**, dibujada dos veces
+     * —plana y reflejada sobre la línea del doblez— por `PageFold`. Ver
+     * `pageFold.js`: el reflejo especular es exactamente lo que hace el papel al
+     * plegarse, y de ahí sale el texto al revés en el dorso.
+     *
+     * Al arrastrar sigue al dedo. Al tocar, el pliegue se recorre solo con esta
+     * duración y aquí no se declara `shift` porque el contenedor no se mueve: la
+     * página nueva está quieta debajo mientras la vieja se dobla encima.
+     */
     curl: {
         label: 'Doblar hoja',
-        description: 'La hoja entra girando sobre su borde. Arrastra para doblarla con el dedo.',
-        in: 260,
+        description: 'La hoja se dobla y se ve su dorso, como el papel. Arrastra para plegarla con el dedo.',
+        in: 300,
         curl: true,
     },
     paper: {
@@ -114,13 +126,14 @@ export const PAGE_TRANSITIONS = {
 };
 
 /**
- * El doblado es la de por defecto.
+ * Por ahora, deslizar.
  *
- * Es la que se parece a pasar una hoja, y es la única que además responde al
- * dedo de forma continua: arrastrando despacio se ve la hoja separarse en vez de
- * esperar a que la animación decida.
+ * El doblado de hoja está construido y funciona —el reflejo del dorso se ha
+ * verificado en el dispositivo— pero falta una pieza: el rasterizador devuelve
+ * siempre la primera página del capítulo, así que en el resto el pliegue mostraría
+ * texto de otra parte. Hasta resolverlo no puede ser la de por defecto.
  */
-export const DEFAULT_TRANSITION = 'curl';
+export const DEFAULT_TRANSITION = 'slide';
 
 /** ¿Esta transición dibuja un pliegue en perspectiva? */
 export const usesCurl = (id) => Boolean(PAGE_TRANSITIONS[id]?.curl);
@@ -148,28 +161,17 @@ export const phaseState = (id, direction, phase) => {
         // En reposo el doblado también tiene que decir que es doblado: quien
         // pinta necesita saber que debe usar la geometría del pliegue para
         // volver la hoja a su sitio, no un translate3d.
-        return spec?.curl && phase === 'rest'
-            ? { curl: true, progress: 0, direction, veil: 0, duration: 0 }
-            : rest;
+        return rest;
     }
 
     // Avanzando, la página nueva viene desde la derecha; retrocediendo, desde la
     // izquierda. Es el sentido que dice hacia dónde te mueves en el libro.
     const from = direction === 'next' ? 1 : -1;
 
-    if (spec.curl) {
-        // El pliegue entra desde su ángulo máximo y se asienta. Al arrastrar, el
-        // progreso lo pone el dedo en vez de esta función.
-        return {
-            curl: true,
-            progress: 1,
-            // Entrando se dobla al contrario que la que se fue: la hoja nueva
-            // baja desde el lado por el que se levantó la anterior.
-            direction: direction === 'next' ? 'prev' : 'next',
-            veil: 0,
-            duration: spec.in,
-        };
-    }
+    // El doblado no describe nada aquí: el contenedor no se mueve. Lo que se
+    // dobla es una imagen de la página que se va, dibujada encima por `PageFold`,
+    // y su geometría vive en `pageFold.js`. Este módulo solo se ocupa del orden y
+    // del tiempo.
 
     // Redondeo a entero: media unidad coloca cada letra a mitad de píxel y se
     // redibuja distinta en cada fotograma. El `|| 0` evita un `-0px` escrito en
@@ -213,21 +215,10 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * dentro dejaría este módulo con dos responsabilidades: la secuencia temporal y
  * la geometría. La secuencia es la misma para todas las transiciones.
  */
-const paint = (element, veil, state, duration, curl) => {
+const paint = (element, veil, state, duration) => {
     if (!element) return;
     element.style.transitionDuration = `${duration}ms`;
 
-    if (state.curl && curl) {
-        const geometry = curl.state(state.progress, state.direction, element.clientWidth || 0);
-        element.style.transformOrigin = geometry.origin;
-        element.style.transform = geometry.transform;
-        if (veil) {
-            veil.style.transitionDuration = `${duration}ms`;
-            veil.style.background = curl.shade(state.direction);
-            veil.style.opacity = String(geometry.shade);
-        }
-        return;
-    }
 
     element.style.transform = state.transform;
     if (veil) {
@@ -252,17 +243,14 @@ const paint = (element, veil, state, duration, curl) => {
  * @param {'next'|'prev'} options.direction
  * @param {() => Promise<void>|void} options.commit  Cambia la página de verdad.
  * @param {boolean} [options.reducedMotion]
- * @param {{state: Function, shade: Function, perspective: number}} [options.curl]
- *   Geometría del pliegue. Se inyecta en lugar de importarla para que este
- *   módulo siga siendo puro tiempo y orden, sin saber de perspectivas.
  * @returns {{done: Promise<void>, cancel: () => void}}
  */
 export const runTurn = ({
-    element, veil, id, direction, commit, reducedMotion = false, curl = null,
+    element, veil, id, direction, commit, reducedMotion = false,
 }) => {
     let cancelled = false;
 
-    const apply = (state, duration) => paint(element, veil, state, duration, curl);
+    const apply = (state, duration) => paint(element, veil, state, duration);
 
     const settle = () => {
         if (!element) return;

@@ -10,7 +10,8 @@ import BrightnessSheet from './BrightnessSheet.jsx';
 import ReaderSettingsSheet from './ReaderSettingsSheet.jsx';
 import DisplaySheet from './DisplaySheet.jsx';
 import { runTurn, DEFAULT_TRANSITION, usesCurl } from './transitions.js';
-import { curlState, shadeGradient } from './pageCurl.js';
+import PageFold from './PageFold.jsx';
+import { createPageSnapshot, pageOffset } from './pageSnapshot.js';
 import { buildFontFaceCss } from './fontLoader.js';
 import { useHistory } from './useHistory.js';
 import FootnoteSheet from './FootnoteSheet.jsx';
@@ -88,6 +89,15 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     const [mapProgress, setMapProgress] = useState(null);
 
     const [ruler, setRuler] = useState(book.readerPreferences?.ruler || 'off');
+
+    // ── Doblado de hoja ──────────────────────────────────────────────────────
+    //
+    // La hoja que se va se dibuja desde una imagen rasterizada de la página, para
+    // poder pintarla dos veces: plana y reflejada. Ver `pageSnapshot.js`.
+    const snapshotRef = useRef(null);
+    if (!snapshotRef.current) snapshotRef.current = createPageSnapshot();
+    const [foldImage, setFoldImage] = useState(null);
+    const foldRef = useRef(null);
 
     // Limpieza de pantalla en tinta electrónica. Ver `einkRefresh.js`: se cuenta
     // pasando página, no por tiempo, porque el rastro lo produce el cambio de
@@ -198,9 +208,6 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             id: flowRef.current === 'scrolled' ? 'none' : transitionRef.current,
             direction,
             reducedMotion: reducedMotionRef.current,
-            // La geometría del pliegue se inyecta: `transitions.js` se ocupa del
-            // orden y del tiempo, `pageCurl.js` de las perspectivas.
-            curl: { state: curlState, shade: shadeGradient },
             commit: () => (direction === 'next' ? engine.next() : engine.prev()),
         });
 
@@ -238,45 +245,42 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         const setShift = (shift, progress, direction) => {
             const node = viewportRef.current;
             if (!node) return;
-            node.classList.add('dragging');
-            node.classList.remove('releasing');
 
-            if (usesCurl(transitionRef.current)) {
-                const state = curlState(progress, direction, node.clientWidth);
-                node.style.transformOrigin = state.origin;
-                node.style.transform = state.transform;
-                paintShade(state.shade, direction);
+            /**
+             * Con el doblado, la página de debajo **no se mueve**.
+             *
+             * Lo que se dobla es una imagen de la página que se va, encima. Es la
+             * diferencia con lo que había antes —girar el contenedor entero— que
+             * se veía como una puerta abriéndose y no como papel.
+             */
+            if (foldRef.current) {
+                foldRef.current.set(progress, direction);
                 return;
             }
 
-            node.style.transformOrigin = '';
+            /**
+             * Sin imagen lista se desliza, y aquí estaba el temblor.
+             *
+             * Antes se escribía `translateX(${shift}px)` con el desplazamiento
+             * crudo del puntero, que viene con decimales, y sin promover la capa.
+             * Sin capa compuesta el WebView vuelve a maquetar y a pintar el texto
+             * en cada fotograma, y al caer en posiciones fraccionarias cada letra
+             * se dibuja distinta cada vez — por eso solo se notaba despacio.
+             */
+            node.classList.add('dragging');
+            node.classList.remove('releasing');
             node.style.transform = `translate3d(${Math.round(shift)}px,0,0)`;
         };
 
-        /** Sombra del pliegue. Vive en el velo, que ya está sobre la página. */
-        const paintShade = (opacity, direction) => {
-            const veil = veilRef.current;
-            if (!veil) return;
-            veil.style.background = shadeGradient(direction);
-            veil.style.opacity = String(opacity);
-            veil.style.transitionDuration = '0ms';
-        };
-
         const release = () => {
+            // El pliegue vuelve a cero: la hoja se devuelve a su sitio.
+            foldRef.current?.set(0, 'next');
+
             const node = viewportRef.current;
             if (!node) return;
             node.classList.remove('dragging');
             node.classList.add('releasing');
             node.style.transform = '';
-            node.style.transformOrigin = '';
-
-            const veil = veilRef.current;
-            if (veil) {
-                // La sombra se desvanece con la vuelta de la hoja, no de golpe.
-                veil.style.transitionDuration = '';
-                veil.style.opacity = '';
-                veil.style.background = '';
-            }
         };
 
         dragRef.current = createPageDrag({
@@ -290,8 +294,6 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             onStart: () => {
                 const node = viewportRef.current;
                 if (!node) return;
-                // La perspectiva la pone el CSS en `.reader`, el padre: en el
-                // propio elemento que gira no tiene efecto.
                 node.style.willChange = 'transform';
             },
             onEnd: () => {
@@ -446,6 +448,17 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             // momento en que pasar página no es instantáneo, y ocurre siempre
             // en el mismo sitio previsible —el final del capítulo—.
             engine.prefetchNext(cfi);
+
+            /**
+             * La imagen de la página se prepara **ahora**, no al empezar el gesto.
+             *
+             * Rasterizar cuesta entre 100 y 400 ms en un móvil. Hacerlo cuando el
+             * dedo ya se apoya metería ese retardo justo donde más se nota; aquí
+             * el usuario está leyendo y no espera nada.
+             */
+            if (usesCurl(transitionRef.current) && !reducedMotionRef.current) {
+                prepareFold();
+            }
         });
     }, [state, toc]);
 
@@ -808,6 +821,57 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     }, [grid, toggleBookmark, speech, history.canGoBack, goBack]);
 
     /**
+     * Rasteriza la página actual para poder doblarla.
+     *
+     * Se hace en tiempo muerto —tras asentarse la página— y con `requestIdleCallback`
+     * cuando existe, para no competir con el pintado del capítulo nuevo.
+     */
+    const prepareFold = useCallback(() => {
+        const engine = engineRef.current;
+        const node = viewportRef.current;
+        if (!engine || !node) return;
+
+        const run = () => {
+            const view = engine.contentWindow?.();
+            const rect = node.getBoundingClientRect();
+            if (!view || !rect.width) return;
+
+            // La clave es el capítulo, no la página: la imagen es del capítulo
+            // entero y sirve para todas sus páginas. Solo cambia el recorte.
+            // La clave incluye el desplazamiento: la imagen es de **esta** página,
+            // no del capítulo, así que cada página necesita la suya.
+            const offset = pageOffset(view, rect);
+            const key = `${view.document?.baseURI || ''}@${offset.x}`;
+
+            snapshotRef.current
+                .capture(key, view, palette.bg, offset)
+                .then((entry) => {
+                    if (!entry) return;
+                    /**
+                     * Solo se usa la imagen si corresponde a la página visible.
+                     *
+                     * El rasterizador siempre devuelve la **primera** página del
+                     * capítulo: ni recortar con `x`, ni desplazar el clon con una
+                     * transformación, ni `scrollX` consiguen mover la ventana —el
+                     * clon maqueta las columnas CSS en otras coordenadas. Está sin
+                     * resolver, así que en el resto de páginas el pliegue no se
+                     * dibuja: enseñar el texto de otra página sería peor que
+                     * deslizar.
+                     */
+                    if (offset.x !== 0) return;
+                    setFoldImage({ canvas: entry.canvas, offset: { x: 0, y: 0 } });
+                })
+                .catch(() => {});
+        };
+
+        if (typeof requestIdleCallback === 'function') {
+            requestIdleCallback(run, { timeout: 900 });
+        } else {
+            setTimeout(run, 260);
+        }
+    }, [palette.bg]);
+
+    /**
      * Atrás dentro del libro cierra una capa cada vez.
      *
      * El orden es el de encima hacia abajo, que es el que ve el usuario. Solo
@@ -904,6 +968,20 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 del mismo color de destino el efecto se ve igual y los glifos no se
                 vuelven a rasterizar. */}
             <div className="turn-veil" ref={veilRef} aria-hidden="true" />
+
+            {/* El doblado de hoja.
+                Va **después** del contenedor del libro en el DOM: el iframe se
+                pinta en su propia capa compuesta y, estando antes, el pliegue
+                quedaba debajo por mucho z-index que llevara. */}
+            {foldImage && (
+                <PageFold
+                    canvas={foldImage.canvas}
+                    offset={foldImage.offset}
+                    width={viewportRef.current?.clientWidth || 0}
+                    height={viewportRef.current?.clientHeight || 0}
+                    controllerRef={foldRef}
+                />
+            )}
 
             {/* Atenuador y filtro cálido no se pintan en tinta electrónica: el
                 panel no tiene niveles intermedios y una capa semitransparente

@@ -6,7 +6,19 @@ import react from '@vitejs/plugin-react';
 const CSP = [
     "default-src 'self'",
     "script-src 'self'",
-    "style-src 'self' 'unsafe-inline'",
+    // `blob:` hace falta para rasterizar la página (el doblado de hoja).
+    //
+    // El rasterizador clona el documento del libro en un iframe aislado y le pasa
+    // las hojas de estilo como blobs generados por nosotros mismos. Sin esto el
+    // clon salía sin estilos y la imagen del pliegue quedaba en blanco — se vio en
+    // el registro del dispositivo: «Loading the stylesheet 'blob:…' violates the
+    // following Content Security Policy directive».
+    //
+    // No abre nada al exterior: un `blob:` solo puede crearlo esta misma app, así
+    // que el contenido de un EPUB no puede aprovecharlo para traer estilos de la
+    // red. Lo que sigue prohibido —y es lo que importa— es que un libro ejecute
+    // scripts: `script-src 'self'` no se toca.
+    "style-src 'self' 'unsafe-inline' blob:",
     "font-src 'self' data:",
     "img-src 'self' data: blob: https:",
     "media-src 'self' data: blob:",
