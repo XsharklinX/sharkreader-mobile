@@ -40,18 +40,28 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 
 .app { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
 
+/* El hueco de la barra de estado NO va aquí.
+ *
+ * Estaba como relleno superior de este contenedor, y eso tiene dos consecuencias
+ * malas: el relleno de un contenedor con desplazamiento no recorta, así que el
+ * contenido se sigue viendo mientras lo atraviesa; y una barra `sticky` se ancla
+ * al borde de la caja de desplazamiento, que queda **debajo** del relleno. Las dos
+ * juntas daban lo que se veía: portadas flotando por encima de la barra fija y
+ * sobre la hora del sistema.
+ *
+ * Ahora el hueco lo reserva cada pantalla en `.screen`, y la barra de la
+ * biblioteca lo absorbe dentro de sí misma. */
 .app-main {
     flex: 1;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding-top: var(--safe-top);
 }
 
 .screen {
     display: flex;
     flex-direction: column;
     gap: var(--sp-5);
-    padding: var(--sp-5) var(--sp-4) var(--sp-7);
+    padding: calc(var(--safe-top) + var(--sp-5)) var(--sp-4) var(--sp-7);
     min-height: 100%;
 }
 
@@ -82,10 +92,20 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     z-index: 12;
     align-items: center;
     gap: var(--sp-2);
-    height: 56px;
-    /* Se come el relleno de `.screen` para llegar a los bordes. */
-    margin: calc(var(--sp-5) * -1) calc(var(--sp-4) * -1) 0;
-    padding: 0 var(--sp-2) 0 var(--sp-1);
+
+    /* La barra incluye el hueco de la barra de estado.
+     *
+     * Ese hueco lo ponía `.app-main` como relleno superior, y el relleno de un
+     * contenedor con desplazamiento **no recorta**: el contenido sigue viéndose
+     * mientras lo atraviesa. Así que al bajar por la biblioteca las portadas
+     * aparecían por encima de la barra fija, flotando sobre la hora del sistema.
+     *
+     * Ahora la barra sube hasta el borde real de la pantalla —de ahí el margen
+     * negativo que se traga también ese relleno— y reserva el hueco dentro de sí
+     * misma. Debajo de la hora hay barra, que es lo que tiene que haber. */
+    height: calc(56px + var(--safe-top));
+    padding: var(--safe-top) var(--sp-2) 0 var(--sp-1);
+    margin: calc((var(--sp-5) + var(--safe-top)) * -1) calc(var(--sp-4) * -1) 0;
     background: var(--topbar);
     border-bottom: 1px solid var(--line);
 }
