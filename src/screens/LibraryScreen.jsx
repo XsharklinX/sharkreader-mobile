@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import BookCard from '../library/BookCard.jsx';
 import ContinueCard from '../library/ContinueCard.jsx';
 import BookSheet from '../library/BookSheet.jsx';
@@ -71,9 +71,21 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
     const [hits, setHits] = useState([]);
     const [hitQuery, setHitQuery] = useState('');
 
+    // `build` y `search` van por ref y no en las dependencias del efecto.
+    //
+    // Aquí estaba un bucle infinito: `useContentIndex` devolvía un objeto nuevo
+    // en cada render y estaba en las dependencias, así que el efecto se disparaba
+    // siempre, `build()` llamaba a `setProgress`, eso provocaba otro render, y
+    // vuelta a empezar. En el dispositivo se veían cientos de consultas por
+    // segundo a `content_index` y la interfaz se quedaba congelada en negro.
+    const buildIndexRef = useRef(contentIndex.build);
+    buildIndexRef.current = contentIndex.build;
+    const searchIndexRef = useRef(contentIndex.search);
+    searchIndexRef.current = contentIndex.search;
+
     useEffect(() => {
-        if (status === 'ready') contentIndex.build();
-    }, [status, books.length, contentIndex]);
+        if (status === 'ready') buildIndexRef.current();
+    }, [status, books.length]);
 
     // Se busca con retraso: lanzar una consulta por pulsación devolvería
     // resultados de una palabra a medio escribir y encima competiría con la
@@ -84,7 +96,7 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
 
         let alive = true;
         const timer = setTimeout(() => {
-            contentIndex.search(text, 40).then(({ query: used, results }) => {
+            searchIndexRef.current(text, 40).then(({ query: used, results }) => {
                 if (!alive) return;
                 setHits(results);
                 setHitQuery(used);
@@ -92,7 +104,7 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
         }, 260);
 
         return () => { alive = false; clearTimeout(timer); };
-    }, [query, contentIndex]);
+    }, [query]);
 
     const visible = useMemo(
         () => selectBooks(books, { query, filter, sort }),

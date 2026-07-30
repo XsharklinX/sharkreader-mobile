@@ -7,8 +7,8 @@ import { searchMetadata, fetchCover, applyMetadata } from './metadata.js';
 import CollectionsSheet from './CollectionsSheet.jsx';
 import { resizeCoverDataUrl } from '../core/coverResize.js';
 import { usePorts } from '../ports/index.js';
-import { formatMinutes } from '../stats/derive.js';
-import { estimateRemaining } from './ContinueCard.jsx';
+import { formatMinutes, estimateRemaining } from '../stats/derive.js';
+
 
 /**
  * Ficha de libro.

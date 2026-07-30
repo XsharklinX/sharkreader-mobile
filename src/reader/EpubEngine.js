@@ -165,23 +165,59 @@ export const createEpubEngine = () => {
             if (!rendition) return;
             rendition.hooks.content.register((contents) => {
                 const doc = contents.document;
+
+                /**
+                 * Traduce un evento del iframe al espacio del contenedor.
+                 *
+                 * **Sin esto los gestos no pueden funcionar.** epub.js estira el
+                 * iframe hasta el ancho de todas las columnas del capítulo y lo
+                 * desplaza para mostrar la página actual, así que la `clientX` de
+                 * un toque es su posición dentro de esas columnas —puede ser
+                 * 9.000— y no dónde ha caído el dedo en la pantalla.
+                 *
+                 * El rectángulo del iframe respecto al del contenedor da el
+                 * desplazamiento exacto, sea cual sea la página. Se lee en cada
+                 * evento porque cambia con cada cambio de página.
+                 */
+                const toLocal = (event) => {
+                    const frame = contents.window?.frameElement;
+                    const frameRect = frame?.getBoundingClientRect();
+                    const host = container?.getBoundingClientRect();
+                    if (!frameRect || !host) return event;
+
+                    return {
+                        clientX: frameRect.left + event.clientX - host.left,
+                        clientY: frameRect.top + event.clientY - host.top,
+                        pointerId: event.pointerId,
+                        cancelable: event.cancelable,
+                        touches: event.touches,
+                        preventDefault: () => event.preventDefault(),
+                    };
+                };
+
+                const relay = (name) => (event) => handlers[name]?.(toLocal(event));
+
                 // `passive: false` es obligatorio en `pointermove` y `touchmove`.
                 // Un oyente pasivo **no puede llamar a `preventDefault()`**, y sin
                 // eso no hay forma de decirle al WebView «este arrastre es mío»:
                 // sigue con lo suyo —extender la selección de texto, rebotar el
-                // documento— y el gesto se pierde. Es la mitad del motivo por el
-                // que deslizar no funcionaba.
-                doc.addEventListener('pointerdown', handlers.onPointerDown, { passive: true });
-                doc.addEventListener('pointermove', handlers.onPointerMove, { passive: false });
-                doc.addEventListener('pointerup', handlers.onPointerUp, { passive: true });
-                doc.addEventListener('pointercancel', handlers.onPointerCancel, { passive: true });
+                // documento— y el gesto se pierde.
+                doc.addEventListener('pointerdown', relay('onPointerDown'), { passive: true });
+                doc.addEventListener('pointermove', relay('onPointerMove'), { passive: false });
+                doc.addEventListener('pointerup', relay('onPointerUp'), { passive: true });
+                doc.addEventListener('pointercancel', relay('onPointerCancel'), { passive: true });
 
                 // Y además los eventos táctiles. En el WebView de Android los
                 // punteros se sintetizan a partir de los táctiles y hay
                 // versiones que dejan de emitir `pointermove` en cuanto el
                 // sistema decide que el gesto es suyo. `touchmove` sí llega, y
                 // es el que puede cancelarlo.
-                doc.addEventListener('touchmove', handlers.onTouchMove, { passive: false });
+                //
+                // El táctil no se traduce con `toLocal` porque lleva `touches` y
+                // no `clientX`: lo hace el propio manejador.
+                doc.addEventListener('touchmove', (event) => {
+                    handlers.onTouchMove?.(event, toLocal);
+                }, { passive: false });
             });
         },
 
@@ -300,35 +336,40 @@ export const createEpubEngine = () => {
         },
 
         /**
-         * Ancho del documento del libro, en sus propias coordenadas.
+         * Tamaño del área visible de lectura.
          *
-         * Los eventos de toque se escuchan **dentro** del iframe, así que sus
-         * coordenadas van de 0 al ancho del iframe. El contenedor es más ancho:
-         * lleva los márgenes de lectura como relleno. Dividir una x del iframe
-         * entre el ancho del contenedor descuadraba las zonas de toque — la
-         * izquierda salía más grande que la derecha y un toque a la izquierda
-         * del centro retrocedía página.
+         * ## La causa de que los gestos no funcionaran
          *
-         * También descuadraba el umbral del arrastre, que se medía contra un
-         * ancho mayor que el real y exigía deslizar de más.
+         * Antes esto devolvía `window.innerWidth` del iframe, creyendo que era
+         * el ancho de la página. **No lo es.** epub.js pagina con columnas CSS y
+         * para eso estira el iframe hasta el ancho de *todas* las columnas del
+         * capítulo — está en `managers/views/iframe.js`, línea 313:
+         * `this.iframe.style.width = width + "px"` con `width` sacado de
+         * `contents.textWidth()`. En un capítulo de cuarenta páginas eso son
+         * unos 15.000 px, no 371.
+         *
+         * Con ese número todo lo que dependía del ancho quedaba roto:
+         *
+         *  - **Las zonas de toque.** El tope de 140 px se aplicaba sobre 15.000,
+         *    así que la zona derecha empezaba en el píxel 14.860. Cualquier toque
+         *    en la página visible caía en el centro y solo alternaba la interfaz.
+         *    Y como la `clientX` de un toque es su posición absoluta dentro de
+         *    esas columnas, en las primeras y últimas páginas del capítulo sí
+         *    caía por casualidad en una zona lateral — de ahí que «a veces sí».
+         *
+         *  - **El umbral del arrastre.** El 35 % de 15.000 son 5.250 px:
+         *    inalcanzable. Solo se pasaba página con un golpe seco, que confirma
+         *    por velocidad y no por distancia. Eso es exactamente «si deslizas
+         *    rápido sí pasa, pero si vas lento no».
+         *
+         * Se devuelve el rectángulo del **contenedor**, que es el área que se ve
+         * de verdad.
          */
-        contentWidth() {
-            const contents = [].concat(rendition?.getContents?.() || []);
-            for (const content of contents) {
-                const width = content?.window?.innerWidth;
-                if (width > 0) return width;
-            }
-            return 0;
-        },
-
-        /** Alto del documento del libro, para las filas de la rejilla de gestos. */
-        contentHeight() {
-            const contents = [].concat(rendition?.getContents?.() || []);
-            for (const content of contents) {
-                const height = content?.window?.innerHeight;
-                if (height > 0) return height;
-            }
-            return 0;
+        viewportRect() {
+            const rect = container?.getBoundingClientRect();
+            return rect
+                ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
+                : { left: 0, top: 0, width: 0, height: 0 };
         },
 
         /** Idioma declarado por el EPUB, para poder ofrecerlo como sugerencia. */

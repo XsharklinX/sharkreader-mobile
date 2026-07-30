@@ -149,12 +149,20 @@ export const createGestureHandlers = (handlers) => {
      * el sistema toma el gesto. `touchmove` sigue llegando y es el que de
      * verdad se puede cancelar.
      */
-    const onTouchMove = (event) => {
+    const onTouchMove = (event, toLocal) => {
         const touch = event.touches?.[0];
         if (!touch || !start) return;
+
+        // Las coordenadas se traducen al espacio del contenedor igual que las de
+        // puntero: dentro del iframe la x de un toque es su posición entre todas
+        // las columnas del capítulo, no dónde ha caído el dedo.
+        const point = toLocal
+            ? toLocal({ clientX: touch.clientX, clientY: touch.clientY, cancelable: event.cancelable })
+            : { clientX: touch.clientX, clientY: touch.clientY };
+
         claimHorizontal({
-            clientX: touch.clientX,
-            clientY: touch.clientY,
+            clientX: point.clientX,
+            clientY: point.clientY,
             cancelable: event.cancelable,
             preventDefault: () => event.preventDefault(),
         });

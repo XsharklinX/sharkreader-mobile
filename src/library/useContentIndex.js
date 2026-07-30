@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import JSZip from 'jszip';
 import { usePorts } from '../ports/index.js';
 import { readBookBlob } from '../adapters/SafPicker.js';
@@ -153,5 +153,20 @@ export const useContentIndex = (books) => {
         return { query, results };
     }, [ports]);
 
-    return { build, search, progress };
+    /**
+     * El objeto devuelto es **estable**.
+     *
+     * Sin `useMemo` se creaba uno nuevo en cada render, y la pantalla de
+     * biblioteca lo tenía en las dependencias de un efecto:
+     *
+     *     useEffect(() => { if (ready) contentIndex.build(); },
+     *               [status, books.length, contentIndex]);
+     *
+     * Así que el efecto se disparaba en cada render, `build()` llamaba a
+     * `setProgress`, eso provocaba otro render, y el efecto otra vez. **Bucle
+     * infinito**: en el dispositivo se veían cientos de consultas por segundo a
+     * `content_index` en el registro, la interfaz se quedaba congelada en negro y
+     * la batería se iba. Se vio con la app instalada; ningún test lo detectó.
+     */
+    return useMemo(() => ({ build, search, progress }), [build, search, progress]);
 };

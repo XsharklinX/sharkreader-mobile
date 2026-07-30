@@ -128,15 +128,16 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             onPrev: () => turnPage('prev'),
             shouldIgnore: () => Boolean(engineRef.current?.selectionText()),
             clearSelection: () => engineRef.current?.clearSelection(),
-            // El ancho del documento del libro, no el del contenedor: los
-            // eventos llegan en coordenadas del iframe y el contenedor es más
-            // ancho por los márgenes de lectura.
-            getWidth: () => engineRef.current?.contentWidth()
-                || viewportRef.current?.clientWidth
-                || window.innerWidth,
-            getHeight: () => engineRef.current?.contentHeight()
-                || viewportRef.current?.clientHeight
-                || window.innerHeight,
+            // El área visible, no el documento del libro.
+            //
+            // Aquí estaba la raíz de que los gestos no funcionaran: se usaba
+            // `window.innerWidth` del iframe creyendo que era el ancho de la
+            // página, y epub.js estira ese iframe hasta el ancho de **todas** las
+            // columnas del capítulo. Con 15.000 px en vez de 371, las zonas de
+            // toque y el umbral del arrastre eran inalcanzables. Ver
+            // `EpubEngine.viewportRect`.
+            getWidth: () => viewportRef.current?.clientWidth || window.innerWidth,
+            getHeight: () => viewportRef.current?.clientHeight || window.innerHeight,
             // La rejilla y el despachador se enchufan más abajo con refs: los
             // manejadores se crean una vez y se registran dentro del iframe
             // durante la carga, así que no pueden capturar estado de React.
@@ -300,12 +301,12 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 // texto con otro suavizado que el resto de la app.
                 node.style.willChange = '';
             },
-            // El ancho del documento del libro, no el del contenedor: los
-            // eventos llegan en coordenadas del iframe y el contenedor es más
-            // ancho por los márgenes de lectura.
-            getWidth: () => engineRef.current?.contentWidth()
-                || viewportRef.current?.clientWidth
-                || window.innerWidth,
+            // El ancho visible. Antes se usaba el del iframe, que epub.js estira
+            // al ancho de todas las columnas del capítulo: el 35 % de 15.000 px
+            // es inalcanzable, así que el arrastre nunca completaba y solo pasaba
+            // página el golpe seco —que confirma por velocidad—. Eso era «si vas
+            // rápido sí, si vas lento no».
+            getWidth: () => viewportRef.current?.clientWidth || window.innerWidth,
             // Desplazando no hay páginas que arrastrar: el gesto vertical es del
             // navegador y el horizontal no significa nada.
             isEnabled: () => flowRef.current !== 'scrolled'

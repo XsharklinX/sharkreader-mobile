@@ -60,10 +60,9 @@ const makeEngine = () => ({
     chapterAtPercent: vi.fn(() => 'Capítulo I'),
     currentLocation: vi.fn(() => 30),
     totalLocations: vi.fn(() => 100),
-    // 360 px de ancho útil: es lo que devuelve el documento del libro, más
-    // estrecho que el contenedor por los márgenes de lectura.
-    contentWidth: vi.fn(() => 360),
-    contentHeight: vi.fn(() => 640),
+    // El rectángulo del área visible. Ya no se pregunta al documento del libro:
+    // epub.js lo estira al ancho de todas las columnas del capítulo.
+    viewportRect: vi.fn(() => ({ left: 0, top: 0, width: 400, height: 800 })),
     bookAuthor: vi.fn(() => ''),
     search: vi.fn(async () => []),
     highlightSpoken: vi.fn(),
@@ -99,7 +98,26 @@ const BOOK = {
 let host;
 let root;
 
+/**
+ * jsdom no maqueta, así que `clientWidth` y `clientHeight` son siempre 0.
+ *
+ * Las zonas de toque se miden contra el ancho del contenedor, y con 0 se caía al
+ * de la ventana de jsdom (1024) — que no es el de un móvil, así que un toque en
+ * «el borde derecho» caía en el centro. Se fija un tamaño de móvil para que las
+ * coordenadas del test signifiquen lo mismo que en el dispositivo.
+ */
+const PHONE = { width: 400, height: 800 };
+
 beforeEach(() => {
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+        configurable: true,
+        get() { return PHONE.width; },
+    });
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+        configurable: true,
+        get() { return PHONE.height; },
+    });
+
     registered = null;
     engine = makeEngine();
     resetBackStack();

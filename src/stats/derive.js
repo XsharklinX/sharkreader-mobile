@@ -205,3 +205,26 @@ export const formatMinutes = (minutes = 0) => {
     const rest = value % 60;
     return rest ? `${hours} h ${rest} min` : `${hours} h`;
 };
+
+
+/**
+ * Minutos que quedarían de un libro al ritmo del propio usuario.
+ *
+ * Vivía en `ContinueCard`, que ya no lo usa: el medidor de progreso de toda la
+ * app es el porcentaje, para que el lector y la biblioteca no den dos respuestas
+ * distintas a la misma pregunta.
+ *
+ * Se conserva para la **ficha del libro**, donde no es un medidor sino un dato
+ * más entre el número de páginas y la fecha en que se empezó. Ahí una estimación
+ * es lo que se espera; en la barra de lectura, no.
+ *
+ * Por debajo del 4 % no devuelve nada: la muestra son unos minutos y el
+ * resultado saldría de multiplicarla por veinticinco.
+ */
+export const estimateRemaining = (book) => {
+    const minutes = book?.readingMinutes || 0;
+    const progress = book?.progress || 0;
+    if (minutes < 5 || progress < 0.04) return null;
+    const left = Math.round(minutes / progress - minutes);
+    return left > 0 ? left : null;
+};

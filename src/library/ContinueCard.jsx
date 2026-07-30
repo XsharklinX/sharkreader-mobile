@@ -1,31 +1,30 @@
 import React from 'react';
-import { formatMinutes } from '../stats/derive.js';
 
 /**
  * Tarjeta de continuar leyendo.
  *
  * Es lo primero de la pantalla porque, si estás leyendo algo, eso es lo que
- * quieres tocar. Antes había que buscarlo en la rejilla como un libro más.
+ * quieres tocar.
  *
- * El tiempo restante se estima con el ritmo real del usuario: los minutos ya
- * dedicados a este libro divididos por el porcentaje leído. Es mucho más útil
- * que un porcentaje suelto — «te quedan 18 min» es una decisión, «64%» es un
- * dato.
+ * ## Por qué ya no dice «te quedan 2 h 38 min»
+ *
+ * El tiempo restante se estimaba con el ritmo medio del usuario: los minutos
+ * dedicados al libro divididos por el porcentaje leído. Tres problemas:
+ *
+ *  1. **Es una estimación sobre una estimación.** Con un 4 % leído, la muestra
+ *     es de unos minutos y el resultado sale de multiplicar por veinticinco: un
+ *     rato de lectura lenta convertía dos horas en cinco.
+ *  2. **No responde a la pregunta.** Al mirar aquí se busca por dónde vas, y un
+ *     tiempo obliga a hacer la cuenta al revés.
+ *  3. **No coincidía con el lector.** Allí el medidor pasó a ser el porcentaje,
+ *     así que la misma app daba dos respuestas distintas para lo mismo.
+ *
+ * Se queda el porcentaje, que es el mismo dato que enseña el lector y sale del
+ * mismo sitio.
  */
-export const estimateRemaining = (book) => {
-    const minutes = book.readingMinutes || 0;
-    const progress = book.progress || 0;
-    // Por debajo de un 4% la muestra es demasiado pequeña para extrapolar.
-    if (minutes < 5 || progress < 0.04) return null;
-    const total = minutes / progress;
-    const left = Math.round(total - minutes);
-    return left > 0 ? left : null;
-};
-
 export default function ContinueCard({ book, onResume }) {
     const done = Math.round((book.progress || 0) * 100);
     const cover = book.coverUrl || book.coverBase64;
-    const left = estimateRemaining(book);
 
     return (
         <button type="button" className="continue" onClick={() => onResume(book)}>
@@ -39,7 +38,7 @@ export default function ContinueCard({ book, onResume }) {
                 <span className="continue-eyebrow">Seguir leyendo</span>
                 <span className="continue-title">{book.name}</span>
                 <span className="continue-meta">
-                    {done}%{left ? ` · te quedan ${formatMinutes(left)}` : ''}
+                    {done} % del libro
                 </span>
                 <span className="bar continue-bar"><i style={{ width: `${done}%` }} /></span>
             </span>
