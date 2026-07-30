@@ -1,34 +1,56 @@
 /* Tokens de SharkReader Mobile.
-   Reescritos para el rediseño: el sistema pasa de "cajas con borde" a
-   superficies con elevación, que es lo que separa una app de lectura de un
-   panel de configuración. */
+ *
+ * ## Los valores son los de la versión de escritorio
+ *
+ * No son parecidos: son **los mismos hexadecimales** de `styles/main.css` de
+ * escritorio. Antes esto tenía su propia paleta —`#0B1017`, `#141A22`, cuatro
+ * niveles de superficie inventados— que quedaba cerca sin coincidir, y dos apps
+ * de la misma familia que casi comparten el color se ven como una copia mal hecha
+ * de la otra. La continuidad entre las dos versiones vale más que cualquier
+ * paleta que se pueda proponer aquí.
+ *
+ * ## Un uso de acento por pantalla
+ *
+ * El acento se queda en `#38BDF8`. Lo que cambia es la regla: señala **una sola
+ * cosa** por pantalla —dónde te quedaste, o el control que estás tocando— y todo
+ * lo demás vive en la escala de grises azulada. Antes salía diez veces por
+ * pantalla entre marca, porcentajes, barras, chips e iconos, y un acento que
+ * aparece diez veces es un color de fondo con más saturación. En escritorio eso
+ * se sostiene porque hay mil píxeles donde repartirlo; en 390 no.
+ *
+ * ## Sin sombras
+ *
+ * La profundidad se dice con una línea de 1 px y un salto de superficie. Una
+ * sombra sobre `#0F172A` no se ve como profundidad: se ve como una mancha. Los
+ * tokens `--el-*` se quedan declarados en `none` para no tener que perseguir cada
+ * uso, y los pocos sitios donde hacía falta separar de verdad —hojas, cajones—
+ * llevan borde.
+ */
 
 :root {
-    /* ── Superficies ──────────────────────────────────────────────────────
-       Cuatro niveles de profundidad en lugar de un borde de 1 px. Cada nivel
-       es un poco más claro que el anterior: así se lee la jerarquía sin
-       dibujar líneas. */
-    --bg: #0B1017;
-    --sf-1: #141A22;
-    --sf-2: #1B222C;
-    --sf-3: #232C38;
+    /* ── Superficies · slate de escritorio ────────────────────────────────── */
+    --bg: #0F172A;          /* --bg-color */
+    --sf-1: #1E293B;        /* --surface-bg */
+    --sf-2: #273549;
+    --sf-3: #313F55;
+    --topbar: #0B1120;      /* --topbar-bg */
 
-    --text: #F2F6F9;
-    --text-2: #A5B4C0;
-    --text-3: #6C7D8B;
+    --text: #F1F5F9;        /* --text-color */
+    --text-2: #94A3B8;
+    --text-3: #64748B;
 
-    /* Los bordes quedan para separar, no para encajonar */
-    --line: #212A35;
-    --line-strong: #2E3A48;
+    --line: #334155;        /* --border-color */
+    --line-strong: #435268;
 
-    --accent: #38BDF8;
+    --accent: #38BDF8;      /* --highlight */
     --accent-soft: rgba(56, 189, 248, 0.14);
-    --accent-ink: #04121B;
-    --accent-deep: #0C7FB5;
+    --accent-ink: #06131F;
+    --accent-deep: #0284C7;
+    --progress: #3B82F6;    /* --progress-bg */
 
-    --warn: #F5A524;
-    --ok: #3DD68C;
-    --risk: #F2617A;
+    --warn: #F59E0B;
+    --ok: #22C55E;
+    --risk: #EF4444;
 
     /* Colores de subrayado — los mismos cuatro que en escritorio */
     --hl-yellow: #FACC15;
@@ -45,26 +67,38 @@
     --sp-6: 32px;
     --sp-7: 48px;
 
-    --r-sm: 8px;
-    --r-md: 14px;
-    --r-lg: 20px;
+    /* Radios cortos. Había 8/14/20 y todo acababa pareciendo la misma tarjeta
+       redondeada; el radio grande es lo que iguala una portada, un ajuste y un
+       aviso. */
+    --r-sm: 4px;
+    --r-md: 6px;
+    --r-lg: 12px;
     --r-full: 999px;
 
     /* ── Elevación ───────────────────────────────────────────────────────── */
-    --el-1: 0 1px 2px rgba(0, 0, 0, 0.28);
-    --el-2: 0 4px 14px -4px rgba(0, 0, 0, 0.45);
-    --el-3: 0 12px 32px -8px rgba(0, 0, 0, 0.6);
-    --el-4: 0 -8px 40px -12px rgba(0, 0, 0, 0.75);
+    --el-1: none;
+    --el-2: none;
+    --el-3: none;
+    --el-4: none;
 
-    /* ── Tipografía ──────────────────────────────────────────────────────── */
+    /* ── Tipografía ──────────────────────────────────────────────────────────
+       Literata lleva los títulos y las cifras grandes de la interfaz, no solo el
+       cuerpo del libro. Es lo que hace que la app se lea como un lector y no como
+       un panel de ajustes.
+
+       En escritorio esa cara es Lora. Aquí no está empaquetada —y traerla son 40 KB
+       más por peso— así que se usa Literata, del mismo registro: serif de texto
+       diseñada para leer en pantalla. Si algún día se empaqueta Lora, se cambia
+       aquí y en ningún otro sitio. */
     --font: Roboto, "Segoe UI", system-ui, -apple-system, sans-serif;
-    --font-read: Georgia, "Noto Serif", serif;
+    --font-title: Literata, Georgia, "Noto Serif", serif;
+    --font-read: Literata, Georgia, "Noto Serif", serif;
     --font-mono: "Roboto Mono", ui-monospace, monospace;
 
     /* Escala fija: en móvil no hay viewport que escalar y las medidas
        relativas solo introducen ruido. */
-    --t-display: 28px;
-    --t-title: 21px;
+    --t-display: 25px;
+    --t-title: 20px;
     --t-heading: 17px;
     --t-body: 15px;
     --t-small: 13px;
@@ -83,31 +117,32 @@
 }
 
 /* Tema claro de la interfaz. Independiente del tema del lector: se puede leer
-   en sepia con la interfaz oscura, o al revés. */
+   en sepia con la interfaz oscura, o al revés.
+
+   El acento aquí es `#0369A1` y no `#0EA5E9`, por lo mismo que está documentado
+   en escritorio: se usa como color de TEXTO en etiquetas y porcentajes sobre
+   fondo claro, y el segundo da 2,6:1 de contraste — falla el mínimo de 4,5:1. */
 :root.theme-light {
-    --bg: #F1F4F7;
-    --sf-1: #FFFFFF;
-    --sf-2: #F7F9FB;
-    --sf-3: #E8EDF2;
+    --bg: #F8FAFC;          /* --bg-color */
+    --sf-1: #FFFFFF;        /* --surface-bg */
+    --sf-2: #F1F5F9;
+    --sf-3: #E2E8F0;
+    --topbar: #0284C7;      /* --topbar-bg */
 
-    --text: #0D1620;
-    --text-2: #4A5C6B;
-    --text-3: #7A8B99;
+    --text: #0F172A;        /* --text-color */
+    --text-2: #475569;
+    --text-3: #64748B;
 
-    --line: #DDE4EA;
-    --line-strong: #C7D1DA;
+    --line: #E2E8F0;        /* --border-color */
+    --line-strong: #C7D2DE;
 
-    --accent: #0B84C4;
-    --accent-soft: rgba(11, 132, 196, 0.1);
+    --accent: #0369A1;      /* --highlight */
+    --accent-soft: rgba(3, 105, 161, 0.1);
     --accent-ink: #FFFFFF;
-    --accent-deep: #076797;
+    --accent-deep: #075985;
+    --progress: #3B82F6;
 
-    --warn: #B4700A;
-    --ok: #14805A;
-    --risk: #C8455F;
-
-    --el-1: 0 1px 2px rgba(13, 22, 32, 0.06);
-    --el-2: 0 4px 14px -4px rgba(13, 22, 32, 0.14);
-    --el-3: 0 12px 32px -8px rgba(13, 22, 32, 0.18);
-    --el-4: 0 -8px 40px -12px rgba(13, 22, 32, 0.22);
+    --warn: #B45309;
+    --ok: #15803D;
+    --risk: #B91C1C;
 }

@@ -3,7 +3,6 @@ import Sheet, { Row, Group, Segmented } from '../ui/Sheet.jsx';
 import Switch from '../ui/Switch.jsx';
 import { READER_THEMES } from './typography.js';
 import { PAGE_TRANSITIONS } from './transitions.js';
-import TransitionPicker from './TransitionPicker.jsx';
 import { AUTOSCROLL_SPEEDS } from './useAutoScroll.js';
 import { SPREAD_MODES } from './spread.js';
 import { RULER_MODES } from './ruler.js';
@@ -72,17 +71,18 @@ export default function DisplaySheet({
                         no hay página que pasar ni que repartir. */}
                     {flow !== 'scrolled' && (
                         <>
-                            {/* Se elige mirando, no leyendo: cada maqueta hace
-                                el movimiento de su transición al tocarla. */}
-                            <Group
+                            {/* Dos opciones, así que un segmentado y no una
+                                rejilla de maquetas. Las siete miniaturas que
+                                había eran el mismo dibujo repetido siete veces:
+                                ocupaban media hoja sin distinguir nada. */}
+                            <Segmented
                                 label="Al pasar página"
+                                value={transition}
+                                options={Object.entries(PAGE_TRANSITIONS)
+                                    .map(([id, spec]) => ({ value: id, label: spec.label }))}
+                                onChange={onChangeTransition}
                                 hint={PAGE_TRANSITIONS[transition]?.description}
-                            >
-                                <TransitionPicker
-                                    value={transition}
-                                    onChange={onChangeTransition}
-                                />
-                            </Group>
+                            />
 
                             <Segmented
                                 label="Columnas"

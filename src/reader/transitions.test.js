@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
     PAGE_TRANSITIONS, DEFAULT_TRANSITION, phaseState, transitionDuration,
-    runTurn, usesCurl,
+    runTurn, normalizeTransition,
 } from './transitions.js';
 
 describe('catálogo de transiciones', () => {
@@ -26,8 +26,11 @@ describe('catálogo de transiciones', () => {
         expect(transitionDuration('none')).toBe(0);
     });
 
-    it('hay al menos seis formas de pasar página', () => {
-        expect(Object.keys(PAGE_TRANSITIONS).length).toBeGreaterThanOrEqual(6);
+    it('hay exactamente dos', () => {
+        // Había siete, y seis eran la misma línea de código con otro número.
+        // Ofrecer siete variantes de lo mismo es no haber decidido cuál es la
+        // buena y pasarle la decisión al usuario.
+        expect(Object.keys(PAGE_TRANSITIONS)).toEqual(['none', 'slide']);
     });
 
     it('ninguna dura tanto como para estorbar al pasar páginas seguidas', () => {
@@ -36,15 +39,31 @@ describe('catálogo de transiciones', () => {
         });
     });
 
-    it('la de por defecto es el doblado de hoja', () => {
-        expect(DEFAULT_TRANSITION).toBe('curl');
-        expect(usesCurl(DEFAULT_TRANSITION)).toBe(true);
+    it('la de por defecto no anima nada', () => {
+        // Es la única que no puede fallar: no hay capa que promover ni textura
+        // que esperar. El doblado de hoja se fue porque doblaba iframes y el
+        // WebView los presentaba en negro antes de tener la textura lista.
+        expect(DEFAULT_TRANSITION).toBe('none');
+        expect(transitionDuration(DEFAULT_TRANSITION)).toBe(0);
+    });
+});
+
+describe('normalizeTransition', () => {
+    it('las que ya no existen caen en la de por defecto', () => {
+        // Un libro empezado cuando había siete trae `curl` o `fade` guardado en
+        // sus preferencias. Sin esto, el selector se abriría sin nada marcado.
+        ['curl', 'paper', 'push', 'fade', 'zoom'].forEach((viejo) => {
+            expect(normalizeTransition(viejo), viejo).toBe(DEFAULT_TRANSITION);
+        });
     });
 
-    it('solo el doblado usa la geometría del pliegue', () => {
-        Object.keys(PAGE_TRANSITIONS)
-            .filter((id) => id !== 'curl')
-            .forEach((id) => expect(usesCurl(id), id).toBe(false));
+    it('las que existen se respetan', () => {
+        expect(normalizeTransition('slide')).toBe('slide');
+        expect(normalizeTransition('none')).toBe('none');
+    });
+
+    it('sin valor guardado, la de por defecto', () => {
+        expect(normalizeTransition(undefined)).toBe(DEFAULT_TRANSITION);
     });
 });
 
@@ -84,14 +103,6 @@ describe('phaseState', () => {
         });
     });
 
-    it('el doblado no mueve el contenedor: lo pinta PageFold', () => {
-        // La página nueva está quieta debajo mientras la vieja se dobla encima.
-        // Su geometría vive en `pageFold.js`, no aquí.
-        const enter = phaseState('curl', 'next', 'enter');
-        expect(enter.transform).toMatch(/translate3d\(0px?,0,0\)/);
-        expect(enter.veil).toBe(0);
-    });
-
     it('«ninguna» se queda en reposo', () => {
         expect(phaseState('none', 'next', 'enter').transform).toBe('translate3d(0,0,0)');
         expect(phaseState('none', 'next', 'enter').veil).toBe(0);
@@ -101,16 +112,9 @@ describe('phaseState', () => {
         expect(phaseState('espiral', 'next', 'enter').transform).toBe('translate3d(0,0,0)');
     });
 
-    it('el velo del fundido tapa por completo', () => {
-        // A opacidad 1 y con el color del fondo de la página, el texto aparece
-        // desde el fondo sin haber tocado su alfa.
-        expect(phaseState('fade', 'next', 'enter').veil).toBe(1);
-    });
-
-    it('«acercar» añade escala sin perder el desplazamiento', () => {
-        const state = phaseState('zoom', 'next', 'enter');
-        expect(state.transform).toContain('scale(');
-        expect(state.transform).toContain('translate3d');
+    it('deslizar no toca el velo', () => {
+        // El velo solo existía para el fundido, que se fue con las otras cinco.
+        expect(phaseState('slide', 'next', 'enter').veil).toBe(0);
     });
 });
 
@@ -124,7 +128,7 @@ describe('runTurn', () => {
         const { element, veil } = build();
         const commit = vi.fn();
 
-        runTurn({ element, veil, id: 'curl', direction: 'next', commit });
+        runTurn({ element, veil, id: 'slide', direction: 'next', commit });
 
         expect(commit).toHaveBeenCalledOnce();
     });
@@ -136,7 +140,7 @@ describe('runTurn', () => {
         const { element, veil } = build();
         const commit = vi.fn();
 
-        const turn = runTurn({ element, veil, id: 'curl', direction: 'next', commit });
+        const turn = runTurn({ element, veil, id: 'slide', direction: 'next', commit });
         turn.cancel();
         await turn.done;
 
@@ -147,9 +151,9 @@ describe('runTurn', () => {
         const { element, veil } = build();
         const commit = vi.fn();
 
-        const first = runTurn({ element, veil, id: 'curl', direction: 'next', commit });
+        const first = runTurn({ element, veil, id: 'slide', direction: 'next', commit });
         first.cancel();
-        const second = runTurn({ element, veil, id: 'curl', direction: 'next', commit });
+        const second = runTurn({ element, veil, id: 'slide', direction: 'next', commit });
         await Promise.all([first.done, second.done]);
 
         expect(commit).toHaveBeenCalledTimes(2);
@@ -188,7 +192,7 @@ describe('runTurn', () => {
         let resolved = false;
 
         await runTurn({
-            element, veil, id: 'fade', direction: 'next',
+            element, veil, id: 'slide', direction: 'next',
             commit: () => new Promise((resolve) => setTimeout(() => {
                 resolved = true;
                 resolve();

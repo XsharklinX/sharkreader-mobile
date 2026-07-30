@@ -1,5 +1,15 @@
 @import './tokens.css';
 
+/* Literata también en la interfaz, no solo dentro del libro.
+ *
+ * Estas declaraciones existían para el iframe del lector —donde se inyectan
+ * incrustadas en base64, ver `fontLoader.js`— pero el documento de la app no las
+ * tenía, así que los títulos caían en la serif del sistema y cada Android
+ * enseñaba una distinta. Con esto la cara de la app es la misma en todos.
+ *
+ * Solo se declaran: el navegador descarga el fichero cuando algo la usa. */
+@import '../fonts/fonts.css';
+
 /* ═══════════════════════════════════════════════════════════════════════════
    Base
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -48,14 +58,16 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 /* Cabecera de pantalla. Sin línea divisoria: el espacio ya separa. */
 .head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); }
 .head-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.head-title { font-size: var(--t-display); font-weight: 700; letter-spacing: -0.025em; line-height: 1.1; margin: 0; }
+/* Los títulos van en la serif, no en la sans de los controles: es lo que hace
+   que la app se lea como un lector y no como un panel de ajustes. */
+.head-title { font-family: var(--font-title); font-size: var(--t-display); font-weight: 700; letter-spacing: -0.018em; line-height: 1.12; margin: 0; }
 .head-sub { font-size: var(--t-small); color: var(--text-3); margin: 0; }
 .head-actions { display: flex; gap: var(--sp-1); flex: none; }
 
 .section { display: flex; flex-direction: column; gap: var(--sp-3); }
 
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
-.section-title { font-size: var(--t-heading); font-weight: 650; letter-spacing: -0.012em; margin: 0; }
+.section-title { font-family: var(--font-title); font-size: var(--t-heading); font-weight: 700; letter-spacing: -0.01em; margin: 0; }
 .section-meta { font-size: var(--t-tiny); color: var(--text-3); font-family: var(--font-mono); }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -360,17 +372,20 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     overflow: hidden;
 }
 
-/* Progreso sobre la propia portada: no ocupa una fila aparte y se lee de un
-   vistazo al recorrer la rejilla. */
-.book-progress {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 3px;
-    background: rgba(0, 0, 0, 0.45);
+/* Filo de estado. Ver `BookCard.jsx`: sustituye al porcentaje que iba impreso
+   encima de la ilustración. Va **debajo** de la tapa y no sobre ella, para no
+   tapar nada de la portada. */
+.book-edge {
+    display: block;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--line);
+    overflow: hidden;
+    margin-top: 1px;
 }
-.book-progress i { display: block; height: 100%; background: var(--accent); }
+.book-edge i { display: block; height: 100%; background: var(--line); }
+.book-edge.reading i { background: var(--accent); }
+.book-edge.done i { background: var(--ok); }
 
 .book-badge {
     position: absolute;
@@ -394,25 +409,6 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .bar i { display: block; height: 100%; background: var(--accent); border-radius: var(--r-full); }
 .bar.thin { height: 3px; }
 .bar i.ok { background: var(--ok); }
-
-/* Botón flotante de importar */
-.fab {
-    position: fixed;
-    right: var(--sp-4);
-    bottom: calc(var(--safe-bottom) + var(--nav-h) + var(--sp-3));
-    width: 56px;
-    height: 56px;
-    border-radius: var(--r-lg);
-    border: 0;
-    background: var(--accent);
-    color: var(--accent-ink);
-    display: grid;
-    place-items: center;
-    box-shadow: var(--el-3);
-    z-index: 20;
-}
-.fab:active { transform: scale(0.94); }
-.fab:disabled { opacity: 0.5; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Avisos
@@ -509,7 +505,9 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     display: flex;
     flex-direction: column;
     gap: var(--sp-4);
-    box-shadow: var(--el-4);
+    /* Borde en vez de sombra: sobre #0F172A una sombra es una mancha, no
+       profundidad. La línea sí dice dónde acaba la página y empieza la hoja. */
+    border-top: 1px solid var(--line-strong);
     animation: sheet-up 0.26s var(--ease) both;
 }
 
@@ -546,7 +544,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     display: flex;
     flex-direction: column;
     gap: var(--sp-3);
-    box-shadow: var(--el-3);
+    border-left: 1px solid var(--line-strong);
     animation: drawer-in 0.24s var(--ease) both;
 }
 
@@ -1173,42 +1171,30 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 /* El nombre no se parte nunca. Con el botón de menú a la izquierda el ancho
    quedó justo, y una marca cortada por la mitad —«SharkReade»— es peor que una
    marca un punto más pequeña. */
+/* La marca, sin degradado.
+ *
+ * Tenía un degradado de tres colores —acento, celeste y violeta— sobre el propio
+ * texto. En una pantalla cuyo contenido son portadas ilustradas, el nombre de la
+ * app era lo más colorido de todo, y encima gastaba el acento en decoración: por
+ * eso luego el acento no señalaba nada. Ahora la distinción entre las dos mitades
+ * la hace el peso, que es lo que hace la de escritorio. */
 .brand {
-    font-size: 25px;
+    font-family: var(--font-title);
+    font-size: 22px;
     white-space: nowrap;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1.1;
     margin: 0;
-    background: linear-gradient(100deg, var(--accent), #7DD3FC 55%, #A78BFA);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    color: var(--text);
 }
 
-/* El segundo tramo del nombre en peso normal: separa las dos mitades sin
-   necesitar otro color ni otro tamaño. */
-.brand span { font-weight: 400; }
+.brand span { font-weight: 400; color: var(--text-2); }
 
 .head-actions { flex-wrap: wrap; justify-content: flex-end; }
 .head-actions .icon-btn { min-width: 42px; min-height: 42px; }
 
 /* Porcentaje sobre la portada */
-.book-pct {
-    position: absolute;
-    left: var(--sp-2);
-    bottom: 9px;
-    font-size: var(--t-micro);
-    font-weight: 700;
-    color: #fff;
-    padding: 1px 6px;
-    border-radius: var(--r-full);
-    background: rgba(11, 16, 23, 0.72);
-    backdrop-filter: blur(4px);
-}
-
-.book-progress { height: 4px; }
-
 /* ═══════════════════════════════════════════════════════════════════════════
    Modo desplazamiento y animaciones de página
    ═══════════════════════════════════════════════════════════════════════════ */

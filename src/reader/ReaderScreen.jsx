@@ -9,8 +9,7 @@ import ReadingRuler from './ReadingRuler.jsx';
 import BrightnessSheet from './BrightnessSheet.jsx';
 import ReaderSettingsSheet from './ReaderSettingsSheet.jsx';
 import DisplaySheet from './DisplaySheet.jsx';
-import { runTurn, DEFAULT_TRANSITION, usesCurl } from './transitions.js';
-import PageFold from './PageFold.jsx';
+import { runTurn, DEFAULT_TRANSITION, normalizeTransition } from './transitions.js';
 import { buildFontFaceCss } from './fontLoader.js';
 import { useHistory } from './useHistory.js';
 import FootnoteSheet from './FootnoteSheet.jsx';
@@ -74,7 +73,11 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         () => ({ ...DEFAULT_TYPOGRAPHY, ...(book.readerPreferences?.typography || {}) })
     );
     const [theme, setTheme] = useState(book.readerPreferences?.theme || 'dark');
-    const [transition, setTransition] = useState(book.readerPreferences?.transition || DEFAULT_TRANSITION);
+    // Un libro empezado cuando había siete transiciones puede traer `curl` o
+    // `fade` guardados. Ver `normalizeTransition`.
+    const [transition, setTransition] = useState(
+        () => normalizeTransition(book.readerPreferences?.transition || DEFAULT_TRANSITION)
+    );
 
     // Columnas y orientación. `columns` es el resultado —cuántas caben ahora
     // mismo—, no la preferencia: depende del ancho real y cambia al girar.
@@ -88,13 +91,6 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     const [mapProgress, setMapProgress] = useState(null);
 
     const [ruler, setRuler] = useState(book.readerPreferences?.ruler || 'off');
-
-    // ── Doblado de hoja ──────────────────────────────────────────────────────
-    //
-    // La página que se va se dibuja dos veces —plana y reflejada— con dos copias
-    // del capítulo en iframes propios. Ver `PageFold.jsx`.
-    const [foldSheet, setFoldSheet] = useState(null);
-    const foldRef = useRef(null);
 
     // Limpieza de pantalla en tinta electrónica. Ver `einkRefresh.js`: se cuenta
     // pasando página, no por tiempo, porque el rastro lo produce el cambio de
@@ -197,18 +193,6 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         // anterior: sin esto, dos animaciones se pelean por el mismo transform.
         turnRef.current?.cancel();
 
-        /**
-         * El pliegue se remata aquí, no en el gesto.
-         *
-         * Por aquí pasan las tres formas de cambiar de página —arrastrar, tocar el
-         * borde y los botones de volumen— y solo el arrastre dejaba el pliegue en
-         * un estado conocido. Al tocar el borde con una hoja a medio doblar, esa
-         * hoja se quedaba clavada en la pantalla enseñando una página que ya no
-         * existía. `finish` la lleva hasta el final y la retira; si no había
-         * ninguna a medias no hace nada.
-         */
-        foldRef.current?.finish(direction);
-
         turnRef.current = runTurn({
             element: viewportRef.current,
             veil: veilRef.current,
@@ -251,40 +235,16 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
          * granularidad es invisible— y `translate3d`, que sube la hoja a una
          * capa de la GPU y la mueve como un mapa de bits ya rasterizado.
          */
-        const setShift = (shift, progress, direction) => {
+        const setShift = (shift) => {
             const node = viewportRef.current;
             if (!node) return;
 
-            /**
-             * Con el doblado, la página de debajo **no se mueve**.
-             *
-             * Lo que se dobla es una imagen de la página que se va, encima. Es la
-             * diferencia con lo que había antes —girar el contenedor entero— que
-             * se veía como una puerta abriéndose y no como papel.
-             */
-            if (foldRef.current) {
-                foldRef.current.set(progress, direction);
-                return;
-            }
-
-            /**
-             * Sin imagen lista se desliza, y aquí estaba el temblor.
-             *
-             * Antes se escribía `translateX(${shift}px)` con el desplazamiento
-             * crudo del puntero, que viene con decimales, y sin promover la capa.
-             * Sin capa compuesta el WebView vuelve a maquetar y a pintar el texto
-             * en cada fotograma, y al caer en posiciones fraccionarias cada letra
-             * se dibuja distinta cada vez — por eso solo se notaba despacio.
-             */
             node.classList.add('dragging');
             node.classList.remove('releasing');
             node.style.transform = `translate3d(${Math.round(shift)}px,0,0)`;
         };
 
         const release = () => {
-            // La hoja vuelve a su sitio animándose. Antes saltaba a cero de golpe.
-            foldRef.current?.cancel('next');
-
             const node = viewportRef.current;
             if (!node) return;
             node.classList.remove('dragging');
@@ -460,17 +420,6 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             // momento en que pasar página no es instantáneo, y ocurre siempre
             // en el mismo sitio previsible —el final del capítulo—.
             engine.prefetchNext(cfi);
-
-            /**
-             * Las copias de la página se preparan **ahora**, no al empezar el gesto.
-             *
-             * Montar dos iframes con el capítulo cuesta decenas de milisegundos.
-             * Hacerlo cuando el dedo ya se apoya metería ese retardo justo donde
-             * más se nota; aquí el usuario está leyendo y no espera nada.
-             */
-            if (usesCurl(transitionRef.current) && !reducedMotionRef.current) {
-                prepareFold();
-            }
         });
     }, [state, toc]);
 
@@ -839,29 +788,6 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
      * cuando existe, para no competir con el pintado del capítulo nuevo.
      */
     /**
-     * Prepara las copias del capítulo para poder doblar la página.
-     *
-     * Se hace tras asentarse la página, en el tiempo muerto en que el usuario está
-     * leyendo: montar dos iframes con el capítulo cuesta unas decenas de
-     * milisegundos y no debe caer justo cuando el dedo se apoya.
-     */
-    const prepareFold = useCallback(() => {
-        const engine = engineRef.current;
-        if (!engine) return;
-
-        const run = () => {
-            const sheet = engine.chapterSheet?.();
-            if (sheet?.html) setFoldSheet(sheet);
-        };
-
-        if (typeof requestIdleCallback === 'function') {
-            requestIdleCallback(run, { timeout: 900 });
-        } else {
-            setTimeout(run, 220);
-        }
-    }, []);
-
-    /**
      * Atrás dentro del libro cierra una capa cada vez.
      *
      * El orden es el de encima hacia abajo, que es el que ve el usuario. Solo
@@ -963,14 +889,6 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 Va **después** del contenedor del libro en el DOM: el iframe se
                 pinta en su propia capa compuesta y, estando antes, el pliegue
                 quedaba debajo por mucho z-index que llevara. */}
-            {foldSheet && (
-                <PageFold
-                    sheet={foldSheet}
-                    width={viewportRef.current?.clientWidth || 0}
-                    height={viewportRef.current?.clientHeight || 0}
-                    controllerRef={foldRef}
-                />
-            )}
 
             {/* Atenuador y filtro cálido no se pintan en tinta electrónica: el
                 panel no tiene niveles intermedios y una capa semitransparente

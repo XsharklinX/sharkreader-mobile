@@ -20,8 +20,9 @@
 .sheet-titles { display: flex; flex-direction: column; min-width: 0; }
 
 .sheet-title {
+    font-family: var(--font-title);
     font-size: var(--t-heading);
-    font-weight: 650;
+    font-weight: 700;
     margin: 0;
     min-width: 0;
     overflow: hidden;

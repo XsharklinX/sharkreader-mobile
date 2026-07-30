@@ -1,98 +1,76 @@
 /**
  * Animaciones al pasar página.
  *
- * ## Por qué la versión anterior se veía mal
+ * ## Dos opciones, no siete
  *
- * Las letras temblaban y se fusionaban al pasar página. No era una cuestión de
- * gusto: eran tres defectos sumados, todos en la misma animación.
+ * Aquí hubo siete: doblar, hoja suelta, deslizar, empujar, fundido, acercar y
+ * ninguna. Seis eran la misma línea de código con otro número, y las siete
+ * miniaturas del selector eran el mismo dibujo. Ofrecer siete variantes de lo
+ * mismo no es dar opciones: es no haber decidido cuál es la buena y pasarle la
+ * decisión al usuario.
  *
- * **1. Se animaba la opacidad del texto.** Cada transición hacía
- * `from { opacity: .25 }` sobre el contenedor del libro. Animar la opacidad de
- * un elemento con texto obliga al navegador a componer los glifos con canal
- * alfa, y el WebView de Android cambia de suavizado subpíxel a suavizado en
- * escala de grises mientras la capa es translúcida — y vuelve al acabar. Los
- * bordes de cada letra se redibujan con otro método dos veces por página. Eso
- * es el temblor.
+ * Quedan dos. **Ninguna** es la de por defecto: cambio instantáneo, cero coste,
+ * cero artefactos. **Deslizar** para quien quiera movimiento.
+ *
+ * ## Por qué el doblado de hoja no está
+ *
+ * Estuvo, y funcionaba: pliegue recto, dorso reflejado, la página correcta a los
+ * dos lados. Pero doblaba dos `<iframe>` con una copia del capítulo, y el WebView
+ * de Android promueve un iframe a capa compuesta y lo presenta **antes de tener la
+ * textura lista**. Ese hueco es un fotograma en negro, y aguantando el dedo se veía
+ * entero. No es un defecto de la animación: un iframe no es material que se pueda
+ * plegar sesenta veces por segundo.
+ *
+ * Vuelve cuando lo que se doble sea un mapa de bits pedido al propio motor de
+ * páginas, que es lo único que la GPU puede mover sin nada que preparar. Hasta
+ * entonces no se envía: un lector que pasa página al instante y sin artefactos es
+ * mejor producto que uno con un efecto bonito que parpadea.
+ *
+ * ## Por qué el texto no se anima nunca
+ *
+ * Las letras temblaban y se fusionaban al pasar página, y eran tres defectos
+ * sumados en la misma animación.
+ *
+ * **1. Se animaba la opacidad del texto.** Animar la opacidad de un elemento con
+ * texto obliga al navegador a componer los glifos con canal alfa, y el WebView de
+ * Android cambia de suavizado subpíxel a suavizado en escala de grises mientras la
+ * capa es translúcida — y vuelve al acabar. Cada letra se redibuja con otro método
+ * dos veces por página. Eso era el temblor.
  *
  * **2. La página vieja y la nueva se veían a la vez.** La animación duraba 240 ms
- * fijos y el cambio de contenido de epub.js llegaba de forma asíncrona a mitad.
- * Así que la primera mitad animaba el texto viejo y a media animación saltaba al
- * nuevo, con la opacidad a medias. Eso es la fusión.
+ * fijos y el cambio de contenido de epub.js llegaba de forma asíncrona a mitad. La
+ * primera mitad animaba el texto viejo y a media animación saltaba al nuevo, con la
+ * opacidad a medias. Eso era la fusión.
  *
  * **3. Los desplazamientos no caían en píxeles enteros.** `translateX(46%)` da
- * posiciones fraccionarias, y una letra colocada a mitad de píxel se dibuja
- * distinta en cada fotograma.
+ * posiciones fraccionarias, y una letra a mitad de píxel se dibuja distinta en cada
+ * fotograma.
  *
- * ## Cómo se arregla
+ * Lo que se atenúa ahora es un velo del color de fondo de la página puesto por
+ * encima: visualmente idéntico a fundir el texto, pero los glifos se quedan opacos
+ * y en la misma capa.
  *
- * **El texto no se anima nunca.** Lo que se atenúa es un velo del color de fondo
- * de la página puesto por encima. Visualmente es idéntico a fundir el texto
- * —mismo color de destino— pero los glifos se quedan opacos y en la misma capa,
- * así que no se vuelven a rasterizar.
+ * ## El orden importa
  *
- * ## El error que introdujo el arreglo anterior
+ * Una versión anterior sacaba la página vieja, **esperaba**, y cambiaba después.
+ * Eso metía hasta 210 ms de latencia en cada toque, y si se tocaba otra vez en esa
+ * ventana el segundo toque cancelaba el primero antes de que hubiera cambiado nada:
+ * dos toques daban cero páginas. Desde fuera eso es «los gestos no funcionan».
  *
- * La versión anterior hacía dos fases: sacaba la página vieja, **esperaba**, y
- * entonces cambiaba. Con el doblado de hoja esa espera era de 210 ms, así que al
- * tocar el borde no pasaba nada durante un quinto de segundo. Y peor: si se
- * tocaba otra vez en esa ventana, el segundo toque cancelaba el primero **antes
- * de que hubiera cambiado la página**, así que dos toques seguidos daban cero
- * páginas. Desde fuera eso es «los gestos no funcionan».
+ * **Ahora la página cambia primero y se anima la que entra.** El toque tiene efecto
+ * en el mismo fotograma. No hay fase de salida porque no puede haberla: con un solo
+ * iframe la página vieja deja de existir en cuanto epub.js pinta la nueva.
  *
- * Un test de integración del lector lo cazó en el primer intento; los 726 tests
- * de módulos que había no podían verlo porque cada pieza estaba bien y lo que
- * fallaba era la secuencia.
- *
- * **Ahora la página cambia primero y se anima la que entra.** Cero latencia: el
- * toque tiene efecto en el mismo fotograma. Y no hay fase de salida que animar,
- * porque no se puede: hay un solo iframe y la página vieja deja de existir en el
- * momento en que epub.js pinta la nueva. Enseñar la hoja saliendo exigiría tener
- * las dos a la vez, que es justo lo que este motor no da.
- *
- * La excepción es el arrastre: ahí la hoja vieja sí se ve salir, porque la mueve
+ * La excepción es el arrastre: ahí la hoja vieja sí se ve moverse, porque la mueve
  * el dedo mientras el contenido todavía no ha cambiado.
- *
- * **Los desplazamientos son enteros y en `translate3d`.** Y la capa se promueve
- * una vez antes de empezar y se retira una vez al terminar, en lugar de que el
- * navegador la promueva y la degrade con cada animación.
  */
 
-/**
- * Cada transición declara sus dos fases.
- *
- * Por norma la salida es corta: es tiempo en que el usuario ya ha pedido la
- * página y todavía no la tiene. La entrada puede permitirse más porque ahí el
- * contenido ya está delante.
- *
- * **`leadsWithOut` invierte ese reparto.** Hay transiciones en las que lo que se
- * mira es la hoja que se va —el doblado, la hoja suelta—: ahí la salida *es* la
- * animación y la entrada solo asienta la siguiente. Repartir al revés dejaría el
- * pliegue en un parpadeo y alargaría la parte que no aporta nada.
- */
+/** Las dos formas de pasar página. */
 export const PAGE_TRANSITIONS = {
-    /**
-     * Doblado de hoja. Es la de por defecto.
-     *
-     * Lo que se dobla es una **imagen de la página que se va**, dibujada dos veces
-     * —plana y reflejada sobre la línea del doblez— por `PageFold`. Ver
-     * `pageFold.js`: el reflejo especular es exactamente lo que hace el papel al
-     * plegarse, y de ahí sale el texto al revés en el dorso.
-     *
-     * Al arrastrar sigue al dedo. Al tocar, el pliegue se recorre solo con esta
-     * duración y aquí no se declara `shift` porque el contenedor no se mueve: la
-     * página nueva está quieta debajo mientras la vieja se dobla encima.
-     */
-    curl: {
-        label: 'Doblar hoja',
-        description: 'La hoja se dobla y se ve su dorso, como el papel. Arrastra para plegarla con el dedo.',
-        in: 300,
-        curl: true,
-    },
-    paper: {
-        label: 'Hoja suelta',
-        description: 'La siguiente entra desde el lado, como si estuviera debajo.',
-        in: 220,
-        shift: 100,
+    none: {
+        label: 'Ninguna',
+        description: 'Cambio instantáneo. Lo más rápido y lo único sin coste.',
+        in: 0,
     },
     slide: {
         label: 'Deslizar',
@@ -100,42 +78,27 @@ export const PAGE_TRANSITIONS = {
         in: 190,
         shift: 34,
     },
-    push: {
-        label: 'Empujar',
-        description: 'Con más recorrido, para que se note de dónde viene.',
-        in: 260,
-        shift: 72,
-    },
-    fade: {
-        label: 'Fundido',
-        description: 'La página aparece desde el color del fondo. Discreta.',
-        in: 170,
-        veil: true,
-    },
-    zoom: {
-        label: 'Acercar',
-        description: 'La página entra creciendo un poco.',
-        in: 200,
-        scale: 0.975,
-    },
-    none: {
-        label: 'Ninguna',
-        description: 'Cambio instantáneo. Lo más rápido y lo único sin coste.',
-        in: 0,
-    },
 };
 
 /**
- * El doblado de hoja es la de por defecto.
+ * Sin animación, por defecto.
  *
- * Es la que se parece a pasar una hoja de verdad, y la única que responde al dedo
- * de forma continua: arrastrando despacio se ve el pliegue crecer y el dorso
- * aparecer, en vez de esperar a que una animación decida.
+ * Es la única que no puede fallar: no hay capa que promover, ni textura que
+ * esperar, ni fotograma intermedio donde algo pueda salir mal. Hasta que el
+ * doblado de hoja vuelva hecho sobre un mapa de bits, esta es la buena.
  */
-export const DEFAULT_TRANSITION = 'curl';
+export const DEFAULT_TRANSITION = 'none';
 
-/** ¿Esta transición dibuja un pliegue en perspectiva? */
-export const usesCurl = (id) => Boolean(PAGE_TRANSITIONS[id]?.curl);
+/**
+ * Devuelve una transición válida.
+ *
+ * Los libros guardan la suya en sus preferencias, y por ahí quedan
+ * `curl`, `paper`, `push`, `fade` y `zoom` de cuando había siete. Sin esto, un
+ * libro empezado antes abriría el selector sin nada marcado.
+ */
+export const normalizeTransition = (id) => (
+    PAGE_TRANSITIONS[id] ? id : DEFAULT_TRANSITION
+);
 
 /**
  * Estado visual de la página que entra.
@@ -156,21 +119,11 @@ export const phaseState = (id, direction, phase) => {
     const spec = PAGE_TRANSITIONS[id];
     const rest = { transform: 'translate3d(0,0,0)', veil: 0, duration: 0 };
 
-    if (!spec || id === 'none' || phase === 'rest') {
-        // En reposo el doblado también tiene que decir que es doblado: quien
-        // pinta necesita saber que debe usar la geometría del pliegue para
-        // volver la hoja a su sitio, no un translate3d.
-        return rest;
-    }
+    if (!spec || id === 'none' || phase === 'rest') return rest;
 
     // Avanzando, la página nueva viene desde la derecha; retrocediendo, desde la
     // izquierda. Es el sentido que dice hacia dónde te mueves en el libro.
     const from = direction === 'next' ? 1 : -1;
-
-    // El doblado no describe nada aquí: el contenedor no se mueve. Lo que se
-    // dobla es una imagen de la página que se va, dibujada encima por `PageFold`,
-    // y su geometría vive en `pageFold.js`. Este módulo solo se ocupa del orden y
-    // del tiempo.
 
     // Redondeo a entero: media unidad coloca cada letra a mitad de píxel y se
     // redibuja distinta en cada fotograma. El `|| 0` evita un `-0px` escrito en
@@ -207,18 +160,10 @@ const frame = () => new Promise((resolve) => {
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * Pinta un estado, sea de desplazamiento o de pliegue.
- *
- * Se separa de `runTurn` porque el doblado necesita `pageCurl.js`, y meterlo
- * dentro dejaría este módulo con dos responsabilidades: la secuencia temporal y
- * la geometría. La secuencia es la misma para todas las transiciones.
- */
+/** Escribe un estado en la capa. */
 const paint = (element, veil, state, duration) => {
     if (!element) return;
     element.style.transitionDuration = `${duration}ms`;
-
-
     element.style.transform = state.transform;
     if (veil) {
         veil.style.transitionDuration = `${duration}ms`;

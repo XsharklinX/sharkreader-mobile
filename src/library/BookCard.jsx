@@ -69,15 +69,22 @@ export default function BookCard({ book, onOpen, onLongPress }) {
                     <span className="book-badge"><IconStar size={13} filled /></span>
                 ) : null}
 
-                {/* El porcentaje va sobre la portada, encima de la barra: una
-                    barra de 3 px sola no se lee de un vistazo al recorrer la
-                    rejilla, que es justo cuando hace falta. */}
-                {done > 0 && !book.isFinished && (
-                    <>
-                        <span className="book-pct mono">{done}%</span>
-                        <span className="book-progress"><i style={{ width: `${done}%` }} /></span>
-                    </>
-                )}
+            </span>
+
+            {/* Filo de estado.
+                
+                Antes había un porcentaje impreso sobre la portada. Dos problemas:
+                ensuciaba la ilustración —que es lo único que de verdad ayuda a
+                encontrar un libro en una rejilla de 136— y no decía nada de los
+                que están sin empezar o terminados, que se pintaban idénticos.
+                
+                Una línea de 2 px bajo la tapa dice las tres cosas de un vistazo:
+                acento y longitud si lo estás leyendo, verde si está terminado, y
+                gris si no lo has abierto. */}
+            <span
+                className={`book-edge${book.isFinished ? ' done' : done > 0 ? ' reading' : ''}`}
+            >
+                <i style={{ width: book.isFinished || done === 0 ? '100%' : `${done}%` }} />
             </span>
 
             <span className="book-title">{book.name}</span>

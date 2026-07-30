@@ -464,19 +464,10 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                 </>
             )}
 
-            {/* El botón flotante reanuda la última lectura: es la acción que
-                más se repite y la que mejor encaja en la zona del pulgar.
-                Importar se ha ido arriba, junto a la lupa. */}
-            {current && (
-                <button
-                    type="button"
-                    className="fab"
-                    onClick={() => onOpenBook(current)}
-                    aria-label={`Seguir leyendo ${current.name}`}
-                >
-                    <IconBook size={24} />
-                </button>
-            )}
+            {/* Aquí había un botón flotante para reanudar la lectura. Se va: en
+                una pantalla que es una rejilla de portadas, un botón fijo en la
+                esquina tapa un libro para siempre, y el destino que ofrecía ya
+                está arriba y más grande en la tarjeta de «seguir leyendo». */}
 
             {/* El «+» pregunta qué se añade en lugar de abrir directamente el
                 selector de ficheros: importar una carpeta entera es lo que hace
