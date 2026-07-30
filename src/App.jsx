@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { runBack } from './ui/backStack.js';
 import { useBackHandler } from './ui/useBackHandler.js';
 import LibraryScreen from './screens/LibraryScreen.jsx';
@@ -46,10 +47,20 @@ export default function App() {
     // entrar en Ajustes: si no, la app arrancaba siempre en oscuro aunque el
     // usuario hubiera elegido claro.
     useEffect(() => {
-        document.documentElement.classList.toggle(
-            'theme-light',
-            stats.preferences.appTheme === 'light'
-        );
+        const light = stats.preferences.appTheme === 'light';
+        document.documentElement.classList.toggle('theme-light', light);
+
+        /**
+         * La barra de estado del sistema también cambia.
+         *
+         * Se quedaba fija en el estilo oscuro que declara `capacitor.config.json`,
+         * así que en tema claro la hora y los iconos del sistema salían en blanco
+         * sobre fondo casi blanco: ilegibles en todas las pantallas de la app.
+         *
+         * `Style.Light` significa «contenido claro», o sea iconos oscuros para un
+         * fondo claro — la nomenclatura del plugin va al revés de lo que parece.
+         */
+        StatusBar.setStyle({ style: light ? Style.Light : Style.Dark }).catch(() => {});
     }, [stats.preferences.appTheme]);
 
     // Material You: la interfaz sigue el fondo de pantalla. Viene apagado — el

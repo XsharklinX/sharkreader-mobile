@@ -127,7 +127,11 @@
     --sf-1: #FFFFFF;        /* --surface-bg */
     --sf-2: #F1F5F9;
     --sf-3: #E2E8F0;
-    --topbar: #0284C7;      /* --topbar-bg */
+    /* En escritorio la barra superior es azul (#0284C7) y el logo va en blanco.
+       Aquí la marca es «Shark» en azul y «Reader» en el color del texto, así que
+       sobre azul la primera mitad desaparecía. La barra pasa a ser superficie con
+       su línea inferior, y la marca conserva sus dos colores. */
+    --topbar: #FFFFFF;
 
     --text: #0F172A;        /* --text-color */
     --text-2: #475569;

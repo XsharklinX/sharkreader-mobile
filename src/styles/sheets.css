@@ -85,7 +85,7 @@
 /* El realce ocupa el ancho completo aunque la fila no tenga fondo: sin los
    márgenes negativos, el toque se resalta con un recorte a media fila. */
 .sheet-row.tappable:active {
-    background: var(--surface-2);
+    background: var(--sf-2);
     margin-inline: calc(var(--sp-3) * -1);
     padding-inline: var(--sp-3);
     border-radius: var(--r-sm);
@@ -112,7 +112,7 @@
 }
 
 .sheet-row-chev { color: var(--text-3); flex: none; }
-.sheet-row.danger .sheet-row-label { color: var(--danger, #E4695C); }
+.sheet-row.danger .sheet-row-label { color: var(--risk); }
 
 .slider-row { display: flex; align-items: center; gap: var(--sp-3); }
 .slider-row input[type="range"] { flex: 1; }
@@ -205,7 +205,7 @@
 .theme-card-name {
     font-size: var(--t-micro);
     font-weight: 650;
-    font-family: var(--font-sans);
+    font-family: var(--font);
 }
 
 /* Con la fuente de lectura, no con la de la interfaz: es una muestra del libro. */
@@ -323,8 +323,8 @@
     cursor: pointer;
 }
 
-.annot-act:active { background: var(--surface-2); }
-.annot-act.danger { color: var(--danger, #E4695C); border-color: color-mix(in srgb, var(--danger, #E4695C) 35%, transparent); }
+.annot-act:active { background: var(--sf-2); }
+.annot-act.danger { color: var(--risk); border-color: color-mix(in srgb, var(--risk) 35%, transparent); }
 
 /* ═══ Hoja de Voz ═══════════════════════════════════════════════════════════ */
 
@@ -356,7 +356,7 @@
    mientras escucha: el resaltado dentro del libro ya existe, pero no sirve si
    has bajado el brillo o has salido a otra página. */
 .voice-line {
-    background: var(--surface-2);
+    background: var(--sf-2);
     border-radius: var(--r-md);
     padding: var(--sp-3);
     /* Alto fijo de tres líneas: si creciera y encogiera con cada frase, los
@@ -475,7 +475,7 @@
     width: 100%;
     aspect-ratio: 3 / 4;
     border-radius: 5px;
-    background: var(--surface-3);
+    background: var(--sf-3);
     overflow: hidden;
     perspective: 260px;
 }
@@ -488,10 +488,10 @@
 }
 
 /* La de debajo, más apagada: es la que se destapa. */
-.demo-under { background: var(--surface-2); }
+.demo-under { background: var(--sf-2); }
 
 .demo-sheet {
-    background: var(--surface);
+    background: var(--sf-1);
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -623,7 +623,7 @@
 }
 
 .voice-item:last-child { border-bottom: 0; }
-.voice-item:active { background: var(--surface-2); }
+.voice-item:active { background: var(--sf-2); }
 
 /* La seleccionada con un filete de acento a la izquierda, no con un tinte:
    sobre una lista de filas iguales un cambio de fondo se pierde. */
@@ -650,9 +650,9 @@
    pero verde y rojo se leen sin traducir. Los índices salen de `qualityRank`. */
 .tag.q4 { background: color-mix(in srgb, var(--ok, #57C98A) 22%, transparent); color: var(--ok, #57C98A); }
 .tag.q3 { background: color-mix(in srgb, var(--ok, #57C98A) 15%, transparent); color: var(--ok, #57C98A); }
-.tag.q2 { background: var(--surface-3); color: var(--text-2); }
+.tag.q2 { background: var(--sf-3); color: var(--text-2); }
 .tag.q1 { background: color-mix(in srgb, var(--warn, #E8A33D) 18%, transparent); color: var(--warn, #E8A33D); }
-.tag.q0 { background: color-mix(in srgb, var(--danger, #E4695C) 18%, transparent); color: var(--danger, #E4695C); }
+.tag.q0 { background: color-mix(in srgb, var(--risk) 18%, transparent); color: var(--risk); }
 
 /* «Con datos» no es un aviso de calidad sino de coste: va en el color de acento,
    que en esta app significa «información», no en el de advertencia. */

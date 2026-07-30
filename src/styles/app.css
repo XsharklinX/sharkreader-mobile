@@ -95,11 +95,11 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .head.topbar .icon-btn { color: var(--text); min-width: 44px; }
 .head.topbar .head-actions { gap: 0; }
 
-/* La marca pegada al botón de menú, no centrada: `justify-content: space-between`
-   la dejaba flotando en medio de la barra, que es donde no está en la versión de
-   escritorio ni en ninguna barra de aplicación. */
-.head.topbar .head-txt { flex: 1; }
-.head-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+/* La marca pegada al botón de menú: lo hace `.head-txt` con `flex: 1`. */
+/* `flex: 1` para que el título quede pegado a la izquierda. Sin esto,
+   `justify-content: space-between` lo empujaba al extremo opuesto del botón de
+   volver: en Ajustes el título aparecía contra el borde derecho. */
+.head-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
 /* Los títulos van en la serif, no en la sans de los controles: es lo que hace
    que la app se lea como un lector y no como un panel de ajustes. */
 .head-title { font-family: var(--font-title); font-size: var(--t-display); font-weight: 700; letter-spacing: -0.018em; line-height: 1.12; margin: 0; }
@@ -986,7 +986,17 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     font-size: var(--t-small);
     font-weight: 600;
 }
-.segmented button.on { background: var(--sf-3); color: var(--text); box-shadow: var(--el-1); }
+/* El seleccionado, con borde además del fondo.
+ *
+ * En tema claro el fondo del grupo y el del botón activo se diferencian en dos
+ * puntos de luminosidad, y como las sombras se fueron —eran manchas sobre el
+ * fondo oscuro— no quedaba nada que dijera cuál está elegido: los dos se veían
+ * igual de pulsables. El borde lo dice en ambos temas. */
+.segmented button.on {
+    background: var(--sf-1);
+    color: var(--text);
+    border: 1px solid var(--line-strong);
+}
 
 /* Temas del lector como muestras reales del color que aplican */
 .themes::-webkit-scrollbar { display: none; }
@@ -1872,13 +1882,13 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     cursor: pointer;
 }
 
-.goto-btn:active { background: var(--surface-3); }
+.goto-btn:active { background: var(--sf-3); }
 
 .goto-input {
     /* El destino es un número corto: un campo a todo lo ancho invita a escribir
        una frase, que es justo lo que no se acepta aquí. */
     width: 100%;
-    font-size: var(--t-h2);
+    font-size: var(--t-title);
     text-align: center;
     letter-spacing: .04em;
     font-variant-numeric: tabular-nums;
@@ -1887,10 +1897,10 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .goto-feedback { min-height: 2.4em; }
 
 .text-input {
-    background: var(--surface-2);
+    background: var(--sf-2);
     border: 1px solid var(--line);
     border-radius: var(--r-md);
-    color: var(--text-1);
+    color: var(--text);
     padding: var(--sp-3);
     font: inherit;
 }
@@ -1903,7 +1913,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 /* Vista previa de la cita. Es lo que decide el formato: los nombres no
    significan nada hasta que ves la forma. */
 .citation-preview {
-    background: var(--surface-2);
+    background: var(--sf-2);
     border: 1px solid var(--line);
     border-radius: var(--r-md);
     padding: var(--sp-3);
@@ -2099,13 +2109,13 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     padding: 2px;
     border: 1px solid var(--line);
     border-radius: var(--r-sm);
-    background: var(--surface-2);
+    background: var(--sf-2);
     color: var(--text-2);
     cursor: pointer;
     overflow: hidden;
 }
 
-.gesture-zone:active { background: var(--surface-3); }
+.gesture-zone:active { background: var(--sf-3); }
 
 /* Una zona apagada se ve apagada: si pareciera igual que las demás, no habría
    forma de distinguir «no hace nada» de «hace algo que no recuerdo». */
@@ -2144,19 +2154,19 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     text-align: left;
     padding: var(--sp-3);
     margin-bottom: var(--sp-2);
-    background: var(--surface-2);
+    background: var(--sf-2);
     border: 1px solid var(--line);
     border-radius: var(--r-md);
     cursor: pointer;
 }
 
-.content-hit:active { background: var(--surface-3); }
+.content-hit:active { background: var(--sf-3); }
 
 .content-hit-book {
     display: block;
     font-size: var(--t-tiny);
     font-weight: 650;
-    color: var(--text-1);
+    color: var(--text);
 }
 
 .content-hit-chapter {
@@ -2178,7 +2188,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
    dos líneas la negrita se confunde con el énfasis del propio texto. */
 .content-hit-text mark {
     background: color-mix(in srgb, var(--accent) 24%, transparent);
-    color: var(--text-1);
+    color: var(--text);
     border-radius: 2px;
     padding: 0 2px;
 }
@@ -2208,11 +2218,11 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     width: 84px;
     height: 84px;
     border-radius: 50%;
-    background: var(--surface-2);
+    background: var(--sf-2);
     color: var(--accent);
 }
 
-.app-lock-title { font-size: var(--t-h1); font-weight: 700; }
+.app-lock-title { font-size: var(--t-display); font-weight: 700; }
 .app-lock-body { color: var(--text-2); max-width: 30ch; }
 
 /* ═══ Catálogos OPDS ════════════════════════════════════════════════════════ */
@@ -2244,7 +2254,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     cursor: pointer;
 }
 
-.catalog-main:active { background: var(--surface-2); }
+.catalog-main:active { background: var(--sf-2); }
 .catalog-main:disabled { opacity: .55; }
 
 .catalog-icon { color: var(--text-3); flex-shrink: 0; padding-top: 2px; }
@@ -2428,7 +2438,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .skeleton { display: flex; flex-direction: column; }
 
 .sk-line, .sk-cover, .sk-head {
-    background: var(--surface-2);
+    background: var(--sf-2);
     border-radius: 4px;
     position: relative;
     overflow: hidden;
@@ -2499,14 +2509,23 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     justify-content: center;
     width: 52px;
     height: 52px;
-    border-radius: 50%;
-    background: var(--surface-2);
-    font-size: 26px;
+    border-radius: var(--r-full);
+    /* `var(--sf-2)` no existe en esta app —viene copiado del escritorio— así
+       que el avatar se quedaba sin fondo y el emoji flotaba dentro de un aro. */
+    background: var(--sf-3);
+    border: 1px solid var(--line-strong);
+    color: var(--text-2);
+    font-family: var(--font-title);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
     flex: none;
     overflow: hidden;
 }
 
-.profile-avatar.lg { width: 72px; height: 72px; font-size: 34px; }
+.profile-avatar b { font-weight: 700; }
+
+.profile-avatar.lg { width: 72px; height: 72px; font-size: 28px; }
 
 .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
@@ -2530,7 +2549,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     font-size: 24px;
     border: 2px solid transparent;
     border-radius: var(--r-md);
-    background: var(--surface-2);
+    background: var(--sf-2);
     cursor: pointer;
 }
 

@@ -39,6 +39,7 @@ import { normalizeAnnotationKind } from '../core/annotationExport.js';
 import { UNKNOWN_AUTHOR_FALLBACK } from '../core/bookModel.js';
 import { readBookBlob } from '../adapters/SafPicker.js';
 import { usePorts } from '../ports/index.js';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { useBackHandler } from '../ui/useBackHandler.js';
 import {
     IconArrowLeft, IconTextSize, IconList, IconBookmark, IconHighlight, IconSearch,
@@ -422,6 +423,28 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             engine.prefetchNext(cfi);
         });
     }, [state, toc]);
+
+    /**
+     * La barra de estado del sistema sigue al tema de **lectura**, no al de la app.
+     *
+     * Dentro del libro manda el tema de lectura: el chrome se pinta con él, así que
+     * leyendo en negro con la interfaz en claro la hora y los iconos del sistema
+     * salían oscuros sobre negro. Al salir del libro se devuelve al tema de la app,
+     * que es de quien vuelve a ser la pantalla.
+     *
+     * Cada tema declara su `ui` porque no se puede deducir del fondo sin equivocarse
+     * en los intermedios: sepia es claro y noche es oscuro, y ambos están a medio
+     * camino del gris.
+     */
+    useEffect(() => {
+        const claro = (READER_THEMES[effectiveTheme] || READER_THEMES.dark).ui === 'light';
+        StatusBar.setStyle({ style: claro ? Style.Light : Style.Dark }).catch(() => {});
+
+        return () => {
+            const appClara = document.documentElement.classList.contains('theme-light');
+            StatusBar.setStyle({ style: appClara ? Style.Light : Style.Dark }).catch(() => {});
+        };
+    }, [effectiveTheme]);
 
     useEffect(() => {
         if (state === 'ready') engineRef.current?.applyStyles(styles);

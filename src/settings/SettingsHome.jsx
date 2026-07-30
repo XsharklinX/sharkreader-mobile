@@ -2,15 +2,20 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CATEGORIES, searchSettings } from './catalog.js';
 import { formatBytes, useStorageUsage } from './storage.js';
 import {
-    IconLibrary, IconSettings, IconFolder, IconBook, IconSearch, IconClose, IconChevronRight, IconArrowLeft } from '../ui/icons.jsx';
+    IconLibrary, IconSettings, IconFolder, IconBook, IconSearch, IconClose, IconChevronRight,
+    IconArrowLeft, IconCloud, IconLock, IconQuote } from '../ui/icons.jsx';
 
 const CATEGORY_ICONS = {
+    // Un icono distinto por categoría. Antes `IconLibrary` estaba en dos filas e
+    // `IconBook` en otras dos, así que cuatro de las seis se veían iguales: un
+    // icono repetido no distingue nada y encima hace pensar que llevan al mismo
+    // sitio.
     reading: IconBook,
     appearance: IconSettings,
-    sync: IconLibrary,
+    sync: IconCloud,
     data: IconFolder,
-    privacy: IconLibrary,
-    about: IconBook,
+    privacy: IconLock,
+    about: IconQuote,
 };
 
 /**
@@ -63,10 +68,14 @@ export default function SettingsHome({ library, stats, sync, onOpenCategory, onO
                 usuario, y usarlo de avatar daba a entender que no se podía
                 cambiar. Ahora se toca y se edita. */}
             <button type="button" className="profile-card" onClick={onEditProfile}>
+                {/* Iniciales, igual que en el cajón lateral. Un emoji lo dibuja el
+                    sistema con su propia paleta y su propio estilo, así que dentro
+                    de una interfaz de dos colores y una tipografía siempre canta.
+                    Quien quiera cara, se pone una foto. */}
                 <span className="profile-avatar">
                     {profile?.photo
                         ? <img src={profile.photo} alt="" />
-                        : <span aria-hidden="true">{profile?.emoji || '📚'}</span>}
+                        : <b aria-hidden="true">{iniciales(profile?.name)}</b>}
                 </span>
                 <div className="profile-info">
                     <b>
@@ -221,3 +230,15 @@ const relativeTime = (timestamp) => {
 };
 
 export { relativeTime };
+
+/**
+ * Iniciales del nombre, hasta dos. Sin nombre, la marca.
+ *
+ * Duplicado a propósito de `SideMenu`: son cinco líneas y compartirlas obligaría
+ * a crear un módulo común para una función que ningún tercer sitio va a usar.
+ */
+const iniciales = (nombre) => {
+    const partes = String(nombre || '').trim().split(/\s+/).filter(Boolean);
+    if (partes.length === 0) return 'SR';
+    return partes.slice(0, 2).map((parte) => parte[0].toUpperCase()).join('');
+};
