@@ -1,5 +1,6 @@
 import { TextToSpeech } from '@capacitor-community/text-to-speech';
 import { registerPlugin } from '@capacitor/core';
+import { rankVoices } from '../reader/prosody.js';
 
 /**
  * Plugin nativo que mantiene vivo el proceso mientras se lee y publica la
@@ -22,26 +23,64 @@ const SharkSpeech = registerPlugin('SharkSpeech');
 
 export const SPEECH_RATES = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
+/**
+ * Tonos ofrecidos.
+ *
+ * El tono estaba fijo en 1 y no había forma de corregir una voz demasiado aguda
+ * o demasiado plana. El rango es estrecho a propósito: por debajo de 0,85 la voz
+ * se vuelve cavernosa y por encima de 1,15 suena a dibujos animados.
+ */
+export const SPEECH_PITCHES = [0.85, 0.925, 1, 1.075, 1.15];
+
+/**
+ * ¿El identificador de voz es un índice del respaldo o un nombre nativo?
+ *
+ * El plugin de Capacitor identifica las voces por su posición en la lista; el
+ * nuestro por el nombre que da Android («es-es-x-eef-local»). `speak` espera un
+ * número en el primer caso y una cadena en el segundo.
+ */
+const isIndexId = (id) => /^\d+$/.test(String(id));
+
 export const createAndroidTts = () => {
     let speaking = false;
     let cancelled = false;
 
     return {
-        /** Voces del sistema, con las españolas primero. */
-        async listVoices() {
+        /**
+         * Voces del sistema, ordenadas por lo bien que van a sonar.
+         *
+         * Se pide primero al plugin nativo, que es el único que sabe la
+         * **calidad** de cada voz y si necesita conexión. Android no ordena su
+         * lista por nada, así que sin ese dato se cogía la primera — y en un
+         * móvil con tres voces españolas podía ser la de calidad «very-low».
+         *
+         * El plugin de Capacitor queda como respaldo: responde antes pero solo
+         * da nombre e idioma, así que sus voces salen sin insignia de calidad en
+         * lugar de con una inventada.
+         */
+        async listVoices(lang = 'es') {
+            try {
+                const native = await SharkSpeech.listVoices();
+                if (native?.ready && native.voices?.length) {
+                    return rankVoices(native.voices, lang);
+                }
+            } catch {
+                // Sigue al respaldo.
+            }
+
             try {
                 const { voices } = await TextToSpeech.getSupportedVoices();
-                return (voices || [])
-                    .map((voice, index) => ({
+                return rankVoices(
+                    (voices || []).map((voice, index) => ({
+                        // El índice es lo que espera `TextToSpeech.speak`.
                         id: String(index),
                         name: voice.name || voice.voiceURI || `Voz ${index + 1}`,
                         lang: voice.lang || '',
-                    }))
-                    .sort((a, b) => {
-                        const aEs = a.lang.startsWith('es') ? 0 : 1;
-                        const bEs = b.lang.startsWith('es') ? 0 : 1;
-                        return aEs - bEs || a.name.localeCompare(b.name);
-                    });
+                        quality: null,
+                        network: false,
+                    })),
+                    lang
+                );
             } catch {
                 return [];
             }
@@ -53,7 +92,9 @@ export const createAndroidTts = () => {
          * Eso es lo que permite encadenar frases desde el llamante sin llevar
          * la cuenta de tiempos: el bucle de reproducción simplemente espera.
          */
-        async speak(text, { rate = 1, voiceId = null, lang = 'es-ES' } = {}) {
+        async speak(text, {
+            rate = 1, pitch = 1, voiceId = null, lang = 'es-ES', pauseMs = 0,
+        } = {}) {
             if (!text?.trim()) return;
             cancelled = false;
             speaking = true;
@@ -62,11 +103,32 @@ export const createAndroidTts = () => {
                     text,
                     lang,
                     rate,
-                    pitch: 1,
+                    pitch,
                     volume: 1,
                     category: 'playback',
-                    ...(voiceId !== null ? { voice: Number(voiceId) } : {}),
+                    // El identificador nativo es el nombre de la voz; el del
+                    // respaldo es un índice. Se distingue por la forma.
+                    ...(voiceId === null || voiceId === undefined
+                        ? {}
+                        : { voice: isIndexId(voiceId) ? Number(voiceId) : String(voiceId) }),
                 });
+
+                /**
+                 * Pausa antes de la frase siguiente.
+                 *
+                 * **Esto es lo que más hacía que sonara a máquina.** Un motor de
+                 * voz devuelve el control en cuanto suena la última sílaba, no
+                 * añade silencio: el bucle pedía la frase siguiente en el mismo
+                 * instante y la lectura salía sin respiración. Una persona se
+                 * para en un punto.
+                 *
+                 * Se hace con una espera y no con `playSilentUtterance` porque
+                 * hay motores de terceros que no lo implementan y devuelven
+                 * error, mientras que esperar funciona en todos.
+                 */
+                if (pauseMs > 0 && !cancelled) {
+                    await new Promise((resolve) => setTimeout(resolve, pauseMs));
+                }
             } finally {
                 speaking = false;
             }

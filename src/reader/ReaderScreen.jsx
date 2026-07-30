@@ -742,7 +742,19 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         onPrev: () => engineRef.current?.prev(),
         // La captura de teclas de volumen se desactiva si el usuario la apagó
         // en ajustes: un interruptor que no hace nada es peor que no ofrecerlo.
-        enabled: state === 'ready' && (preferences.volumeKeys ?? true),
+        // Las teclas de volumen NO pasan página por defecto.
+        //
+        // Venía activado y era un fallo: subir o bajar el volumen cambiaba de
+        // página. En un móvil las teclas de volumen son del volumen —y muy
+        // especialmente mientras suena la voz, que es cuando de verdad hacen
+        // falta—. Pasar página con ellas es una comodidad de nicho, así que se
+        // pide expresamente.
+        //
+        // Y aunque esté activado, se libera mientras la voz suena: si no, subir
+        // el volumen de la narración adelantaría el libro.
+        enabled: state === 'ready'
+            && preferences.volumeKeys === true
+            && speech.state === 'idle',
     });
 
     // ── Diccionario e imagen de cita ─────────────────────────────────────────

@@ -588,3 +588,66 @@
     text-align: center;
     font-variant-numeric: tabular-nums;
 }
+
+/* ═══ Lista de voces ════════════════════════════════════════════════════════
+ *
+ * Android identifica sus voces con cadenas como «es-es-x-eef-local» y devuelve
+ * la lista sin ordenar por nada. Una lista de esos identificadores no permite
+ * elegir: no se sabe cuál suena mejor ni cuál gasta datos.
+ *
+ * Las insignias son el contenido de esta pantalla, no su decoración.
+ */
+
+.voice-list { display: flex; flex-direction: column; }
+
+.voice-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    width: 100%;
+    padding: var(--sp-3);
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    color: inherit;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+}
+
+.voice-item:last-child { border-bottom: 0; }
+.voice-item:active { background: var(--surface-2); }
+
+/* La seleccionada con un filete de acento a la izquierda, no con un tinte:
+   sobre una lista de filas iguales un cambio de fondo se pierde. */
+.voice-item.on {
+    box-shadow: inset 3px 0 0 var(--accent);
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.voice-item-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.voice-item-name { font-size: var(--t-tiny); font-weight: 550; }
+.voice-item-meta { font-size: var(--t-micro); color: var(--text-3); font-family: var(--font-mono); }
+
+.voice-tags { display: flex; flex-direction: column; gap: 3px; align-items: flex-end; flex: none; }
+
+.tag {
+    font-size: 10px;
+    font-weight: 650;
+    padding: 2px 7px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+/* La escala de calidad va de color, no de número: «q4» y «q0» no dicen nada,
+   pero verde y rojo se leen sin traducir. Los índices salen de `qualityRank`. */
+.tag.q4 { background: color-mix(in srgb, var(--ok, #57C98A) 22%, transparent); color: var(--ok, #57C98A); }
+.tag.q3 { background: color-mix(in srgb, var(--ok, #57C98A) 15%, transparent); color: var(--ok, #57C98A); }
+.tag.q2 { background: var(--surface-3); color: var(--text-2); }
+.tag.q1 { background: color-mix(in srgb, var(--warn, #E8A33D) 18%, transparent); color: var(--warn, #E8A33D); }
+.tag.q0 { background: color-mix(in srgb, var(--danger, #E4695C) 18%, transparent); color: var(--danger, #E4695C); }
+
+/* «Con datos» no es un aviso de calidad sino de coste: va en el color de acento,
+   que en esta app significa «información», no en el de advertencia. */
+.tag.net { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }

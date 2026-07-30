@@ -126,9 +126,9 @@ export const ReadingPage = ({ stats, notify }) => {
             <Group title="En el lector">
                 <Toggle
                     id="volume-keys"
-                    label="Teclas de volumen"
-                    sub="Pasar página con los botones físicos"
-                    checked={prefs.volumeKeys ?? true}
+                    label="Pasar página con el volumen"
+                    sub="Viene apagado: por defecto esas teclas son el volumen, sobre todo con la voz activa"
+                    checked={prefs.volumeKeys === true}
                     onChange={(volumeKeys) => stats.savePreferences({ volumeKeys })}
                 />
                 <Toggle

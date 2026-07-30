@@ -31,6 +31,9 @@ export const DEFAULT_PREFERENCES = {
     // Nombre y avatar. Sin cuentas ni servidor: vive en el dispositivo y viaja
     // en el backup como cualquier otra preferencia.
     profile: { name: '', emoji: '🦈', photo: null },
+    // Pasar página con las teclas de volumen. Apagado: esas teclas son del
+    // volumen, y con la voz sonando hacen falta para eso.
+    volumeKeys: false,
 };
 
 /**

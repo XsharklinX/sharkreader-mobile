@@ -1,6 +1,7 @@
 import React from 'react';
 import Sheet, { Row, Group, Segmented } from '../ui/Sheet.jsx';
-import { SPEECH_RATES } from '../adapters/AndroidTts.js';
+import { SPEECH_RATES, SPEECH_PITCHES } from '../adapters/AndroidTts.js';
+import { QUALITY_LABELS, qualityRank } from './prosody.js';
 import { IconVolume } from '../ui/icons.jsx';
 
 /**
@@ -76,33 +77,93 @@ export default function SpeechSheet({ speech, sentence, chapter, onClose }) {
                 <>
                     {voices.length === 0 ? (
                         <p className="option-desc">
-                            No hay voces instaladas en el sistema. Se instalan desde los
-                            ajustes de Android, en «Salida de texto a voz».
+                            No hay voces instaladas. Se añaden desde los ajustes de
+                            Android, en «Salida de texto a voz». Las de Google suelen ser
+                            las mejores y son gratuitas.
                         </p>
                     ) : (
-                        <div className="option-list">
-                            {voices.map((voice) => (
-                                <button
-                                    key={voice.id}
-                                    type="button"
-                                    className={`option${settings.voiceId === voice.id ? ' on' : ''}`}
-                                    onClick={() => updateSettings({ voiceId: voice.id })}
-                                    aria-pressed={settings.voiceId === voice.id}
-                                >
-                                    <span className="option-txt">
-                                        <span className="option-name">{voice.name}</span>
-                                        <span className="option-desc">
-                                            {voice.lang}
-                                            {/* Distinguir de dónde sale cada voz importa:
-                                                la neuronal cuesta dinero y necesita red. */}
-                                            {voice.engine === 'neural' ? ' · neuronal, por red' : ' · del sistema'}
+                        <>
+                            <p className="option-desc">
+                                Ordenadas por calidad. Android no las ordena por nada, así
+                                que la primera de su lista puede ser la peor del
+                                dispositivo — y antes se cogía esa.
+                            </p>
+
+                            <div className="voice-list">
+                                {voices.map((voice) => (
+                                    <button
+                                        key={voice.id}
+                                        type="button"
+                                        className={`voice-item${settings.voiceId === voice.id ? ' on' : ''}`}
+                                        onClick={() => updateSettings({ voiceId: voice.id })}
+                                        aria-pressed={settings.voiceId === voice.id}
+                                    >
+                                        <span className="voice-item-txt">
+                                            <span className="voice-item-name">{voice.name}</span>
+                                            <span className="voice-item-meta">
+                                                {voice.lang}
+                                                {voice.engine === 'neural' && ' · neuronal'}
+                                            </span>
                                         </span>
-                                    </span>
-                                    <span className="option-mark" aria-hidden="true" />
-                                </button>
-                            ))}
-                        </div>
+
+                                        {/* Las insignias son el motivo de esta pantalla:
+                                            sin ellas la lista es una tirada de
+                                            identificadores del sistema entre los que no
+                                            se puede elegir con criterio. */}
+                                        <span className="voice-tags">
+                                            {voice.quality && (
+                                                <span className={`tag q${qualityRank(voice.quality)}`}>
+                                                    {QUALITY_LABELS[voice.quality] || voice.quality}
+                                                </span>
+                                            )}
+                                            {voice.network && <span className="tag net">Con datos</span>}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            <p className="option-desc">
+                                Las marcadas «con datos» suenan mejor pero necesitan
+                                conexión: sin cobertura se cortan a mitad de capítulo, y
+                                leer un libro entero con ellas consume.
+                            </p>
+                        </>
                     )}
+                </>
+            ),
+        },
+
+        tuning: {
+            title: 'Velocidad y tono',
+            render: () => (
+                <>
+                    <Segmented
+                        label="Velocidad"
+                        value={settings.rate}
+                        options={SPEECH_RATES.map((rate) => ({ value: rate, label: `${rate}×` }))}
+                        onChange={(rate) => updateSettings({ rate })}
+                    />
+
+                    {/* El tono estaba fijo en 1 y no había forma de corregir una
+                        voz demasiado aguda o demasiado plana. */}
+                    <Segmented
+                        label="Tono"
+                        value={settings.pitch ?? 1}
+                        options={SPEECH_PITCHES.map((pitch) => ({
+                            value: pitch,
+                            label: pitch === 1 ? 'Normal' : String(pitch),
+                        }))}
+                        onChange={(pitch) => updateSettings({ pitch })}
+                        hint="El rango es estrecho a propósito: por debajo de 0,85 la voz se
+                              vuelve cavernosa y por encima de 1,15 suena a dibujos animados."
+                    />
+
+                    <p className="option-desc">
+                        Las pausas entre frases y párrafos las pone la app, no el motor.
+                        Un motor de voz devuelve el control en cuanto suena la última
+                        sílaba y no añade ningún silencio: eso era lo que más hacía que
+                        la lectura sonara a máquina.
+                    </p>
                 </>
             ),
         },
@@ -154,13 +215,6 @@ export default function SpeechSheet({ speech, sentence, chapter, onClose }) {
 
                     <Waveform active={speaking} />
 
-                    <Segmented
-                        label="Velocidad"
-                        value={settings.rate}
-                        options={SPEECH_RATES.map((rate) => ({ value: rate, label: `${rate}×` }))}
-                        onChange={(rate) => updateSettings({ rate })}
-                    />
-
                     {/* Temporizador de apagado en primer nivel: quien escucha para
                         dormirse lo usa cada noche. Antes estaba a dos toques. */}
                     <Segmented
@@ -176,9 +230,17 @@ export default function SpeechSheet({ speech, sentence, chapter, onClose }) {
                         <Row
                             icon={<IconVolume size={18} />}
                             label="Voz"
-                            hint={currentVoice?.lang || 'La del sistema'}
+                            hint={currentVoice?.quality
+                                ? `Calidad ${(QUALITY_LABELS[currentVoice.quality] || '').toLowerCase()}`
+                                : (currentVoice?.lang || 'La del sistema')}
                             value={currentVoice?.name || 'Sistema'}
                             onClick={() => openPage('voice')}
+                        />
+                        <Row
+                            label="Velocidad y tono"
+                            hint="Y cómo se reparten las pausas"
+                            value={`${settings.rate}×`}
+                            onClick={() => openPage('tuning')}
                         />
                     </div>
 

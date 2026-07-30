@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { splitIntoSpeechChunks } from '../core/ttsChunks.js';
+import { silenceBetween, bestVoice } from './prosody.js';
 import { usePorts } from '../ports/index.js';
 
 const PREFS_KEY = 'speech';
 
-export const DEFAULT_SPEECH = { rate: 1, voiceId: null };
+export const DEFAULT_SPEECH = { rate: 1, pitch: 1, voiceId: null };
 
 /**
  * Lectura en voz alta de lo que hay en pantalla.
@@ -41,7 +42,12 @@ export const useSpeech = ({ getPageText, onSentence, onNextPage, title = '', cha
                 ports.tts.isSupported(),
             ]);
             if (!alive) return;
-            setSettings({ ...DEFAULT_SPEECH, ...(stored || {}) });
+            // Sin voz elegida se coge la mejor disponible, no la primera de la
+            // lista: Android no la ordena por calidad y podía tocar la peor.
+            const chosen = { ...DEFAULT_SPEECH, ...(stored || {}) };
+            if (!chosen.voiceId) chosen.voiceId = bestVoice(available)?.id ?? null;
+
+            setSettings(chosen);
             setVoices(available);
             setSupported(isSupported);
         })().catch(() => {});
@@ -91,9 +97,16 @@ export const useSpeech = ({ getPageText, onSentence, onNextPage, title = '', cha
             }
 
             const sentence = queue.current[index.current];
+            const upcoming = queue.current[index.current + 1] || null;
             onSentence?.(sentence, index.current);
 
-            await ports.tts.speak(sentence, settingsRef.current);
+            // La pausa que toca según cómo acabe la frase. Ver `prosody.js`: sin
+            // esto la lectura sale sin respiración, que es lo que más hacía que
+            // sonara a máquina aunque la voz fuese buena.
+            await ports.tts.speak(sentence, {
+                ...settingsRef.current,
+                pauseMs: silenceBetween(sentence, upcoming, settingsRef.current.rate),
+            });
             if (!running.current) break;
             index.current += 1;
         }
