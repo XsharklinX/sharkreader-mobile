@@ -11,7 +11,6 @@ import ReaderSettingsSheet from './ReaderSettingsSheet.jsx';
 import DisplaySheet from './DisplaySheet.jsx';
 import { runTurn, DEFAULT_TRANSITION, usesCurl } from './transitions.js';
 import PageFold from './PageFold.jsx';
-import { createPageSnapshot, pageOffset } from './pageSnapshot.js';
 import { buildFontFaceCss } from './fontLoader.js';
 import { useHistory } from './useHistory.js';
 import FootnoteSheet from './FootnoteSheet.jsx';
@@ -92,11 +91,9 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
 
     // ── Doblado de hoja ──────────────────────────────────────────────────────
     //
-    // La hoja que se va se dibuja desde una imagen rasterizada de la página, para
-    // poder pintarla dos veces: plana y reflejada. Ver `pageSnapshot.js`.
-    const snapshotRef = useRef(null);
-    if (!snapshotRef.current) snapshotRef.current = createPageSnapshot();
-    const [foldImage, setFoldImage] = useState(null);
+    // La página que se va se dibuja dos veces —plana y reflejada— con dos copias
+    // del capítulo en iframes propios. Ver `PageFold.jsx`.
+    const [foldSheet, setFoldSheet] = useState(null);
     const foldRef = useRef(null);
 
     // Limpieza de pantalla en tinta electrónica. Ver `einkRefresh.js`: se cuenta
@@ -200,6 +197,18 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         // anterior: sin esto, dos animaciones se pelean por el mismo transform.
         turnRef.current?.cancel();
 
+        /**
+         * El pliegue se remata aquí, no en el gesto.
+         *
+         * Por aquí pasan las tres formas de cambiar de página —arrastrar, tocar el
+         * borde y los botones de volumen— y solo el arrastre dejaba el pliegue en
+         * un estado conocido. Al tocar el borde con una hoja a medio doblar, esa
+         * hoja se quedaba clavada en la pantalla enseñando una página que ya no
+         * existía. `finish` la lleva hasta el final y la retira; si no había
+         * ninguna a medias no hace nada.
+         */
+        foldRef.current?.finish(direction);
+
         turnRef.current = runTurn({
             element: viewportRef.current,
             veil: veilRef.current,
@@ -273,8 +282,8 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         };
 
         const release = () => {
-            // El pliegue vuelve a cero: la hoja se devuelve a su sitio.
-            foldRef.current?.set(0, 'next');
+            // La hoja vuelve a su sitio animándose. Antes saltaba a cero de golpe.
+            foldRef.current?.cancel('next');
 
             const node = viewportRef.current;
             if (!node) return;
@@ -431,8 +440,11 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             const cfi = loc?.start?.cfi;
             if (!cfi) return;
             const progress = engine.progressFromCfi(cfi);
-            const page = loc?.start?.displayed?.page || 0;
-            const total = loc?.start?.displayed?.total || 0;
+            // La cuenta medida manda sobre la que publica epub.js, que dentro de
+            // un capítulo no avanza. Ver `pageInChapter`.
+            const measured = engine.chapterPage?.();
+            const page = measured?.page ?? (loc?.start?.displayed?.page || 0);
+            const total = measured?.total ?? (loc?.start?.displayed?.total || 0);
 
             setLocation({
                 cfi,
@@ -450,11 +462,11 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             engine.prefetchNext(cfi);
 
             /**
-             * La imagen de la página se prepara **ahora**, no al empezar el gesto.
+             * Las copias de la página se preparan **ahora**, no al empezar el gesto.
              *
-             * Rasterizar cuesta entre 100 y 400 ms en un móvil. Hacerlo cuando el
-             * dedo ya se apoya metería ese retardo justo donde más se nota; aquí
-             * el usuario está leyendo y no espera nada.
+             * Montar dos iframes con el capítulo cuesta decenas de milisegundos.
+             * Hacerlo cuando el dedo ya se apoya metería ese retardo justo donde
+             * más se nota; aquí el usuario está leyendo y no espera nada.
              */
             if (usesCurl(transitionRef.current) && !reducedMotionRef.current) {
                 prepareFold();
@@ -826,50 +838,28 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
      * Se hace en tiempo muerto —tras asentarse la página— y con `requestIdleCallback`
      * cuando existe, para no competir con el pintado del capítulo nuevo.
      */
+    /**
+     * Prepara las copias del capítulo para poder doblar la página.
+     *
+     * Se hace tras asentarse la página, en el tiempo muerto en que el usuario está
+     * leyendo: montar dos iframes con el capítulo cuesta unas decenas de
+     * milisegundos y no debe caer justo cuando el dedo se apoya.
+     */
     const prepareFold = useCallback(() => {
         const engine = engineRef.current;
-        const node = viewportRef.current;
-        if (!engine || !node) return;
+        if (!engine) return;
 
         const run = () => {
-            const view = engine.contentWindow?.();
-            const rect = node.getBoundingClientRect();
-            if (!view || !rect.width) return;
-
-            // La clave es el capítulo, no la página: la imagen es del capítulo
-            // entero y sirve para todas sus páginas. Solo cambia el recorte.
-            // La clave incluye el desplazamiento: la imagen es de **esta** página,
-            // no del capítulo, así que cada página necesita la suya.
-            const offset = pageOffset(view, rect);
-            const key = `${view.document?.baseURI || ''}@${offset.x}`;
-
-            snapshotRef.current
-                .capture(key, view, palette.bg, offset)
-                .then((entry) => {
-                    if (!entry) return;
-                    /**
-                     * Solo se usa la imagen si corresponde a la página visible.
-                     *
-                     * El rasterizador siempre devuelve la **primera** página del
-                     * capítulo: ni recortar con `x`, ni desplazar el clon con una
-                     * transformación, ni `scrollX` consiguen mover la ventana —el
-                     * clon maqueta las columnas CSS en otras coordenadas. Está sin
-                     * resolver, así que en el resto de páginas el pliegue no se
-                     * dibuja: enseñar el texto de otra página sería peor que
-                     * deslizar.
-                     */
-                    if (offset.x !== 0) return;
-                    setFoldImage({ canvas: entry.canvas, offset: { x: 0, y: 0 } });
-                })
-                .catch(() => {});
+            const sheet = engine.chapterSheet?.();
+            if (sheet?.html) setFoldSheet(sheet);
         };
 
         if (typeof requestIdleCallback === 'function') {
             requestIdleCallback(run, { timeout: 900 });
         } else {
-            setTimeout(run, 260);
+            setTimeout(run, 220);
         }
-    }, [palette.bg]);
+    }, []);
 
     /**
      * Atrás dentro del libro cierra una capa cada vez.
@@ -973,10 +963,9 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 Va **después** del contenedor del libro en el DOM: el iframe se
                 pinta en su propia capa compuesta y, estando antes, el pliegue
                 quedaba debajo por mucho z-index que llevara. */}
-            {foldImage && (
+            {foldSheet && (
                 <PageFold
-                    canvas={foldImage.canvas}
-                    offset={foldImage.offset}
+                    sheet={foldSheet}
                     width={viewportRef.current?.clientWidth || 0}
                     height={viewportRef.current?.clientHeight || 0}
                     controllerRef={foldRef}

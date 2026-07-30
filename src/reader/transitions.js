@@ -126,14 +126,13 @@ export const PAGE_TRANSITIONS = {
 };
 
 /**
- * Por ahora, deslizar.
+ * El doblado de hoja es la de por defecto.
  *
- * El doblado de hoja está construido y funciona —el reflejo del dorso se ha
- * verificado en el dispositivo— pero falta una pieza: el rasterizador devuelve
- * siempre la primera página del capítulo, así que en el resto el pliegue mostraría
- * texto de otra parte. Hasta resolverlo no puede ser la de por defecto.
+ * Es la que se parece a pasar una hoja de verdad, y la única que responde al dedo
+ * de forma continua: arrastrando despacio se ve el pliegue crecer y el dorso
+ * aparecer, en vez de esperar a que una animación decida.
  */
-export const DEFAULT_TRANSITION = 'slide';
+export const DEFAULT_TRANSITION = 'curl';
 
 /** ¿Esta transición dibuja un pliegue en perspectiva? */
 export const usesCurl = (id) => Boolean(PAGE_TRANSITIONS[id]?.curl);

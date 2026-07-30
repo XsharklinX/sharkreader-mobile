@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import { runBack } from './ui/backStack.js';
 import { useBackHandler } from './ui/useBackHandler.js';
-import TabBar from './ui/TabBar.jsx';
 import LibraryScreen from './screens/LibraryScreen.jsx';
 import ProgressScreen from './screens/ProgressScreen.jsx';
 import SettingsScreen from './screens/SettingsScreen.jsx';
@@ -30,6 +29,9 @@ const SCREENS = {
 
 export default function App() {
     const [tab, setTab] = useState('library');
+    // Qué pestaña abrir dentro de Progreso. El menú lleva directo a estadísticas
+    // o a logros, en lugar de entrar y volver a elegir dentro.
+    const [subTab, setSubTab] = useState(null);
     const [readingId, setReadingId] = useState(null);
 
     const layout = useLayout();
@@ -165,6 +167,17 @@ export default function App() {
         return true;
     }, Boolean(readingId));
 
+    /** Navegación desde el menú de la cabecera. */
+    const navigate = useCallback((target) => {
+        if (target === 'achievements') {
+            setSubTab('achievements');
+            setTab('progress');
+            return;
+        }
+        setSubTab(null);
+        setTab(target === 'progress' ? 'progress' : target);
+    }, []);
+
     /** Guarda posición, progreso y preferencias del libro que se está leyendo. */
     const handleProgress = useCallback((update) => {
         if (!reading) return;
@@ -227,19 +240,31 @@ export default function App() {
 
     const Screen = SCREENS[tab];
 
+    /**
+     * Sin barra de pestañas.
+     *
+     * Tenía Biblioteca, Progreso y Ajustes, y ocupaba una franja permanente en la
+     * pantalla más importante. Pero las tres no son hermanas: **la biblioteca es
+     * la aplicación** y las otras dos son sitios a los que se va de vez en cuando.
+     * Una barra de pestañas dice «estos tres destinos valen lo mismo», y no lo
+     * valen. Ahora la rejilla de portadas gana esa franja y el resto vive en el
+     * menú de la cabecera.
+     */
     const appPane = (
-        <div className="app">
+        <div className="app no-tabbar">
             <main className="app-main">
                 <Screen
                     library={library}
                     stats={stats}
                     sync={sync}
                     layout={layout}
+                    initialTab={subTab}
                     onOpenBook={(book) => setReadingId(book.id)}
                     onGoToSettings={() => setTab('settings')}
+                    onNavigate={navigate}
+                    onBack={() => setTab('library')}
                 />
             </main>
-            <TabBar active={tab} onChange={setTab} />
             <AchievementToast
                 achievements={stats.justUnlocked}
                 onDismiss={stats.dismissUnlocked}

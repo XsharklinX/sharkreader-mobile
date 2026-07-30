@@ -272,3 +272,16 @@ export const IconRuler = (p) => (
         <rect x="2.6" y="10.3" width="18.8" height="3.4" rx="1.2" />
     </Svg>
 );
+
+/**
+ * Menú principal. Tres rayas, la de abajo más corta.
+ *
+ * El acortado no es decoración: distingue el menú de un icono de lista, que en
+ * esta app existe y abre el índice del libro. Con tres rayas iguales los dos
+ * iconos son el mismo dibujo.
+ */
+export const IconMenu = (p) => (
+    <Svg {...p}>
+        <path d="M4 7h16M4 12h16M4 17h11" />
+    </Svg>
+);

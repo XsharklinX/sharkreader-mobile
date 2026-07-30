@@ -3,7 +3,7 @@ import AchievementsPanel from '../stats/AchievementsPanel.jsx';
 import {
     buildHeatmap, buildSeries, buildSummary, topBooks, peakHour, formatMinutes,
 } from '../stats/derive.js';
-import { IconChart, IconFlame, IconClock, IconTrophy, IconSettings } from '../ui/icons.jsx';
+import { IconChart, IconFlame, IconClock, IconTrophy, IconSettings, IconArrowLeft } from '../ui/icons.jsx';
 
 const PERIODS = [
     { id: 'week', label: 'Semana' },
@@ -31,8 +31,10 @@ const Goal = ({ label, done, target }) => {
  * Son la misma pregunta —«¿cómo voy?»— y separarlos gastaba una de las cinco
  * ranuras de la barra inferior en algo que se consulta de vez en cuando.
  */
-export default function ProgressScreen({ library, stats: statsApi, onGoToSettings }) {
-    const [tab, setTab] = useState('stats');
+export default function ProgressScreen({ library, stats: statsApi, onGoToSettings, initialTab, onBack }) {
+    // Desde el menú se puede entrar directo a logros, en lugar de aterrizar en
+    // estadísticas y tener que cambiar.
+    const [tab, setTab] = useState(initialTab === 'achievements' ? 'achievements' : 'stats');
     const [period, setPeriod] = useState('week');
     const books = library?.books || [];
     const { stats, goals, level } = statsApi;
@@ -49,6 +51,11 @@ export default function ProgressScreen({ library, stats: statsApi, onGoToSetting
     return (
         <div className="screen">
             <header className="head">
+                {/* Atrás en la cabecera: sin barra de pestañas, esta pantalla ya
+                    no es un destino paralelo sino un sitio al que se entra. */}
+                <button type="button" className="icon-btn" onClick={() => onBack?.()} aria-label="Volver a la biblioteca">
+                    <IconArrowLeft size={22} />
+                </button>
                 <div className="head-txt">
                     <h1 className="head-title">Progreso</h1>
                     <p className="head-sub">

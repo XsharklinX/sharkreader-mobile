@@ -378,7 +378,15 @@
        recorte y su transformación, así que la GPU las mueve sin repintar. */
     will-change: clip-path, transform;
     backface-visibility: hidden;
+    /* Cada copia es un iframe más ancho que la pantalla —el capítulo entero— y se
+       coloca desplazado para que la página visible caiga en el origen. Lo que
+       sobra se recorta aquí. */
+    overflow: hidden;
 }
+
+/* Las copias no reciben toques: el gesto lo escucha el iframe real, debajo. */
+.fold-flat iframe,
+.fold-back iframe { pointer-events: none; }
 
 .fold-shade {
     right: 0;

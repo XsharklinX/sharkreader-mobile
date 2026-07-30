@@ -1,6 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useBackHandler } from './useBackHandler.js';
 import { IconArrowLeft, IconChevronRight } from './icons.jsx';
+import { resolveSheetDrag, sheetOffset, scrimOpacity } from './sheetDrag.js';
 
 /**
  * Anatomía común de las hojas del lector.
@@ -34,17 +35,86 @@ export default function Sheet({ title, subtitle, children, pages = {}, onClose }
 
     const goBack = useCallback(() => setPage(null), []);
 
+    // ── Arrastrar para cerrar ────────────────────────────────────────────────
+    //
+    // Los estilos se escriben directamente sobre los nodos mientras dura el
+    // gesto. Por el estado de React pasaría un render por fotograma para mover
+    // una hoja, que es el mismo derroche que había en el doblado de página.
+    const sheetRef = useRef(null);
+    const scrimRef = useRef(null);
+    const dragRef = useRef(null);
+
+    const paint = (dy) => {
+        if (sheetRef.current) {
+            sheetRef.current.style.transform = `translate3d(0,${Math.round(sheetOffset(dy))}px,0)`;
+        }
+        if (scrimRef.current) {
+            scrimRef.current.style.opacity = String(
+                scrimOpacity(dy, sheetRef.current?.offsetHeight || 0)
+            );
+        }
+    };
+
+    const settle = () => {
+        const node = sheetRef.current;
+        if (node) {
+            node.classList.add('settling');
+            node.style.transform = '';
+            // La clase se quita al acabar para que el próximo arrastre siga al
+            // dedo sin transición de por medio.
+            setTimeout(() => node.classList.remove('settling'), 220);
+        }
+        if (scrimRef.current) scrimRef.current.style.opacity = '';
+    };
+
+    const handleDown = (event) => {
+        dragRef.current = { y: event.clientY, time: Date.now() };
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+    };
+
+    const handleMove = (event) => {
+        if (!dragRef.current) return;
+        paint(event.clientY - dragRef.current.y);
+    };
+
+    const handleUp = (event) => {
+        const start = dragRef.current;
+        if (!start) return;
+        dragRef.current = null;
+
+        const { close } = resolveSheetDrag(event.clientY - start.y, Date.now() - start.time);
+        if (close) onClose();
+        else settle();
+    };
+
     return (
-        <div className="scrim" onClick={onClose} role="presentation">
+        <div className="scrim" ref={scrimRef} onClick={onClose} role="presentation">
             <section
                 className="sheet"
+                ref={sheetRef}
                 onClick={(event) => event.stopPropagation()}
                 role="dialog"
                 aria-label={open?.title || title}
             >
-                <span className="grip" aria-hidden="true" />
+                {/* El asa y el título son la zona de arrastre. Ver `sheetDrag.js`:
+                    empezar en cualquier sitio pelearía con el desplazamiento de la
+                    lista de abajo. */}
+                <span
+                    className="grip"
+                    aria-hidden="true"
+                    onPointerDown={handleDown}
+                    onPointerMove={handleMove}
+                    onPointerUp={handleUp}
+                    onPointerCancel={settle}
+                />
 
-                <header className="sheet-bar">
+                <header
+                    className="sheet-bar"
+                    onPointerDown={handleDown}
+                    onPointerMove={handleMove}
+                    onPointerUp={handleUp}
+                    onPointerCancel={settle}
+                >
                     {open ? (
                         <>
                             <button

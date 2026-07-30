@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CATEGORIES, searchSettings } from './catalog.js';
 import { formatBytes, useStorageUsage } from './storage.js';
 import {
-    IconLibrary, IconSettings, IconFolder, IconBook, IconSearch, IconClose, IconChevronRight,
-} from '../ui/icons.jsx';
+    IconLibrary, IconSettings, IconFolder, IconBook, IconSearch, IconClose, IconChevronRight, IconArrowLeft } from '../ui/icons.jsx';
 
 const CATEGORY_ICONS = {
     reading: IconBook,
@@ -22,7 +21,7 @@ const CATEGORY_ICONS = {
  * las visitas a ajustes son para **comprobar** algo, no para cambiarlo, así que
  * si la respuesta cabe en la lista no hace falta entrar.
  */
-export default function SettingsHome({ library, stats, sync, onOpenCategory, onOpenItem, profile, onEditProfile }) {
+export default function SettingsHome({ library, stats, sync, onOpenCategory, onOpenItem, profile, onEditProfile, onBack }) {
     const [query, setQuery] = useState('');
     const usage = useStorageUsage();
 
@@ -48,6 +47,13 @@ export default function SettingsHome({ library, stats, sync, onOpenCategory, onO
     return (
         <div className="screen">
             <header className="head">
+                {/* Sin barra de pestañas, Ajustes ya no es un destino paralelo:
+                    se entra desde el menú y se sale por aquí. */}
+                {onBack && (
+                    <button type="button" className="icon-btn" onClick={onBack} aria-label="Volver a la biblioteca">
+                        <IconArrowLeft size={22} />
+                    </button>
+                )}
                 <div className="head-txt">
                     <h1 className="head-title">Ajustes</h1>
                 </div>

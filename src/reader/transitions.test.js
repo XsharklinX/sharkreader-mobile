@@ -36,11 +36,9 @@ describe('catálogo de transiciones', () => {
         });
     });
 
-    it('la de por defecto existe y no es el doblado todavía', () => {
-        // El doblado está construido pero le falta acertar la página al
-        // rasterizar; hasta entonces no puede ser la de por defecto.
-        expect(PAGE_TRANSITIONS[DEFAULT_TRANSITION]).toBeTruthy();
-        expect(usesCurl(DEFAULT_TRANSITION)).toBe(false);
+    it('la de por defecto es el doblado de hoja', () => {
+        expect(DEFAULT_TRANSITION).toBe('curl');
+        expect(usesCurl(DEFAULT_TRANSITION)).toBe(true);
     });
 
     it('solo el doblado usa la geometría del pliegue', () => {

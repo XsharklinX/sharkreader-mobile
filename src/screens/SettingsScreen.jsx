@@ -14,7 +14,7 @@ import { IconArrowLeft } from '../ui/icons.jsx';
  * un solo nivel: no hace falta un router para dos estados, y el botón atrás de
  * Android sale de la subpantalla antes que de la pestaña.
  */
-export default function SettingsScreen({ library, stats, sync }) {
+export default function SettingsScreen({ library, stats, sync, onBack }) {
     const [page, setPage] = useState(null);
     const [editingProfile, setEditingProfile] = useState(false);
     const [highlight, setHighlight] = useState(null);
@@ -61,6 +61,7 @@ export default function SettingsScreen({ library, stats, sync }) {
         return (
             <>
                 <SettingsHome
+                    onBack={onBack}
                     profile={stats.preferences.profile}
                     onEditProfile={() => setEditingProfile(true)}
                     library={library}

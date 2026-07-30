@@ -8,7 +8,9 @@
  * los mismos valores.
  */
 
+/* La barra es zona de arrastre junto con el asa: le quita el gesto al WebView. */
 .sheet-bar {
+    touch-action: none;
     display: flex;
     align-items: center;
     gap: var(--sp-1);

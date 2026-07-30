@@ -490,7 +490,10 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     z-index: 50;
     background: rgba(3, 7, 12, 0.62);
     display: flex;
-    animation: fade-in 0.18s var(--ease) both;
+    /* Sin `both`: con el relleno puesto, el último fotograma de la animación
+       seguía ganándole a la opacidad que escribe el arrastre, y el velo no se
+       aclaraba al bajar la hoja. */
+    animation: fade-in 0.18s var(--ease);
 }
 
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
@@ -512,7 +515,27 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 
 @keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
 
-.grip { width: 38px; height: 4px; border-radius: var(--r-full); background: var(--line-strong); margin: var(--sp-2) auto var(--sp-1); flex: none; }
+/* El asa. Ver `sheetDrag.js`: tirar de ella cierra la hoja, y por eso la barra
+   visible de 4 px lleva debajo un área tocable de verdad —dibujada con el borde
+   transparente— y le quita el gesto al WebView con `touch-action`. */
+.grip {
+    width: 38px;
+    height: 4px;
+    border-radius: var(--r-full);
+    background: var(--line-strong);
+    background-clip: content-box;
+    border: 10px solid transparent;
+    box-sizing: content-box;
+    margin: 0 auto;
+    flex: none;
+    touch-action: none;
+    cursor: grab;
+}
+
+
+/* Al soltar sin llegar al umbral la hoja vuelve arriba animándose. Durante el
+   arrastre esta clase no está, así que el movimiento sigue al dedo sin retardo. */
+.sheet.settling { transition: transform 0.2s var(--ease); }
 
 .drawer {
     margin-left: auto;
@@ -1147,8 +1170,12 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 /* ── Marca de la app ──
    La cabecera de la biblioteca lleva el nombre y para qué sirve, no un saludo:
    «Buenos días» no dice qué app es ni qué hace. */
+/* El nombre no se parte nunca. Con el botón de menú a la izquierda el ancho
+   quedó justo, y una marca cortada por la mitad —«SharkReade»— es peor que una
+   marca un punto más pequeña. */
 .brand {
-    font-size: 27px;
+    font-size: 25px;
+    white-space: nowrap;
     font-weight: 800;
     letter-spacing: -0.03em;
     line-height: 1.05;
@@ -1162,13 +1189,6 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 /* El segundo tramo del nombre en peso normal: separa las dos mitades sin
    necesitar otro color ni otro tamaño. */
 .brand span { font-weight: 400; }
-
-.brand-tagline {
-    font-size: var(--t-tiny);
-    color: var(--text-3);
-    margin: 2px 0 0;
-    letter-spacing: 0.01em;
-}
 
 .head-actions { flex-wrap: wrap; justify-content: flex-end; }
 .head-actions .icon-btn { min-width: 42px; min-height: 42px; }
@@ -2134,7 +2154,19 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 /* Dos pestañas en vez de tres: Ajustes estaba duplicado con el de la cabecera de
    la biblioteca, y dos caminos al mismo sitio en la misma pantalla hacen dudar
    de si llevan a lo mismo. */
-.tabbar.two { justify-content: space-evenly; }
+/* Sin barra de pestañas: la rejilla de portadas gana esa franja. Ver
+   `MainMenu.jsx` — la biblioteca es la aplicación, no un destino entre tres. */
+.app.no-tabbar .app-main { padding-bottom: var(--safe-bottom); }
+
+/* El botón de menú va pegado al nombre, con el relleno justo para que su área
+   tocable llegue a los 48 px sin separarlo de la marca. */
+.brand-menu {
+    margin-left: -6px;
+    margin-right: 2px;
+    /* La cabecera alinea por arriba —hay pantallas con título de dos líneas— pero
+       aquí al lado hay una sola línea, así que el botón se centra con ella. */
+    align-self: center;
+}
 
 /* ═══ Esqueletos de carga ═══════════════════════════════════════════════════
  *

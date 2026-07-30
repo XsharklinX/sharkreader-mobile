@@ -12,11 +12,12 @@ import Loading from '../ui/Loading.jsx';
 import CatalogScreen from '../catalog/CatalogScreen.jsx';
 import { useContentIndex } from '../library/useContentIndex.js';
 import {
-    IconSearch, IconSort, IconPlus, IconClose, IconBook, IconFolder, IconGrid, IconSettings,
-    IconCloud,
+    IconSearch, IconSort, IconClose, IconBook, IconFolder, IconGrid, IconSettings,
+    IconCloud, IconMenu,
 } from '../ui/icons.jsx';
+import MainMenu from '../ui/MainMenu.jsx';
 
-export default function LibraryScreen({ library, stats: statsApi, onOpenBook, onGoToSettings }) {
+export default function LibraryScreen({ library, stats: statsApi, onOpenBook, onGoToSettings, onNavigate }) {
     const { books, status, error, importing, importFiles, importFolder, clearError } = library;
 
     const [query, setQuery] = useState('');
@@ -31,6 +32,7 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
     const [notice, setNotice] = useState(null);
     const [importChoice, setImportChoice] = useState(false);
     const [catalogOpen, setCatalogOpen] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
 
     // Rejilla o estante. Es preferencia de la app, se configura en Ajustes y se
     // puede cambiar al vuelo desde la propia biblioteca.
@@ -223,25 +225,33 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                     </div>
                 ) : (
                     <>
+                        {/* El menú va junto al nombre, donde antes no había nada.
+                            Sustituye a la barra de pestañas de abajo: la
+                            biblioteca es la aplicación y el resto son sitios a los
+                            que se va de vez en cuando, no destinos hermanos. */}
+                        <button
+                            type="button"
+                            className="icon-btn brand-menu"
+                            onClick={() => setMenuOpen(true)}
+                            aria-label="Menú"
+                        >
+                            <IconMenu size={22} />
+                        </button>
+
+                        {/* Sin el lema. Ocupaba dos líneas en un móvil estrecho y
+                            decía lo que la propia rejilla de portadas ya dice. */}
                         <div className="head-txt">
                             <h1 className="brand">
                                 Shark<span>Reader</span>
                             </h1>
-                            <p className="brand-tagline">Tu biblioteca, en tu bolsillo</p>
                         </div>
                         <div className="head-actions">
                             <button type="button" className="icon-btn" onClick={() => setSearching(true)} aria-label="Buscar">
                                 <IconSearch size={21} />
                             </button>
-                            <button
-                                type="button"
-                                className="icon-btn"
-                                onClick={() => setImportChoice(true)}
-                                disabled={!!importing}
-                                aria-label="Añadir libros"
-                            >
-                                <IconPlus size={22} />
-                            </button>
+                            {/* Añadir libros vive en el menú, con sus dos formas
+                                explicadas. Un «+» aquí era el mismo destino con
+                                menos información, y le quitaba el sitio al nombre. */}
                             <button
                                 type="button"
                                 className={`icon-btn${showSort ? ' on' : ''}`}
@@ -472,6 +482,19 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                 selector de ficheros: importar una carpeta entera es lo que hace
                 la mayoría al estrenar la app, y antes esa opción solo existía en
                 la pantalla de biblioteca vacía. */}
+            {menuOpen && (
+                <MainMenu
+                    stats={statsApi}
+                    onNavigate={(target) => {
+                        if (target === 'catalog') setCatalogOpen(true);
+                        else if (target === 'import-folder') runImport('folder');
+                        else if (target === 'import-files') runImport('files');
+                        else onNavigate?.(target);
+                    }}
+                    onClose={() => setMenuOpen(false)}
+                />
+            )}
+
             {catalogOpen && (
                 <div className="overlay-screen">
                     <CatalogScreen

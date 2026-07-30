@@ -17,6 +17,58 @@ import { SECTION_PAUSE_MS } from './locationMap.js';
 /** Un carácter cada N para el mapa de localizaciones. Más bajo = más preciso y más lento. */
 const LOCATIONS_CHARS = 1024;
 
+/**
+ * Todo el CSS que gobierna un capítulo, como texto.
+ *
+ * El HTML de un capítulo no dice cómo se ve. El tema de lectura, la tipografía y
+ * —sobre todo— las columnas que convierten el capítulo en páginas los pone epub.js
+ * insertando reglas por CSSOM, y esas reglas **no salen** al serializar el
+ * documento: `outerHTML` devuelve la etiqueta `<style>` vacía. Una copia hecha solo
+ * con el HTML sale en blanco, con la tipografía de fábrica y sin columnas, así que
+ * el desplazamiento de página apunta a un sitio que no existe.
+ *
+ * Recorrerlas una por una las recupera. Se puede porque el iframe es del mismo
+ * origen; si alguna hoja viniera de fuera, leerla lanzaría y esa se salta.
+ */
+const serializeStyles = (doc) => {
+    const blocks = [];
+
+    for (const sheet of Array.from(doc.styleSheets || [])) {
+        try {
+            const rules = Array.from(sheet.cssRules || []);
+            blocks.push(rules.map((rule) => rule.cssText).join('\n'));
+        } catch {
+            // Hoja de otro origen: no se puede leer y no es un error.
+        }
+    }
+
+    return blocks.join('\n');
+};
+
+/**
+ * En qué página del capítulo estamos, medido sobre la geometría real.
+ *
+ * epub.js publica un `displayed.page` en cada cambio de posición, pero dentro de
+ * un capítulo se queda clavado: el indicador decía «1 / 5» en la primera página y
+ * seguía diciendo «1 / 5» tres páginas después. Y de ahí salía también el avance
+ * del capítulo, así que la barra tampoco se movía.
+ *
+ * Esto no pregunta: mide. El capítulo se maqueta en columnas dentro de un iframe
+ * mucho más ancho que la pantalla, y una página es exactamente el ancho del visor;
+ * cuánto se ha desplazado ese iframe dice qué columna se está viendo.
+ */
+export const pageInChapter = ({ hostLeft, hostWidth, frameLeft, frameWidth }) => {
+    if (!hostWidth || !frameWidth) return null;
+
+    // En modo continuo el iframe es alto, no ancho: no hay columnas que contar y
+    // hablar de «página 3 de 7» no significaría nada.
+    const total = Math.max(1, Math.round(frameWidth / hostWidth));
+    if (total <= 1) return null;
+
+    const page = Math.round((hostLeft - frameLeft) / hostWidth) + 1;
+    return { page: Math.min(Math.max(page, 1), total), total };
+};
+
 export const createEpubEngine = () => {
     let book = null;
     let rendition = null;
@@ -375,6 +427,72 @@ export const createEpubEngine = () => {
             const contents = [].concat(rendition?.getContents?.() || []);
             for (const content of contents) {
                 if (content?.window?.document?.body) return content.window;
+            }
+            return null;
+        },
+
+        /**
+         * El capítulo visible como HTML, con su desplazamiento de columna.
+         *
+         * Es lo que permite construir el doblado de hoja: una copia del capítulo
+         * en un iframe propio, colocada en la misma página que se está viendo.
+         *
+         * **Por qué no se rasteriza.** El primer intento fue convertir la página
+         * en imagen con un rasterizador, y devolvía siempre la primera página del
+         * capítulo: su clon maqueta las columnas CSS en otras coordenadas y
+         * ninguna de las tres formas de pedirle otra región funcionó —recortar
+         * con `x`, desplazar el clon con un `transform`, ni `scrollX`—.
+         *
+         * Con una copia propia el desplazamiento lo ponemos nosotros, así que
+         * acierta siempre. Y de paso el texto sigue siendo texto en lugar de un
+         * mapa de bits: se ve más nítido y no cuesta 200 ms de rasterizado.
+         */
+        chapterSheet() {
+            const contents = [].concat(rendition?.getContents?.() || []);
+            const host = container?.getBoundingClientRect();
+            if (!host) return null;
+
+            for (const content of contents) {
+                const view = content?.window;
+                const doc = view?.document;
+                const frame = view?.frameElement;
+                if (!doc?.documentElement || !frame) continue;
+
+                const frameRect = frame.getBoundingClientRect();
+                return {
+                    html: doc.documentElement.outerHTML,
+                    // El aspecto del capítulo no está en su HTML: ni el tema, ni la
+                    // tipografía, ni las columnas. Hay que llevárselo aparte.
+                    css: serializeStyles(doc),
+                    // Ancho y alto reales del iframe: la copia tiene que medir lo
+                    // mismo o las columnas caerían en otros sitios y el
+                    // desplazamiento dejaría de corresponder.
+                    frameWidth: Math.round(frameRect.width),
+                    frameHeight: Math.round(frameRect.height),
+                    // Cuánto hay que mover la copia para que se vea esta página.
+                    offsetX: Math.round(host.left - frameRect.left),
+                    offsetY: Math.round(host.top - frameRect.top),
+                };
+            }
+            return null;
+        },
+
+        /** Página dentro del capítulo, medida sobre las columnas. Ver `pageInChapter`. */
+        chapterPage() {
+            const contents = [].concat(rendition?.getContents?.() || []);
+            const host = container?.getBoundingClientRect();
+            if (!host) return null;
+
+            for (const content of contents) {
+                const frame = content?.window?.frameElement;
+                if (!frame) continue;
+                const rect = frame.getBoundingClientRect();
+                return pageInChapter({
+                    hostLeft: host.left,
+                    hostWidth: host.width,
+                    frameLeft: rect.left,
+                    frameWidth: rect.width,
+                });
             }
             return null;
         },
