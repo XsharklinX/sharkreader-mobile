@@ -198,6 +198,29 @@ export const SORTS = {
     title: { label: 'Título', compare: (a, b) => a.name.localeCompare(b.name, 'es') },
     author: { label: 'Autor', compare: (a, b) => a.author.localeCompare(b.author, 'es') },
     progress: { label: 'Progreso', compare: (a, b) => (b.progress || 0) - (a.progress || 0) },
+
+    /**
+     * Por serie, y dentro de cada serie por número.
+     *
+     * Sustituye a la sección «Series» que había en la portada de la biblioteca.
+     * Una sección aparte obligaba a mantener dos sitios donde aparecen los mismos
+     * libros; como orden hace lo mismo —los deja juntos y en su orden— sin sacar
+     * nada de la lista.
+     */
+    serie: {
+        label: 'Serie',
+        compare: (a, b) => {
+            const sa = String(a.series || '').trim();
+            const sb = String(b.series || '').trim();
+            // Los sueltos, al final: una lista ordenada por serie que empieza por
+            // lo que no pertenece a ninguna no está ordenada por serie.
+            if (!sa && !sb) return a.name.localeCompare(b.name, 'es');
+            if (!sa) return 1;
+            if (!sb) return -1;
+            const porNombre = sa.localeCompare(sb, 'es');
+            return porNombre !== 0 ? porNombre : (a.seriesIndex || 0) - (b.seriesIndex || 0);
+        },
+    },
 };
 
 export const FILTERS = {

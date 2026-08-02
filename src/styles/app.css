@@ -216,7 +216,15 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 }
 
 .pill.on { background: var(--accent); color: var(--accent-ink); font-weight: 650; }
-.pill-count { font-family: var(--font-mono); font-size: var(--t-micro); opacity: 0.75; }
+/* El número dentro del filtro. Sin él hay que tocar «Favoritos» para descubrir
+   que no tienes ninguno. */
+.pill-count {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    opacity: 0.7;
+    margin-left: 5px;
+}
+.pill:disabled { opacity: 0.4; }
 
 .search {
     display: flex;
@@ -445,21 +453,44 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     overflow: hidden;
 }
 
-/* Filo de estado. Ver `BookCard.jsx`: sustituye al porcentaje que iba impreso
-   encima de la ilustración. Va **debajo** de la tapa y no sobre ella, para no
-   tapar nada de la portada. */
-.book-edge {
-    display: block;
-    height: 2px;
-    border-radius: 2px;
+/* Cinta de progreso en el pie de la portada. Ver `BookCard.jsx`.
+
+   Es la barra y el número en el mismo sitio, como en la versión de escritorio.
+   El fondo es negro translúcido y no un color de la paleta: debajo hay una
+   ilustración cualquiera, y solo oscureciéndola se garantiza que el texto blanco
+   se lea sobre las claras y sobre las oscuras. */
+.book-ribbon {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 15px;
+    display: grid;
+    place-items: center;
+    background: rgba(2, 6, 12, 0.72);
     overflow: hidden;
-    margin-top: 1px;
 }
-/* Un libro sin empezar no lleva filo. Pintarlo en gris llenaba la rejilla de
-   líneas que se leían como separadores y no como estado. */
-.book-edge i { display: block; height: 100%; background: transparent; }
-.book-edge.reading i { background: var(--accent); }
-.book-edge.done i { background: var(--ok); }
+
+/* La barra va detrás del número, no al lado: así el número se lee siempre y la
+   barra no le roba ancho en una celda de 100 px. */
+.book-ribbon i {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: var(--accent);
+    opacity: 0.55;
+}
+.book-ribbon.done i { background: var(--ok); opacity: 0.75; }
+
+.book-ribbon b {
+    position: relative;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: #FFFFFF;
+}
 
 .book-badge {
     position: absolute;

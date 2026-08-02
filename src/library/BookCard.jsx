@@ -63,34 +63,35 @@ export default function BookCard({ book, onOpen, onLongPress }) {
                     ? <img src={cover} alt="" loading="lazy" decoding="async" />
                     : <span className="book-cover-text">{book.name}</span>}
 
-                {book.isFinished ? (
-                    <span className="book-badge done"><IconCheck size={13} /></span>
-                ) : book.isFav ? (
+                {/* Solo el favorito. Lo de «terminado» lo dice la cinta de abajo, y
+                    marcar la portada por arriba y por abajo para decir lo mismo deja
+                    la ilustración con dos parches. */}
+                {book.isFav && (
                     <span className="book-badge"><IconStar size={13} filled /></span>
-                ) : null}
+                )}
 
-            </span>
-
-            {/* Filo de estado.
-                
-                Antes había un porcentaje impreso sobre la portada. Dos problemas:
-                ensuciaba la ilustración —que es lo único que de verdad ayuda a
-                encontrar un libro en una rejilla de 136— y no decía nada de los
-                que están sin empezar o terminados, que se pintaban idénticos.
-                
-                Una línea de 2 px bajo la tapa dice las tres cosas de un vistazo:
-                acento y longitud si lo estás leyendo, verde si está terminado, y
-                gris si no lo has abierto. */}
-            <span
-                className={`book-edge${book.isFinished ? ' done' : done > 0 ? ' reading' : ''}`}
-            >
-                <i style={{ width: book.isFinished || done === 0 ? '100%' : `${done}%` }} />
+                {/* Cinta de progreso.
+                    
+                    Hubo un porcentaje suelto sobre la portada, y luego un filo de
+                    2 px bajo la tapa. El primero ensuciaba la ilustración y el
+                    segundo no se veía: un libro terminado y uno sin empezar se
+                    distinguían por una línea de dos píxeles de otro color.
+                    
+                    Esto es lo que hace la versión de escritorio y funciona: una
+                    cinta en el pie de la portada, con la barra y el número dentro.
+                    Ocupa el borde inferior —la zona muerta de casi cualquier
+                    cubierta— y se lee de un vistazo recorriendo la rejilla, que es
+                    justo cuando hace falta. */}
+                {(done > 0 || book.isFinished) && (
+                    <span className={`book-ribbon${book.isFinished ? ' done' : ''}`}>
+                        <i style={{ width: `${book.isFinished ? 100 : done}%` }} />
+                        <b>{book.isFinished ? 'Terminado' : `${done} %`}</b>
+                    </span>
+                )}
             </span>
 
             <span className="book-title">{book.name}</span>
-            <span className="book-author">
-                {book.isFinished ? 'Terminado' : book.author}
-            </span>
+            <span className="book-author">{book.author}</span>
         </button>
     );
 }

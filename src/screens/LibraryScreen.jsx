@@ -5,7 +5,6 @@ import BookSheet from '../library/BookSheet.jsx';
 import Sharky from '../ui/Sharky.jsx';
 import { selectBooks, FILTERS, SORTS } from '../library/useLibrary.js';
 import { minutesToday } from '../stats/derive.js';
-import { buildSeries } from '../library/collections.js';
 import ContentResults from '../library/ContentResults.jsx';
 import Bookshelf from '../library/Bookshelf.jsx';
 import Loading from '../ui/Loading.jsx';
@@ -119,15 +118,6 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
             .filter((book) => (book.progress || 0) > 0 && !book.isFinished && book.sourcePath)
             .sort((a, b) => (b.lastReadDate || 0) - (a.lastReadDate || 0))[0] || null,
         [books]
-    );
-
-    const series = useMemo(() => buildSeries(books), [books]);
-
-    const started = useMemo(
-        () => books
-            .filter((book) => (book.progress || 0) > 0 && !book.isFinished && book.id !== current?.id)
-            .sort((a, b) => (b.lastReadDate || 0) - (a.lastReadDate || 0)),
-        [books, current]
     );
 
     const runImport = async (mode) => {
@@ -332,225 +322,90 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
 
             {/* Mientras se busca o se filtra, la pantalla se convierte en una
                 rejilla de resultados: los estantes solo estorbarían. */}
-            {browsing ? (
-                <>
-                    <div className="pills" role="group" aria-label="Filtrar biblioteca">
-                        {Object.entries(FILTERS).map(([id, option]) => (
-                            <button
-                                key={id}
-                                type="button"
-                                className={`pill${filter === id ? ' on' : ''}`}
-                                onClick={() => setFilter(id)}
-                                aria-pressed={filter === id}
-                            >
-                                {option.label}
-                            </button>
-                        ))}
-                    </div>
+            {/* ── Una sola biblioteca ──────────────────────────────────────────
+                Había dos pantallas distintas según si estabas buscando o no: sin
+                búsqueda salían «Series», «Empezados» y «Toda la biblioteca» en
+                secciones, y los filtros **no existían**; al tocar uno cambiaba el
+                diseño entero. Por eso parecía que los filtros no funcionaban: no
+                filtraban una lista, la sustituían por otra pantalla.
 
-                    {visible.length === 0 && hits.length === 0 ? (
-                        <div className="empty">
-                            <span className="empty-art"><IconSearch size={34} /></span>
-                            <h2 className="empty-title">Nada coincide</h2>
-                            <p className="empty-body">
-                                Ni en los títulos ni dentro de los libros.
-                            </p>
-                            <button type="button" className="btn" onClick={() => { setQuery(''); setFilter('all'); setSearching(false); }}>
-                                Limpiar
-                            </button>
-                        </div>
-                    ) : (
-                        <>
-                            {visible.length > 0 && (
-                                <div className="section">
-                                    <div className="section-head">
-                                        <h2 className="section-title">Libros</h2>
-                                        <span className="section-meta">{visible.length}</span>
-                                    </div>
-                                    {renderBooks(visible)}
-                                </div>
-                            )}
+                Ahora hay una lista y siempre es la misma. Los filtros y el orden
+                están siempre a la vista y solo cambian qué sale y en qué orden,
+                que es lo único que debe hacer un filtro. */}
+            {current && !browsing && <ContinueCard book={current} onResume={onOpenBook} />}
 
-                            {/* Debajo, nunca mezclado: si escribes «Borges»
-                                quieres el libro, no las trescientas veces que
-                                sale el nombre dentro de un ensayo sobre él. */}
-                            <ContentResults
-                                results={hits}
-                                query={hitQuery}
-                                indexing={contentIndex.progress}
-                                onOpen={(hit) => {
-                                    const target = books.find((book) => book.id === hit.bookId);
-                                    if (target) openBook(target);
-                                }}
-                            />
-                        </>
-                    )}
-                </>
-            ) : (
-                <>
-                    {current && <ContinueCard book={current} onResume={onOpenBook} />}
-
-                    {sharkyOn && (
-                        <Sharky
-                            context={{
-                                streak: statsApi?.stats?.streak || 0,
-                                reading: started.length + (current ? 1 : 0),
-                                minutesToday: minutesToday(statsApi?.stats?.minutesByDay),
-                            }}
-                            onDisable={() => statsApi?.savePreferences?.({ sharky: false })}
-                        />
-                    )}
-
-                    {series.length > 0 && (
-                        <div className="section">
-                            <div className="section-head">
-                                <h2 className="section-title">Series</h2>
-                                <span className="section-meta">{series.length}</span>
-                            </div>
-                            <div className="rail">
-                                {series.map((serie) => (
-                                    <button
-                                        type="button"
-                                        className="serie"
-                                        key={serie.name}
-                                        onClick={() => setDetail(serie.next || serie.books[0])}
-                                    >
-                                        <span className="serie-covers">
-                                            {serie.books.slice(0, 3).map((item, index) => (
-                                                <span
-                                                    className="serie-cover"
-                                                    key={item.id}
-                                                    style={{
-                                                        background: item.coverUrl ? undefined : item.color,
-                                                        zIndex: 3 - index,
-                                                        marginLeft: index ? -18 : 0,
-                                                    }}
-                                                >
-                                                    {item.coverUrl && <img src={item.coverUrl} alt="" loading="lazy" />}
-                                                </span>
-                                            ))}
-                                        </span>
-                                        <span className="serie-name">{serie.name}</span>
-                                        <span className="serie-meta">
-                                            {serie.complete
-                                                ? `✓ completa · ${serie.count}`
-                                                : serie.gaps.length
-                                                    ? `falta el ${serie.gaps[0]}`
-                                                    : `${serie.finished}/${serie.count}`}
-                                        </span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {started.length > 0 && (
-                        <div className="section">
-                            <div className="section-head">
-                                <h2 className="section-title">Empezados</h2>
-                                <span className="section-meta">{started.length}</span>
-                            </div>
-                            <div className="rail">
-                                {started.map((book) => (
-                                    <BookCard key={book.id} book={book} onOpen={openBook} onLongPress={setDetail} />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="section">
-                        <div className="section-head">
-                            <h2 className="section-title">Toda la biblioteca</h2>
-                            <span className="section-meta">{books.length}</span>
-                        </div>
-                        {renderBooks(selectBooks(books, { sort }))}
-                    </div>
-                </>
-            )}
-
-            {/* Aquí había un botón flotante para reanudar la lectura. Se va: en
-                una pantalla que es una rejilla de portadas, un botón fijo en la
-                esquina tapa un libro para siempre, y el destino que ofrecía ya
-                está arriba y más grande en la tarjeta de «seguir leyendo». */}
-
-            {/* El «+» pregunta qué se añade en lugar de abrir directamente el
-                selector de ficheros: importar una carpeta entera es lo que hace
-                la mayoría al estrenar la app, y antes esa opción solo existía en
-                la pantalla de biblioteca vacía. */}
-            {menuOpen && (
-                <SideMenu
-                    stats={statsApi}
-                    books={books}
-                    onNavigate={(target) => {
-                        if (target === 'catalog') setCatalogOpen(true);
-                        else if (target === 'import-folder') runImport('folder');
-                        else if (target === 'import-files') runImport('files');
-                        else onNavigate?.(target);
+            {sharkyOn && !browsing && (
+                <Sharky
+                    context={{
+                        streak: statsApi?.stats?.streak || 0,
+                        reading: books.filter((book) => (book.progress || 0) > 0 && !book.isFinished).length,
+                        minutesToday: minutesToday(statsApi?.stats?.minutesByDay),
                     }}
-                    onClose={() => setMenuOpen(false)}
+                    onDisable={() => statsApi?.savePreferences?.({ sharky: false })}
                 />
             )}
 
-            {catalogOpen && (
-                <div className="overlay-screen">
-                    <CatalogScreen
-                        onImport={library.importDownloaded}
-                        onClose={() => setCatalogOpen(false)}
-                    />
-                </div>
-            )}
+            <div className="pills" role="group" aria-label="Filtrar biblioteca">
+                {Object.entries(FILTERS).map(([id, option]) => {
+                    const cuantos = books.filter((book) => option.match(book)).length;
+                    return (
+                        <button
+                            key={id}
+                            type="button"
+                            className={`pill${filter === id ? ' on' : ''}`}
+                            onClick={() => setFilter(id)}
+                            aria-pressed={filter === id}
+                            disabled={cuantos === 0 && id !== 'all'}
+                        >
+                            {option.label}
+                            {/* El número dentro del filtro: sin él hay que tocarlo
+                                para descubrir que no tienes ningún favorito. */}
+                            <span className="pill-count">{cuantos}</span>
+                        </button>
+                    );
+                })}
+            </div>
 
-            {importChoice && (
-                <div className="scrim" onClick={() => setImportChoice(false)} role="presentation">
-                    <section
-                        className="sheet"
-                        onClick={(event) => event.stopPropagation()}
-                        role="dialog"
-                        aria-label="Añadir libros"
-                    >
-                        <span className="grip" aria-hidden="true" />
-                        <h2 className="section-title">Añadir a la biblioteca</h2>
-                        <div className="rows">
-                            <button
-                                type="button"
-                                className="row"
-                                onClick={() => { setImportChoice(false); runImport('files'); }}
-                            >
-                                <span className="row-icon"><IconBook size={20} /></span>
-                                <span className="row-txt">
-                                    <span>Elegir libros</span>
-                                    <span className="row-sub">Uno o varios ficheros sueltos</span>
-                                </span>
-                            </button>
-                            <button
-                                type="button"
-                                className="row"
-                                onClick={() => { setImportChoice(false); setCatalogOpen(true); }}
-                            >
-                                <span className="row-icon"><IconCloud size={20} /></span>
-                                <span className="row-txt">
-                                    <span>Desde un catálogo</span>
-                                    <span className="row-sub">Tu servidor de Calibre u otro catálogo OPDS</span>
-                                </span>
-                            </button>
-                            <button
-                                type="button"
-                                className="row"
-                                onClick={() => { setImportChoice(false); runImport('folder'); }}
-                            >
-                                <span className="row-icon"><IconFolder size={20} /></span>
-                                <span className="row-txt">
-                                    <span>Importar una carpeta</span>
-                                    <span className="row-sub">Todos los libros que contenga, subcarpetas incluidas</span>
-                                </span>
-                            </button>
-                        </div>
-                        <p className="option-desc">
-                            EPUB, PDF, CBZ, TXT y Markdown. Los ficheros se copian dentro de la
-                            app, así que siguen funcionando aunque muevas los originales.
-                        </p>
-                    </section>
+            {visible.length === 0 && hits.length === 0 ? (
+                <div className="empty">
+                    <span className="empty-art"><IconSearch size={34} /></span>
+                    <h2 className="empty-title">
+                        {query.trim() ? 'Nada coincide' : 'Ningún libro aquí'}
+                    </h2>
+                    <p className="empty-body">
+                        {query.trim()
+                            ? 'Ni en los títulos ni dentro de los libros.'
+                            : 'Prueba con otro filtro.'}
+                    </p>
+                    <button type="button" className="btn" onClick={() => { setQuery(''); setFilter('all'); setSearching(false); }}>
+                        Ver toda la biblioteca
+                    </button>
                 </div>
+            ) : (
+                <>
+                    <div className="section">
+                        <div className="section-head">
+                            <h2 className="section-title">
+                                {query.trim() ? 'Resultados' : FILTERS[filter]?.label || 'Toda la biblioteca'}
+                            </h2>
+                            <span className="section-meta">{visible.length}</span>
+                        </div>
+                        {renderBooks(visible)}
+                    </div>
+
+                    {/* Debajo, nunca mezclado: si escribes «Borges» quieres el
+                        libro, no las trescientas veces que sale el nombre dentro
+                        de un ensayo sobre él. */}
+                    <ContentResults
+                        results={hits}
+                        query={hitQuery}
+                        indexing={contentIndex.progress}
+                        onOpen={(hit) => {
+                            const target = books.find((book) => book.id === hit.bookId);
+                            if (target) openBook(target);
+                        }}
+                    />
+                </>
             )}
 
             {detail && (
