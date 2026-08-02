@@ -7,11 +7,13 @@ import { selectBooks, FILTERS, SORTS } from '../library/useLibrary.js';
 import { minutesToday } from '../stats/derive.js';
 import ContentResults from '../library/ContentResults.jsx';
 import Bookshelf from '../library/Bookshelf.jsx';
+import BookRow from '../library/BookRow.jsx';
+import { LIBRARY_VIEWS, normalizeView, agrupar } from '../library/views.js';
 import Loading from '../ui/Loading.jsx';
 import CatalogScreen from '../catalog/CatalogScreen.jsx';
 import { useContentIndex } from '../library/useContentIndex.js';
 import {
-    IconSearch, IconSort, IconClose, IconBook, IconFolder, IconGrid, IconSettings,
+    IconSearch, IconSort, IconClose, IconBook, IconFolder, IconView, IconSettings,
     IconCloud, IconMenu,
 } from '../ui/icons.jsx';
 import SideMenu from '../ui/SideMenu.jsx';
@@ -24,44 +26,90 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
     const [filter, setFilter] = useState('all');
     const [sort, setSort] = useState('recent');
     const [showSort, setShowSort] = useState(false);
-    // La densidad viene de ajustes, pero se puede cambiar al vuelo desde la
-    // propia biblioteca sin tener que ir allí.
-    const [compact, setCompact] = useState(statsApi?.preferences?.density === 'compact');
+    /**
+     * La vista, en un solo valor.
+     *
+     * Antes eran dos cosas sueltas: `libraryView` en Ajustes decidía entre rejilla
+     * y estante, y `density` —también en Ajustes— tenía una casilla de «compacta»
+     * que en realidad era una tercera vista. Con dos interruptores para elegir
+     * entre tres cosas había combinaciones que no significaban nada, como estante
+     * compacto.
+     */
+    const [view, setView] = useState(
+        () => normalizeView(statsApi?.preferences?.libraryView, statsApi?.preferences?.density)
+    );
+
+    const cambiarVista = (id) => {
+        setView(id);
+        // Se recuerda, pero se elige aquí: una vista se cambia mientras buscas, no
+        // se configura una vez en otra pantalla.
+        statsApi?.savePreferences?.({ libraryView: id });
+    };
     const [detail, setDetail] = useState(null);
     const [notice, setNotice] = useState(null);
     const [importChoice, setImportChoice] = useState(false);
     const [catalogOpen, setCatalogOpen] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
 
-    // Rejilla o estante. Es preferencia de la app, se configura en Ajustes y se
-    // puede cambiar al vuelo desde la propia biblioteca.
-    const shelfView = (statsApi?.preferences?.libraryView || 'grid') === 'shelf';
-
     const browsing = Boolean(query.trim()) || filter !== 'all';
 
     /**
-     * Pinta una colección de libros con la vista elegida.
+     * Pinta una lista con la vista elegida.
      *
-     * Se hace con un ayudante y no repitiendo el JSX en los tres sitios donde se
-     * listan libros: la vista de estante se añadió después y, si estuviera
-     * copiada, aparecería en unos listados y no en otros.
+     * Se agrupa fuera de cada vista y no dentro: si cada una agrupara por su cuenta
+     * acabarían con encabezados distintos, y el encabezado depende del **orden**,
+     * que es de la pantalla y no de la vista.
      */
-    const renderBooks = (list) => (shelfView
-        ? (
-            <Bookshelf
-                books={list}
-                width={typeof window === 'undefined' ? 0 : window.innerWidth}
-                onOpen={openBook}
-                onLongPress={setDetail}
-            />
-        )
-        : (
-            <div className={`grid-books${compact ? ' compact' : ''}`}>
-                {list.map((book) => (
-                    <BookCard key={book.id} book={book} onOpen={openBook} onLongPress={setDetail} />
-                ))}
+    const renderBooks = (list) => {
+        const grupos = agrupar(list, sort);
+
+        return grupos.map((grupo) => (
+            <div className="grupo-libros" key={grupo.titulo || 'todo'}>
+                {grupo.titulo && <h3 className="grupo-titulo">{grupo.titulo}</h3>}
+                {pintarVista(grupo.libros)}
             </div>
         ));
+    };
+
+    const pintarVista = (list) => {
+        if (view === 'shelf') {
+            return (
+                <Bookshelf
+                    books={list}
+                    width={typeof window === 'undefined' ? 0 : window.innerWidth}
+                    onOpen={openBook}
+                    onLongPress={setDetail}
+                />
+            );
+        }
+
+        if (view === 'list') {
+            return (
+                <div className="lista-libros">
+                    {list.map((book) => (
+                        <BookRow key={book.id} book={book} onOpen={openBook} onLongPress={setDetail} />
+                    ))}
+                </div>
+            );
+        }
+
+        return (
+            <div className={`grid-books${view === 'compact' ? ' compact' : ''}`}>
+                {list.map((book) => (
+                    <BookCard
+                        key={book.id}
+                        book={book}
+                        onOpen={openBook}
+                        onLongPress={setDetail}
+                        // En compacta la cubierta va sola: el título y el autor a
+                        // cuatro por fila salen a siete píxeles, que no es texto,
+                        // es textura.
+                        soloPortada={view === 'compact'}
+                    />
+                ))}
+            </div>
+        );
+    };
 
     // ── Búsqueda dentro de los libros ────────────────────────────────────────
     //
@@ -282,14 +330,6 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                                 {option.label}
                             </button>
                         ))}
-                        <button
-                            type="button"
-                            className={`pill${compact ? ' on' : ''}`}
-                            onClick={() => setCompact((value) => !value)}
-                            aria-pressed={compact}
-                        >
-                            <IconGrid size={14} /> Compacta
-                        </button>
                     </div>
                 </div>
             )}
@@ -345,6 +385,7 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                 />
             )}
 
+            <div className="fila-control">
             <div className="pills" role="group" aria-label="Filtrar biblioteca">
                 {Object.entries(FILTERS).map(([id, option]) => {
                     const cuantos = books.filter((book) => option.match(book)).length;
@@ -364,6 +405,33 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                         </button>
                     );
                 })}
+
+            </div>
+
+                {/* El selector de vista, fuera de los filtros.
+                    
+                    Estaba en Ajustes → Apariencia, a cuatro toques de aquí. Una
+                    vista no es una preferencia que se configura una vez: se cambia
+                    mientras buscas, igual que el orden.
+                    
+                    Va fuera de la fila de filtros porque esa fila se desplaza en
+                    horizontal: dentro, el selector se iría de la pantalla en cuanto
+                    hubiera cuatro filtros. */}
+                <div className="vistas" role="group" aria-label="Cómo se ven los libros">
+                    {Object.entries(LIBRARY_VIEWS).map(([id, opcion]) => (
+                        <button
+                            key={id}
+                            type="button"
+                            className={`vista-btn${view === id ? ' on' : ''}`}
+                            onClick={() => cambiarVista(id)}
+                            aria-pressed={view === id}
+                            aria-label={`${opcion.label}. ${opcion.hint}`}
+                            title={opcion.hint}
+                        >
+                            <IconView id={id} />
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {visible.length === 0 && hits.length === 0 ? (

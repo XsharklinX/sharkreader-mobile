@@ -189,30 +189,13 @@ export const AppearancePage = ({ stats }) => {
                 </p>
             </section>
 
-            <section className="section" data-setting="library-view">
-                <h2 className="bs-heading">Cómo se ven los libros</h2>
-                <div className="segmented">
-                    {[
-                        { id: 'grid', label: 'Rejilla' },
-                        { id: 'shelf', label: 'Estante' },
-                    ].map((option) => (
-                        <button
-                            key={option.id}
-                            type="button"
-                            className={(prefs.libraryView || 'grid') === option.id ? 'on' : ''}
-                            onClick={() => stats.savePreferences({ libraryView: option.id })}
-                        >
-                            {option.label}
-                        </button>
-                    ))}
-                </div>
-                <p className="option-desc">
-                    El estante apoya las portadas sobre una tabla. Además de gusto,
-                    tiene un motivo: los EPUB traen portadas de proporciones muy
-                    distintas, y en la rejilla los bordes inferiores quedan a alturas
-                    distintas aunque las celdas midan lo mismo.
-                </p>
-            </section>
+            {/* Aquí había un selector de vista con Rejilla y Estante. Se ha ido a
+                la barra de la biblioteca, junto a los filtros: una vista se cambia
+                mientras buscas, no se configura una vez en otra pantalla. Y desde
+                allí se eligen las cuatro, no dos.
+
+                La densidad compacta, que era otro interruptor aparte, era en
+                realidad una tercera vista y ahora está con las demás. */}
 
             <section className="section" data-setting="material-you">
                 <h2 className="bs-heading">Colores del sistema</h2>

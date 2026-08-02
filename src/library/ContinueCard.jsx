@@ -1,4 +1,5 @@
 import React from 'react';
+import Cover from './Cover.jsx';
 
 /**
  * Tarjeta de continuar leyendo.
@@ -24,15 +25,13 @@ import React from 'react';
  */
 export default function ContinueCard({ book, onResume }) {
     const done = Math.round((book.progress || 0) * 100);
-    const cover = book.coverUrl || book.coverBase64;
 
     return (
         <button type="button" className="continue" onClick={() => onResume(book)}>
-            <span className="continue-cover" style={cover ? undefined : { background: book.color }}>
-                {cover
-                    ? <img src={cover} alt="" style={{ width: '100%', display: 'block', aspectRatio: '2/3', objectFit: 'cover' }} />
-                    : <span style={{ display: 'block', aspectRatio: '2/3' }} />}
-            </span>
+            {/* La misma portada que la rejilla, con la misma regla de recorte: si
+                aquí se recortara distinto, el libro se vería de dos maneras en la
+                misma pantalla. */}
+            <Cover book={book} className="continue-cover" />
 
             <span className="continue-body">
                 <span className="continue-eyebrow">Seguir leyendo</span>

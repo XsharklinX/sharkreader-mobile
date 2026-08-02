@@ -294,3 +294,44 @@ export const IconMenu = (p) => (
         <path d="M4 7h16M4 12h16M4 17h16" />
     </Svg>
 );
+
+/**
+ * Los iconos de las cuatro vistas de la biblioteca.
+ *
+ * Van juntos y en un solo componente porque solo tienen sentido como conjunto: lo
+ * que hace que se entiendan no es cada dibujo, es que se vean como cuatro maneras
+ * de repartir el mismo espacio. Dibujados por separado, cada uno acabaría con su
+ * propio grosor y su propio margen.
+ */
+export const IconView = ({ id, size = 17 }) => {
+    if (id === 'compact') {
+        return (
+            <Svg size={size}>
+                <path d="M4 4h4v6H4zM10 4h4v6h-4zM16 4h4v6h-4zM4 14h4v6H4zM10 14h4v6h-4zM16 14h4v6h-4z" fill="currentColor" stroke="none" />
+            </Svg>
+        );
+    }
+
+    if (id === 'list') {
+        return (
+            <Svg size={size}>
+                <path d="M4 6h3v4H4zM10 7h10M10 10h6M4 14h3v4H4zM10 15h10M10 18h6" />
+            </Svg>
+        );
+    }
+
+    if (id === 'shelf') {
+        return (
+            <Svg size={size}>
+                <path d="M5 5v7M9 5v7M13 7v5M17 6v6M3 12h18M3 16h18" />
+            </Svg>
+        );
+    }
+
+    // Rejilla: cuatro celdas con hueco para el título debajo de cada una.
+    return (
+        <Svg size={size}>
+            <path d="M4 4h6v7H4zM14 4h6v7h-6zM4 14h6v6H4zM14 14h6v6h-6z" />
+        </Svg>
+    );
+};

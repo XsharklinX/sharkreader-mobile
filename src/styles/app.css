@@ -401,7 +401,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     align-items: stretch;
 }
 
-.continue-cover { width: 64px; flex: none; border-radius: var(--r-sm); overflow: hidden; }
+.continue-cover { width: 64px; flex: none; }
 .continue-body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: var(--sp-1); min-width: 0; }
 /* El rótulo en gris y monoespaciado: es una etiqueta de dato, no una llamada. */
 .continue-eyebrow { font-family: var(--font-mono); font-size: var(--t-micro); letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }
@@ -422,35 +422,214 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .rail::-webkit-scrollbar { display: none; }
 .rail .book { width: 92px; flex: none; }
 
-.grid-books { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: var(--sp-4) var(--sp-3); }
-.grid-books.compact { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); }
+/* Tres columnas fijas, no `auto-fill`.
+   Con `minmax` el número de columnas dependía del ancho exacto del móvil, así que
+   la misma app se veía a tres o a cuatro según el modelo y las portadas cambiaban
+   de tamaño sin que nadie hubiera elegido nada. */
+.grid-books { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-4) var(--sp-3); }
+.grid-books.compact { grid-template-columns: repeat(4, 1fr); gap: var(--sp-3) var(--sp-2); }
+
+/* ── Encabezados de grupo ────────────────────────────────────────────────────
+ *
+ * Ver `views.js`. Aparecen según el orden: letras por título, la saga por serie,
+ * el mes por fecha. Ordenar bien no basta en una lista de 136 — sin marcas,
+ * cuarenta filas seguidas obligan a leerlo todo igual para saber dónde estás. */
+.grupo-libros + .grupo-libros { margin-top: var(--sp-5); }
+
+.grupo-titulo {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin: 0 0 var(--sp-3);
+    padding-bottom: var(--sp-2);
+    border-bottom: 1px solid var(--line);
+    /* Se queda pegado al desplazar: la letra en la que estás es justo el dato que
+       hace falta cuando llevas veinte filas de la B. */
+    position: sticky;
+    top: 56px;
+    background: var(--bg);
+    z-index: 4;
+}
+
+/* ── Vista de lista ──────────────────────────────────────────────────────────
+ *
+ * Ver `BookRow.jsx`: contesta «¿qué tengo y cómo voy?», así que enseña lo que no
+ * cabe en una celda de cien píxeles. */
+.lista-libros { display: flex; flex-direction: column; }
+
+.fila-libro {
+    display: grid;
+    grid-template-columns: 34px 1fr auto;
+    gap: var(--sp-3);
+    align-items: center;
+    padding: var(--sp-2) 0;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    width: 100%;
+    min-height: var(--touch);
+}
+.fila-libro:active { background: var(--sf-2); }
+
+.fila-cover { width: 34px; flex: none; }
+
+.fila-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.fila-nombre {
+    font-size: var(--t-small);
+    font-weight: 600;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.fila-bajo {
+    font-size: var(--t-micro);
+    color: var(--text-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* En monoespaciada y a la derecha: en una columna de cifras el ojo compara
+   longitudes antes que números, y para eso tienen que estar alineadas. */
+.fila-datos {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+    flex: none;
+    font-family: var(--font-mono);
+}
+.fila-datos b { font-size: var(--t-small); font-weight: 500; }
+.fila-datos b.ok { color: var(--ok); }
+.fila-datos b.apagado { color: var(--text-3); }
+.fila-datos span { font-size: var(--t-micro); color: var(--text-3); }
+
+/* ── La fila de control ──────────────────────────────────────────────────────
+ *
+ * Los filtros a la izquierda, que se desplazan en horizontal porque son cinco y
+ * pueden crecer, y el selector de vista clavado a la derecha. Metido dentro del
+ * carrusel de filtros se iría de la pantalla en cuanto hubiera cuatro. */
+.fila-control {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    min-width: 0;
+}
+
+/* Dentro de la fila, los filtros ya no se salen al borde por su cuenta: lo hace
+   el bloque entero, y si no se sumarían dos sangrados negativos. */
+.fila-control .pills { flex: 1; min-width: 0; margin: 0; padding-inline: 0; }
+
+/* ── Selector de vista ───────────────────────────────────────────────────── */
+.vistas {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    flex: none;
+    margin-left: auto;
+}
+
+.vista-btn {
+    width: 34px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: var(--r-sm);
+    background: none;
+    color: var(--text-3);
+}
+.vista-btn.on { background: var(--sf-3); color: var(--text); }
 
 .book { display: flex; flex-direction: column; gap: var(--sp-2); background: none; border: 0; padding: 0; text-align: left; }
 
-.book-cover {
+/* ── La portada ──────────────────────────────────────────────────────────────
+ *
+ * Ver `Cover.jsx` y `coverFit.js`. La celda mide siempre lo mismo —filas de
+ * distinta altura se ven como una lista rota— y lo que cambia es cómo se mete la
+ * imagen dentro: se recorta cuando la pérdida es imperceptible y se respeta
+ * cuando no.
+ */
+.cover {
     position: relative;
     aspect-ratio: 2 / 3;
     border-radius: var(--r-sm);
     overflow: hidden;
-    display: flex;
-    align-items: flex-end;
-    box-shadow: var(--el-2);
+    display: block;
     background: var(--sf-2);
 }
 
-.book-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cover img {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
 
-.book-cover-text {
-    padding: var(--sp-2);
-    font-size: var(--t-tiny);
-    font-weight: 650;
-    line-height: 1.25;
+/* Respetando la portada quedan bandas, y el hueco lo rellena la propia cubierta
+   desenfocada: pertenece a la imagen en vez de ser un rectángulo del sistema. */
+.cover.contiene img { object-fit: contain; }
+
+.cover-fondo {
+    position: absolute;
+    /* Se desborda a propósito: el desenfoque aclara los bordes y sin margen se
+       vería un halo alrededor de la banda. */
+    inset: -14%;
+    background-size: cover;
+    background-position: center;
+    filter: blur(11px) saturate(1.1) brightness(0.62);
+}
+
+/* ── Cubierta tipográfica ────────────────────────────────────────────────────
+ *
+ * Para los libros que no traen imagen. No es un hueco de relleno: es lo que hace
+ * una editorial cuando reedita un clásico sin arte —una regla, el título en serif
+ * y el autor abajo— y por eso se lee como un libro y no como un error.
+ */
+.cover-tipo {
+    display: flex;
+    flex-direction: column;
+    padding: var(--sp-3) var(--sp-2);
     color: #fff;
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+}
+
+.cover-regla {
+    display: block;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.5);
+    margin-bottom: var(--sp-3);
+    flex: none;
+}
+
+.cover-titulo {
+    font-family: var(--font-title);
+    font-size: var(--t-tiny);
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
     display: -webkit-box;
-    -webkit-line-clamp: 4;
+    -webkit-line-clamp: 5;
     -webkit-box-orient: vertical;
     overflow: hidden;
+}
+
+.cover-autor {
+    margin-top: auto;
+    padding-top: var(--sp-2);
+    font-size: var(--t-micro);
+    line-height: 1.2;
+    color: rgba(255, 255, 255, 0.78);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Cinta de progreso en el pie de la portada. Ver `BookCard.jsx`.

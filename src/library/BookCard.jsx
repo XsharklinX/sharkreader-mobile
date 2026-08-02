@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
-import { IconStar, IconCheck } from '../ui/icons.jsx';
+import { IconStar } from '../ui/icons.jsx';
+import Cover from './Cover.jsx';
 
 const LONG_PRESS_MS = 450;
 const MOVE_TOLERANCE = 12;
@@ -11,7 +12,7 @@ const MOVE_TOLERANCE = 12;
  * aparte: se lee de un vistazo al recorrer la biblioteca y deja la altura de
  * todas las tarjetas igual, que es lo que hace que una rejilla se vea ordenada.
  */
-export default function BookCard({ book, onOpen, onLongPress }) {
+export default function BookCard({ book, onOpen, onLongPress, soloPortada = false }) {
     const done = Math.round((book.progress || 0) * 100);
     const cover = book.coverUrl || book.coverBase64;
 
@@ -58,11 +59,7 @@ export default function BookCard({ book, onOpen, onLongPress }) {
             onPointerLeave={clearTimer}
             aria-label={`${book.name}, de ${book.author}, ${done}% leído`}
         >
-            <span className="book-cover" style={cover ? undefined : { background: book.color }}>
-                {cover
-                    ? <img src={cover} alt="" loading="lazy" decoding="async" />
-                    : <span className="book-cover-text">{book.name}</span>}
-
+            <Cover book={book} className="book-cover">
                 {/* Solo el favorito. Lo de «terminado» lo dice la cinta de abajo, y
                     marcar la portada por arriba y por abajo para decir lo mismo deja
                     la ilustración con dos parches. */}
@@ -80,18 +77,25 @@ export default function BookCard({ book, onOpen, onLongPress }) {
                     Esto es lo que hace la versión de escritorio y funciona: una
                     cinta en el pie de la portada, con la barra y el número dentro.
                     Ocupa el borde inferior —la zona muerta de casi cualquier
-                    cubierta— y se lee de un vistazo recorriendo la rejilla, que es
-                    justo cuando hace falta. */}
+                    cubierta— y se lee de un vistazo recorriendo la rejilla. */}
                 {(done > 0 || book.isFinished) && (
                     <span className={`book-ribbon${book.isFinished ? ' done' : ''}`}>
                         <i style={{ width: `${book.isFinished ? 100 : done}%` }} />
                         <b>{book.isFinished ? 'Terminado' : `${done} %`}</b>
                     </span>
                 )}
-            </span>
+            </Cover>
 
-            <span className="book-title">{book.name}</span>
-            <span className="book-author">{book.author}</span>
+            {/* En la vista compacta la cubierta va sola. El título y el autor a
+                cuatro por fila salen a siete píxeles, y eso no es texto: es
+                textura que estorba a la única cosa que ahí sí se reconoce, que es
+                la propia portada. */}
+            {!soloPortada && (
+                <>
+                    <span className="book-title">{book.name}</span>
+                    <span className="book-author">{book.author}</span>
+                </>
+            )}
         </button>
     );
 }
