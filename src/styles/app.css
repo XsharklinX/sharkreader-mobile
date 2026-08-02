@@ -623,11 +623,11 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     display: grid;
     place-items: center;
 }
-.side-icon.sky { background: rgba(56, 189, 248, 0.14); color: #38BDF8; }
-.side-icon.amber { background: rgba(250, 204, 21, 0.14); color: #FACC15; }
-.side-icon.blue { background: rgba(59, 130, 246, 0.16); color: #60A5FA; }
-.side-icon.green { background: rgba(34, 197, 94, 0.14); color: #4ADE80; }
-.side-icon.pink { background: rgba(244, 114, 182, 0.14); color: #F472B6; }
+.side-icon.sky { background: var(--tone-sky-bg); color: var(--tone-sky); }
+.side-icon.amber { background: var(--tone-amber-bg); color: var(--tone-amber); }
+.side-icon.blue { background: var(--tone-blue-bg); color: var(--tone-blue); }
+.side-icon.green { background: var(--tone-green-bg); color: var(--tone-green); }
+.side-icon.pink { background: var(--tone-pink-bg); color: var(--tone-pink); }
 .side-icon.slate { background: var(--sf-3); color: var(--text-2); }
 
 .side-txt { display: flex; flex-direction: column; min-width: 0; flex: 1; }

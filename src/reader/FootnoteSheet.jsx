@@ -21,8 +21,15 @@ export default function FootnoteSheet({ note, palette, onGoToNotes, onClose }) {
                 onClick={(event) => event.stopPropagation()}
                 role="dialog"
                 aria-label={`Nota ${note.label}`}
+                /* La hoja se pinta con el tema de **lectura**: lo que enseña es
+                   texto del libro, y una nota al pie sobre fondo de interfaz en
+                   medio de una página sepia es un golpe visual.
+
+                   Antes eran dos colores escritos a mano —#FFFFFF y #1B222C— y el
+                   segundo venía de la paleta anterior, así que desde el cambio de
+                   tokens no pertenecía a ningún tema de la app. */
                 style={{
-                    background: light ? '#FFFFFF' : '#1B222C',
+                    background: palette?.bg || 'var(--sf-1)',
                     color: palette?.text || 'inherit',
                 }}
             >

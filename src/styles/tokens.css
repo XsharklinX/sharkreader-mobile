@@ -52,6 +52,18 @@
     --ok: #22C55E;
     --risk: #EF4444;
 
+    /* ── Tonos del menú lateral ──────────────────────────────────────────────
+       Un color por destino, cada uno con el color del icono y el de su pastilla.
+       Son tokens y no valores sueltos porque **cambian con el tema**: los que
+       funcionan sobre #1E293B se quedan en 1,4:1 sobre blanco —el ámbar era
+       prácticamente invisible— y el mínimo para un elemento gráfico es 3:1.
+       Estos dan entre 4,5 y 5,8 en los dos temas. */
+    --tone-sky: #38BDF8;    --tone-sky-bg: rgba(56, 189, 248, 0.14);
+    --tone-amber: #FACC15;  --tone-amber-bg: rgba(250, 204, 21, 0.14);
+    --tone-blue: #60A5FA;   --tone-blue-bg: rgba(59, 130, 246, 0.16);
+    --tone-green: #4ADE80;  --tone-green-bg: rgba(34, 197, 94, 0.14);
+    --tone-pink: #F472B6;   --tone-pink-bg: rgba(244, 114, 182, 0.14);
+
     /* Colores de subrayado — los mismos cuatro que en escritorio */
     --hl-yellow: #FACC15;
     --hl-green: #22C55E;
@@ -149,4 +161,11 @@
     --warn: #B45309;
     --ok: #15803D;
     --risk: #B91C1C;
+
+    /* El tono 700 de cada familia sobre su propio fondo al 12 %. */
+    --tone-sky: #0369A1;    --tone-sky-bg: rgba(14, 165, 233, 0.12);
+    --tone-amber: #B45309;  --tone-amber-bg: rgba(245, 158, 11, 0.12);
+    --tone-blue: #1D4ED8;   --tone-blue-bg: rgba(59, 130, 246, 0.12);
+    --tone-green: #15803D;  --tone-green-bg: rgba(34, 197, 94, 0.12);
+    --tone-pink: #BE185D;   --tone-pink-bg: rgba(236, 72, 153, 0.12);
 }

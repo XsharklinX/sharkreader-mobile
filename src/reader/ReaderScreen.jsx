@@ -873,9 +873,15 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
 
     // La interfaz del lector se adapta al tema de lectura: en sepia o papel una
     // barra oscura encima del texto claro sería un golpe visual.
-    const chromeVars = palette.ui === 'light'
-        ? { '--chrome-bg': 'rgba(255,255,255,.94)', '--chrome-text': '#1A1A1A' }
-        : { '--chrome-bg': 'rgba(18,23,29,.94)', '--chrome-text': '#F2F6F9' };
+    //
+    // Los colores salen del propio tema y no de dos parejas escritas a mano: las
+    // que había venían de la paleta anterior, así que desde el cambio de tokens el
+    // chrome se pintaba con grises que ya no eran de ningún tema. `color-mix` los
+    // saca del fondo y del texto de la página, que es de donde tienen que salir.
+    const chromeVars = {
+        '--chrome-bg': `color-mix(in srgb, ${palette.bg} 94%, transparent)`,
+        '--chrome-text': palette.text,
+    };
 
     return (
         <div
