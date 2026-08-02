@@ -2810,3 +2810,73 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 }
 
 .avatar-option.on { border-color: var(--accent); }
+
+
+/* ── Selección múltiple ──────────────────────────────────────────────────────
+ *
+ * Ver `selection.js` y `SelectionBar.jsx`. La barra sustituye a la cabecera en vez
+ * de aparecer debajo: el modo cambia lo que hace tocar una portada, y con la
+ * cabecera de siempre la pantalla parecería la de siempre.
+ */
+.sel-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+    width: 100%;
+}
+
+.sel-txt {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    background: none;
+    border: 0;
+    text-align: left;
+    padding: 0 var(--sp-2);
+    font-size: var(--t-small);
+    font-weight: 600;
+    color: var(--text);
+}
+.sel-txt b {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    color: var(--text-3);
+}
+
+.sel-bar .icon-btn.danger { color: var(--risk); }
+
+/* Al confirmar el borrado la barra entera cambia de tono: es la única acción de
+   la biblioteca que no se puede deshacer. */
+.sel-bar.peligro { gap: var(--sp-2); padding-right: var(--sp-1); }
+.sel-bar.peligro .sel-txt { color: var(--risk); }
+.sel-bar.peligro .btn { min-height: 36px; padding: 0 var(--sp-3); font-size: var(--t-small); }
+
+/* La marca sobre la portada. En una rejilla de tres columnas no hay sitio para
+   una casilla al lado, y la esquina superior es donde ya se mira. */
+.sel-marca {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    z-index: 2;
+    width: 21px;
+    height: 21px;
+    border-radius: var(--r-full);
+    display: grid;
+    place-items: center;
+    background: var(--accent);
+    color: var(--accent-ink);
+}
+
+/* El libro elegido se hunde un poco y se enmarca: el marco solo no basta cuando
+   la portada ya tiene un borde claro. */
+.book.elegido .cover,
+.fila-libro.elegido .cover {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+.book.elegido { opacity: 0.94; }
+.fila-libro.elegido { background: var(--accent-soft); }

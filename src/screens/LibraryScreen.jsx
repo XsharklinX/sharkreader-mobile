@@ -9,6 +9,8 @@ import ContentResults from '../library/ContentResults.jsx';
 import Bookshelf from '../library/Bookshelf.jsx';
 import BookRow from '../library/BookRow.jsx';
 import { LIBRARY_VIEWS, normalizeView, agrupar } from '../library/views.js';
+import { alternar, alternarTodo, podar, accionesPara, cambiosDe } from '../library/selection.js';
+import SelectionBar from '../library/SelectionBar.jsx';
 import Loading from '../ui/Loading.jsx';
 import CatalogScreen from '../catalog/CatalogScreen.jsx';
 import { useContentIndex } from '../library/useContentIndex.js';
@@ -17,6 +19,7 @@ import {
     IconCloud, IconMenu,
 } from '../ui/icons.jsx';
 import SideMenu from '../ui/SideMenu.jsx';
+import { useBackHandler } from '../ui/useBackHandler.js';
 
 export default function LibraryScreen({ library, stats: statsApi, onOpenBook, onGoToSettings, onNavigate }) {
     const { books, status, error, importing, importFiles, importFolder, clearError } = library;
@@ -51,6 +54,22 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
     const [catalogOpen, setCatalogOpen] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
 
+    // ── Selección múltiple ───────────────────────────────────────────────────
+    //
+    // Se entra con una pulsación larga y se sale con atrás. Mientras dura, tocar
+    // una portada marca en vez de abrir: en modo selección, abrir un libro sin
+    // querer y perder lo marcado es más molesto que tener que salir del modo.
+    const [seleccion, setSeleccion] = useState(() => new Set());
+    const seleccionando = seleccion.size > 0;
+
+    // Atrás sale de la selección antes que de la app. Es la salida que busca
+    // cualquiera que entre sin querer con una pulsación larga.
+    useBackHandler(() => {
+        if (!seleccionando) return false;
+        setSeleccion(new Set());
+        return true;
+    }, seleccionando);
+
     const browsing = Boolean(query.trim()) || filter !== 'all';
 
     /**
@@ -71,6 +90,17 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
         ));
     };
 
+    /**
+     * La pulsación larga abre la ficha, salvo que ya se esté seleccionando.
+     *
+     * Con el modo activo tiene que marcar: entrar en la ficha de un libro cuando
+     * llevas ocho elegidos rompe la tarea a la mitad.
+     */
+    const pulsacionLarga = (book) => {
+        if (seleccionando) setSeleccion((actual) => alternar(actual, book.id));
+        else setSeleccion(new Set([book.id]));
+    };
+
     const pintarVista = (list) => {
         if (view === 'shelf') {
             return (
@@ -78,7 +108,7 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                     books={list}
                     width={typeof window === 'undefined' ? 0 : window.innerWidth}
                     onOpen={openBook}
-                    onLongPress={setDetail}
+                    onLongPress={pulsacionLarga}
                 />
             );
         }
@@ -87,7 +117,13 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
             return (
                 <div className="lista-libros">
                     {list.map((book) => (
-                        <BookRow key={book.id} book={book} onOpen={openBook} onLongPress={setDetail} />
+                        <BookRow
+                            key={book.id}
+                            book={book}
+                            onOpen={openBook}
+                            onLongPress={pulsacionLarga}
+                            seleccionado={seleccion.has(book.id)}
+                        />
                     ))}
                 </div>
             );
@@ -100,7 +136,8 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                         key={book.id}
                         book={book}
                         onOpen={openBook}
-                        onLongPress={setDetail}
+                        onLongPress={pulsacionLarga}
+                        seleccionado={seleccion.has(book.id)}
                         // En compacta la cubierta va sola: el título y el autor a
                         // cuatro por fila salen a siete píxeles, que no es texto,
                         // es textura.
@@ -160,6 +197,34 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
         [books, query, filter, sort]
     );
 
+    // Lo seleccionado que deja de verse se descarta. Ver `podar`: si no, al
+    // cambiar de filtro seguiría contando en «12 seleccionados» y se borraría con
+    // el resto sin que nadie lo haya visto.
+    useEffect(() => {
+        setSeleccion((actual) => (actual.size ? podar(actual, visible) : actual));
+    }, [visible]);
+
+    const librosSeleccionados = useMemo(
+        () => books.filter((book) => seleccion.has(book.id)),
+        [books, seleccion]
+    );
+
+    const aplicarAccion = async (accion) => {
+        for (const { id, cambios } of cambiosDe(librosSeleccionados, accion)) {
+            await library.updateBook(id, cambios);
+        }
+        setSeleccion(new Set());
+    };
+
+    const borrarSeleccion = async () => {
+        for (const book of librosSeleccionados) {
+            await library.removeBook(book.id);
+        }
+        setNotice(`${librosSeleccionados.length} libros borrados.`);
+        setTimeout(() => setNotice(null), 4500);
+        setSeleccion(new Set());
+    };
+
     // El libro activo es el último tocado que no esté terminado.
     const current = useMemo(
         () => books
@@ -188,6 +253,11 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
      * biblioteca sin forma de abrir nada.
      */
     const openBook = (book) => {
+        if (seleccionando) {
+            setSeleccion((actual) => alternar(actual, book.id));
+            return;
+        }
+
         if (!book.sourcePath) {
             // Un libro que vino de un backup no trae el fichero. Decirlo es
             // mejor que no reaccionar al toque.
@@ -239,6 +309,17 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
 
     return (
         <div className="screen">
+            {seleccionando ? (
+                <header className="head topbar">
+                    <SelectionBar
+                        libros={librosSeleccionados}
+                        onAccion={aplicarAccion}
+                        onBorrar={borrarSeleccion}
+                        onTodo={() => setSeleccion((actual) => alternarTodo(actual, visible))}
+                        onCerrar={() => setSeleccion(new Set())}
+                    />
+                </header>
+            ) : (
             <header className="head topbar">
                 {searching ? (
                     <div className="search" style={{ flex: 1 }}>
@@ -315,6 +396,7 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                     </>
                 )}
             </header>
+            )}
 
             {showSort && (
                 <div className="section">

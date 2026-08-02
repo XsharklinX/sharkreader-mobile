@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import Cover from './Cover.jsx';
+import { IconCheck } from '../ui/icons.jsx';
 import { estimateRemaining, formatMinutes } from '../stats/derive.js';
 
 const LONG_PRESS_MS = 450;
@@ -19,7 +20,7 @@ const MOVE_TOLERANCE = 12;
  * comparar de arriba abajo sin leerlos: en una columna de cifras, el ojo compara
  * longitudes antes que números.
  */
-export default function BookRow({ book, onOpen, onLongPress }) {
+export default function BookRow({ book, onOpen, onLongPress, seleccionado = false }) {
     const done = Math.round((book.progress || 0) * 100);
     const restante = estimateRemaining(book);
 
@@ -62,14 +63,18 @@ export default function BookRow({ book, onOpen, onLongPress }) {
     return (
         <button
             type="button"
-            className="fila-libro"
+            className={`fila-libro${seleccionado ? ' elegido' : ''}`}
             onPointerDown={startPress}
             onPointerUp={endPress}
             onPointerCancel={clearTimer}
             onPointerLeave={clearTimer}
             aria-label={`${book.name}, de ${book.author}, ${done}% leído`}
         >
-            <Cover book={book} className="fila-cover" />
+            <Cover book={book} className="fila-cover">
+                {seleccionado && (
+                    <span className="sel-marca" aria-hidden="true"><IconCheck size={11} /></span>
+                )}
+            </Cover>
 
             <span className="fila-txt">
                 <span className="fila-nombre">{book.name}</span>

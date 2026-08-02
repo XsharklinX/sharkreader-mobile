@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { IconStar } from '../ui/icons.jsx';
+import { IconStar, IconCheck } from '../ui/icons.jsx';
 import Cover from './Cover.jsx';
 
 const LONG_PRESS_MS = 450;
@@ -12,7 +12,7 @@ const MOVE_TOLERANCE = 12;
  * aparte: se lee de un vistazo al recorrer la biblioteca y deja la altura de
  * todas las tarjetas igual, que es lo que hace que una rejilla se vea ordenada.
  */
-export default function BookCard({ book, onOpen, onLongPress, soloPortada = false }) {
+export default function BookCard({ book, onOpen, onLongPress, soloPortada = false, seleccionado = false }) {
     const done = Math.round((book.progress || 0) * 100);
     const cover = book.coverUrl || book.coverBase64;
 
@@ -52,7 +52,7 @@ export default function BookCard({ book, onOpen, onLongPress, soloPortada = fals
     return (
         <button
             type="button"
-            className="book"
+            className={`book${seleccionado ? ' elegido' : ''}`}
             onPointerDown={startPress}
             onPointerUp={endPress}
             onPointerCancel={clearTimer}
@@ -60,6 +60,13 @@ export default function BookCard({ book, onOpen, onLongPress, soloPortada = fals
             aria-label={`${book.name}, de ${book.author}, ${done}% leído`}
         >
             <Cover book={book} className="book-cover">
+                {/* La marca de selección va sobre la portada y no al lado: en una
+                    rejilla de tres columnas no hay sitio para una casilla aparte, y
+                    encima la esquina es donde ya se mira. */}
+                {seleccionado && (
+                    <span className="sel-marca" aria-hidden="true"><IconCheck size={13} /></span>
+                )}
+
                 {/* Solo el favorito. Lo de «terminado» lo dice la cinta de abajo, y
                     marcar la portada por arriba y por abajo para decir lo mismo deja
                     la ilustración con dos parches. */}
