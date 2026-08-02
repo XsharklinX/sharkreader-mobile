@@ -1,8 +1,10 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useBackHandler } from './useBackHandler.js';
 import {
-    IconChart, IconSettings, IconCloud, IconTrophy, IconFolder, IconBook,
+    IconChart, IconSettings, IconCloud, IconTrophy, IconFolder, IconBook, IconFlame,
 } from './icons.jsx';
+import StreakSheet from '../stats/StreakSheet.jsx';
+import { estadoDeHoy } from '../stats/streak.js';
 import { resolveSheetDrag } from './sheetDrag.js';
 
 /**
@@ -80,7 +82,14 @@ const DESTINOS = [
 ];
 
 export default function SideMenu({ stats, books = [], onNavigate, onClose }) {
-    useBackHandler(() => { onClose(); return true; }, true);
+    const [rachaAbierta, setRachaAbierta] = useState(false);
+
+    // El atrás cierra primero la racha y luego el cajón, no los dos de golpe.
+    useBackHandler(() => {
+        if (rachaAbierta) { setRachaAbierta(false); return true; }
+        onClose();
+        return true;
+    }, true);
 
     const panelRef = useRef(null);
     const dragRef = useRef(null);
@@ -122,6 +131,7 @@ export default function SideMenu({ stats, books = [], onNavigate, onClose }) {
     const finished = books.filter((book) => book.isFinished).length;
     const logros = stats?.achievements ? Object.keys(stats.achievements).length : 0;
     const perfil = stats?.preferences?.profile || {};
+    const hoyEncendido = estadoDeHoy(stats?.stats || {}).encendida;
 
     const go = (target) => { onNavigate(target); onClose(); };
 
@@ -164,6 +174,27 @@ export default function SideMenu({ stats, books = [], onNavigate, onClose }) {
 
                     <p className="side-name">{perfil.name || 'Tu biblioteca'}</p>
 
+                    {/* La llama, junto al nombre.
+                        
+                        Es el único dato de la app que caduca: mañana vale otra
+                        cosa, y si no lo ves hoy lo pierdes. Por eso va donde
+                        siempre se mira —al lado de quién eres— y no enterrado en
+                        una pantalla de estadísticas a la que se entra queriendo.
+                        
+                        Se enciende solo cuando el día ya cuenta. Una llama
+                        encendida a todas horas no significaría nada; apagada es
+                        exactamente el recordatorio que hace falta. */}
+                    <button
+                        type="button"
+                        className={`side-racha${hoyEncendido ? ' viva' : ''}`}
+                        onClick={() => setRachaAbierta(true)}
+                        aria-label={`Racha de ${streak} ${streak === 1 ? 'día' : 'días'}. Ver detalles`}
+                    >
+                        <IconFlame size={16} />
+                        <b>{streak}</b>
+                        <span>{streak === 1 ? 'día' : 'días'}</span>
+                    </button>
+
                     {level && (
                         <>
                             <p className="side-level">
@@ -182,15 +213,11 @@ export default function SideMenu({ stats, books = [], onNavigate, onClose }) {
                     )}
                 </header>
 
-                {/* ── Tres cifras ──────────────────────────────────────────────
-                    Racha, minutos y libros terminados. Están aquí porque son la
-                    respuesta a «¿voy bien?», y esa pregunta se hace al abrir la
-                    app, no entrando en una pantalla de estadísticas. */}
-                <div className="side-cifras">
-                    <span className="side-cifra">
-                        <b>{streak}</b>
-                        <i>{streak === 1 ? 'día' : 'días'}</i>
-                    </span>
+                {/* ── Dos cifras ───────────────────────────────────────────────
+                    Minutos y libros terminados. La racha estaba aquí y se ha ido
+                    arriba con su llama: repetirla en la misma pantalla gastaba un
+                    hueco de tres para decir dos veces lo mismo. */}
+                <div className="side-cifras dos">
                     <span className="side-cifra">
                         <b>{minutes}</b>
                         <i>minutos</i>
@@ -223,6 +250,10 @@ export default function SideMenu({ stats, books = [], onNavigate, onClose }) {
 
                 <p className="side-pie">SharkReader · tu biblioteca, en tu bolsillo</p>
             </aside>
+
+            {rachaAbierta && (
+                <StreakSheet stats={stats?.stats} onClose={() => setRachaAbierta(false)} />
+            )}
         </div>
     );
 }

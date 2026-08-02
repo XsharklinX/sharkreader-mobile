@@ -597,6 +597,31 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 }
 .side-xp i { display: block; height: 100%; background: var(--accent); border-radius: var(--r-full); }
 
+/* La llama de la racha, junto al nombre. Ver `SideMenu.jsx`: apagada mientras el
+   día no cuente, que es cuando el recordatorio sirve de algo. */
+.side-racha {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: var(--sp-3);
+    padding: 5px 11px 5px 9px;
+    border-radius: var(--r-full);
+    border: 1px solid var(--line-strong);
+    background: var(--sf-3);
+    color: var(--text-3);
+    min-height: 34px;
+}
+.side-racha b { font-family: var(--font-title); font-size: var(--t-heading); font-weight: 700; color: var(--text); }
+.side-racha span { font-family: var(--font-mono); font-size: var(--t-micro); letter-spacing: 0.06em; text-transform: uppercase; }
+.side-racha:active { background: var(--sf-2); }
+
+.side-racha.viva {
+    border-color: color-mix(in srgb, var(--warn) 50%, transparent);
+    background: color-mix(in srgb, var(--warn) 14%, transparent);
+    color: var(--warn);
+}
+.side-racha.viva b { color: var(--warn); }
+
 .side-xp-txt {
     font-family: var(--font-mono);
     font-size: var(--t-micro);
@@ -611,6 +636,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     grid-template-columns: repeat(3, 1fr);
     border-bottom: 1px solid var(--line);
 }
+.side-cifras.dos { grid-template-columns: repeat(2, 1fr); }
 
 .side-cifra {
     display: flex;
