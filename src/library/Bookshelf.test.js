@@ -2,15 +2,17 @@ import { describe, it, expect } from 'vitest';
 import { shelfColumns, intoShelves } from './Bookshelf.jsx';
 
 describe('shelfColumns', () => {
-    it('tres en un móvil estrecho', () => {
-        // Con cuatro, la portada baja de los 80 px y el título de la cubierta
-        // deja de leerse, que es medio sentido de una portada.
-        expect(shelfColumns(360)).toBe(3);
-        expect(shelfColumns(392)).toBe(3);
+    it('cuatro en un móvil normal', () => {
+        // Cabían tres cuando debajo de cada libro iban el título y el autor. Sin
+        // ese texto la portada puede ser más estrecha y seguir reconociéndose, y
+        // un anaquel de cuatro se parece más a una estantería que uno de tres.
+        expect(shelfColumns(360)).toBe(4);
+        expect(shelfColumns(392)).toBe(4);
+        expect(shelfColumns(430)).toBe(4);
     });
 
-    it('cuatro en un móvil ancho', () => {
-        expect(shelfColumns(430)).toBe(4);
+    it('tres solo en pantallas muy estrechas', () => {
+        expect(shelfColumns(320)).toBe(3);
     });
 
     it('más en tablet, para no dejar portadas gigantes', () => {

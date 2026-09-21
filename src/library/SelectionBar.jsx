@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { accionesPara } from './selection.js';
-import { IconClose, IconCheck, IconStar, IconTrash } from '../ui/icons.jsx';
+import { IconClose, IconCheck, IconStar, IconTrash, IconBook } from '../ui/icons.jsx';
 
 /**
  * La barra que sustituye a la cabecera mientras hay libros marcados.
@@ -12,13 +12,23 @@ import { IconClose, IconCheck, IconStar, IconTrash } from '../ui/icons.jsx';
  * distinto de lo que se espera. Cambiar la barra entera es lo que dice «ahora esto
  * funciona de otra manera».
  *
+ * ## La ficha, cuando hay uno solo
+ *
+ * La pulsación larga abría la ficha del libro y ahora entra en selección, así que
+ * la ficha se quedó sin puerta. Vuelve aquí, pero **solo con un libro marcado**:
+ * es la única situación en la que «ver información» significa algo — con ocho
+ * elegidos no hay una ficha que enseñar.
+ *
+ * Y encaja con el gesto: mantener pulsado deja ese libro marcado, y el botón de
+ * información aparece justo encima. Son los mismos dos toques de antes.
+ *
  * ## El borrado pide confirmación aquí mismo
  *
  * Y no en un diálogo del sistema: el número de libros que se van a borrar tiene
  * que estar delante en el momento de confirmar. Un «¿Seguro?» sin la cifra es
  * exactamente cómo se borran veinte libros queriendo borrar dos.
  */
-export default function SelectionBar({ libros, onAccion, onBorrar, onTodo, onCerrar }) {
+export default function SelectionBar({ libros, onAccion, onBorrar, onTodo, onFicha, onCerrar }) {
     const [confirmando, setConfirmando] = useState(false);
     const acciones = accionesPara(libros);
     const total = libros.length;
@@ -50,6 +60,21 @@ export default function SelectionBar({ libros, onAccion, onBorrar, onTodo, onCer
                 {total} {total === 1 ? 'seleccionado' : 'seleccionados'}
                 <b>Tocar para marcar todo</b>
             </button>
+
+            {/* Solo con uno marcado: con ocho elegidos no hay una ficha que
+                enseñar, y un botón que a veces no hace nada es peor que uno que
+                aparece cuando sirve. */}
+            {total === 1 && (
+                <button
+                    type="button"
+                    className="icon-btn"
+                    onClick={() => onFicha?.(libros[0])}
+                    aria-label={`Información de ${libros[0].name}`}
+                    title="Información"
+                >
+                    <IconBook size={20} />
+                </button>
+            )}
 
             <button
                 type="button"

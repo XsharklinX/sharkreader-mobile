@@ -316,6 +316,7 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                         onAccion={aplicarAccion}
                         onBorrar={borrarSeleccion}
                         onTodo={() => setSeleccion((actual) => alternarTodo(actual, visible))}
+                        onFicha={(book) => { setDetail(book); setSeleccion(new Set()); }}
                         onCerrar={() => setSeleccion(new Set())}
                     />
                 </header>
@@ -556,6 +557,82 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                         }}
                     />
                 </>
+            )}
+
+            {menuOpen && (
+                <SideMenu
+                    stats={statsApi}
+                    books={books}
+                    onNavigate={(target) => {
+                        if (target === 'catalog') setCatalogOpen(true);
+                        else if (target === 'import-folder') runImport('folder');
+                        else if (target === 'import-files') runImport('files');
+                        else onNavigate?.(target);
+                    }}
+                    onClose={() => setMenuOpen(false)}
+                />
+            )}
+
+            {catalogOpen && (
+                <div className="overlay-screen">
+                    <CatalogScreen
+                        onImport={library.importDownloaded}
+                        onClose={() => setCatalogOpen(false)}
+                    />
+                </div>
+            )}
+
+            {importChoice && (
+                <div className="scrim" onClick={() => setImportChoice(false)} role="presentation">
+                    <section
+                        className="sheet"
+                        onClick={(event) => event.stopPropagation()}
+                        role="dialog"
+                        aria-label="Añadir libros"
+                    >
+                        <span className="grip" aria-hidden="true" />
+                        <h2 className="section-title">Añadir a la biblioteca</h2>
+                        <div className="rows">
+                            <button
+                                type="button"
+                                className="row"
+                                onClick={() => { setImportChoice(false); runImport('files'); }}
+                            >
+                                <span className="row-icon"><IconBook size={20} /></span>
+                                <span className="row-txt">
+                                    <span>Elegir libros</span>
+                                    <span className="row-sub">Uno o varios ficheros sueltos</span>
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                className="row"
+                                onClick={() => { setImportChoice(false); setCatalogOpen(true); }}
+                            >
+                                <span className="row-icon"><IconCloud size={20} /></span>
+                                <span className="row-txt">
+                                    <span>Desde un catálogo</span>
+                                    <span className="row-sub">Tu servidor de Calibre u otro catálogo OPDS</span>
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                className="row"
+                                onClick={() => { setImportChoice(false); runImport('folder'); }}
+                            >
+                                <span className="row-icon"><IconFolder size={20} /></span>
+                                <span className="row-txt">
+                                    <span>Importar una carpeta</span>
+                                    <span className="row-sub">Todos los libros que contenga, subcarpetas incluidas</span>
+                                </span>
+                            </button>
+                        </div>
+                        <p className="option-desc">
+                            EPUB, PDF, CBZ, TXT y Markdown. Los ficheros se copian dentro de la
+                            app, así que siguen funcionando aunque muevas los originales.
+                        </p>
+                    </section>
+                </div>
             )}
 
             {detail && (

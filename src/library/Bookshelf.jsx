@@ -29,9 +29,11 @@ import BookCard from './BookCard.jsx';
 export const shelfColumns = (width) => {
     if (width >= 900) return 6;
     if (width >= 600) return 5;
-    // Tres en un móvil: con cuatro, la portada baja de los 80 px y el título de
-    // la cubierta deja de leerse, que es medio sentido de una portada.
-    return width >= 420 ? 4 : 3;
+    // Cuatro en un móvil normal. Cabían tres cuando debajo de cada libro iban el
+    // título y el autor; sin ese texto la portada puede ser más estrecha y aun así
+    // reconocerse, y un anaquel de cuatro se parece más a una estantería que uno
+    // de tres.
+    return width >= 360 ? 4 : 3;
 };
 
 /** Reparte los libros en anaqueles del tamaño dado. */
