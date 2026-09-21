@@ -75,11 +75,34 @@ describe('temas', () => {
         });
     });
 
-    it('neutraliza los colores incrustados del libro', () => {
+    const SELECTOR_TEXTO = 'p, div, span, li, td, th, blockquote, section, article, figure';
+
+    it('en un tema claro respeta los colores que trae el libro', () => {
+        // Un EPUB se compone para papel: sus colores están elegidos contra fondo
+        // claro. Pisarlos borraba las versalitas y los títulos que compuso la
+        // editorial — comparado con Moon+, ahí se ven en granate y aquí salían
+        // todos del mismo gris.
         const styles = buildReaderStyles(DEFAULT_TYPOGRAPHY, 'sepia');
-        const forced = styles['p, div, span, li, td, th, blockquote, section, article, figure'];
-        expect(forced['background-color']).toBe('transparent !important');
-        expect(forced.color).toBe(`${READER_THEMES.sepia.text} !important`);
+        const forced = styles[SELECTOR_TEXTO];
+        expect(forced.color).toBeUndefined();
+        expect(styles['h1, h2, h3, h4, h5, h6'].color).toBeUndefined();
+    });
+
+    it('en un tema oscuro sí los impone', () => {
+        // Ahí esos mismos colores son una trampa: un rojo oscuro sobre negro no
+        // se lee, y un libro con `color: #000` fijo desaparece.
+        const styles = buildReaderStyles(DEFAULT_TYPOGRAPHY, 'dark');
+        const forced = styles[SELECTOR_TEXTO];
+        expect(forced.color).toBe(`${READER_THEMES.dark.text} !important`);
+    });
+
+    it('el fondo del libro se neutraliza en los dos casos', () => {
+        // Un recuadro blanco puro sobre papel crema se ve como un parche, y es lo
+        // único que rompe la textura de la hoja.
+        ['sepia', 'dark'].forEach((tema) => {
+            const forced = buildReaderStyles(DEFAULT_TYPOGRAPHY, tema)[SELECTOR_TEXTO];
+            expect(forced['background-color'], tema).toBe('transparent !important');
+        });
     });
 
     it('un tema desconocido cae al oscuro en vez de romper', () => {

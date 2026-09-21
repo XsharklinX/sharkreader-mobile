@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HIGHLIGHT_SWATCHES, HIGHLIGHT_LABEL_DEFAULTS } from './annotations.js';
+import { HIGHLIGHT_SWATCHES, HIGHLIGHT_LABEL_DEFAULTS, HIGHLIGHT_STYLES } from './annotations.js';
 import { isLookupable } from './dictionary.js';
 
 /**
@@ -9,7 +9,7 @@ import { isLookupable } from './dictionary.js';
  * contextual con cuadraditos de 16 px funciona porque hay puntero; aquí cada
  * opción tiene que ser un objetivo cómodo para el pulgar.
  */
-export default function SelectionToolbar({ text, onHighlight, onCancel, onCopy, onLookup, onQuote, onCite }) {
+export default function SelectionToolbar({ text, onHighlight, onCancel, onCopy, onLookup, onQuote, onCite, estilo = 'fill', onEstilo }) {
     const [writing, setWriting] = useState(false);
     const [comment, setComment] = useState('');
     const [color, setColor] = useState('yellow');
@@ -65,6 +65,30 @@ export default function SelectionToolbar({ text, onHighlight, onCancel, onCopy, 
         <div className="selbar" role="dialog" aria-label="Acciones de selección">
             <blockquote className="selbar-quote">{text}</blockquote>
 
+            {/* La forma de marcar, antes que el color.
+
+                Con cinco colores y tres formas hay quince marcas distinguibles;
+                solo con colores hay cinco y hay que acordarse de qué significaba
+                cada uno. La forma va primero porque es lo que se decide antes: se
+                elige subrayar o tachar, y luego de qué color. */}
+            {onEstilo && (
+                <div className="formas" role="group" aria-label="Forma de la marca">
+                    {Object.entries(HIGHLIGHT_STYLES).map(([id, forma]) => (
+                        <button
+                            key={id}
+                            type="button"
+                            className={`forma forma-${id}${estilo === id ? ' on' : ''}`}
+                            onClick={() => onEstilo(id)}
+                            aria-pressed={estilo === id}
+                            aria-label={forma.label}
+                            title={forma.label}
+                        >
+                            Aa
+                        </button>
+                    ))}
+                </div>
+            )}
+
             <div className="swatches">
                 {Object.entries(HIGHLIGHT_SWATCHES).map(([id, swatch]) => (
                     <button
@@ -73,7 +97,7 @@ export default function SelectionToolbar({ text, onHighlight, onCancel, onCopy, 
                         className="swatch"
                         style={{ background: swatch }}
                         onClick={() => onHighlight(id, '')}
-                        aria-label={`Subrayar en ${HIGHLIGHT_LABEL_DEFAULTS[id].toLowerCase()}`}
+                        aria-label={`Marcar en ${HIGHLIGHT_LABEL_DEFAULTS[id].toLowerCase()}`}
                     />
                 ))}
             </div>

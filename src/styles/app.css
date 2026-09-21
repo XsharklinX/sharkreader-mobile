@@ -1132,7 +1132,71 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
    Lector
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* ── La página ───────────────────────────────────────────────────────────────
+ *
+ * Ver `typography.js`. El fondo de un tema claro no es un color plano: lleva
+ * grano, porque lo que hace que una hoja parezca una hoja es que la superficie
+ * **no sea uniforme**. Medido sobre Moon+, su papel oscila entre 220 y 237 de
+ * luminosidad; un color liso se lee como una pantalla pintada de crema.
+ *
+ * Va aquí, en el contenedor, y no dentro del iframe del libro: ahí pelearía con
+ * la paginación por columnas de epub.js — es el mismo motivo por el que ninguna
+ * regla puede tocar `html` o `body` del capítulo.
+ */
 .reader { position: fixed; inset: 0; overflow: hidden; background: var(--reader-bg, var(--bg)); }
+
+/* El grano va POR ENCIMA del texto, no debajo.
+ *
+ * El iframe del capítulo ocupa el visor entero y su  lleva el fondo del
+ * tema, opaco: una capa por debajo queda tapada y no se ve nunca — medido, el
+ * fondo salía con un rango de variación de cero.
+ *
+ * Encima y en multiplicado es además lo correcto: en el papel de verdad la fibra
+ * está delante de la tinta. Y el negro multiplicado sigue siendo negro, así que
+ * las letras no pierden definición.
+ */
+/* El grano.
+ *
+ * Generado, no una imagen: pesa lo que ocupa esta línea y no se pixela al
+ * escalar. Va en base64 porque sin codificar el WebView de Android falla en
+ * silencio con las comillas de dentro del `url()` — no da error, simplemente no
+ * pinta nada, que es como se descubrió.
+ *
+ * La intensidad va **dentro** del SVG y no como `opacity` del elemento:
+ * `opacity` crea un contexto de composición propio y entonces el
+ * `mix-blend-mode` ya no se mezcla con el fondo de la página. Es la misma
+ * trampa, y también falla sin avisar. */
+.reader.grano::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    mix-blend-mode: multiply;
+    z-index: 3;
+    background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxNjAnIGhlaWdodD0nMTYwJz48ZmlsdGVyIGlkPSdnJz48ZmVUdXJidWxlbmNlIHR5cGU9J2ZyYWN0YWxOb2lzZScgYmFzZUZyZXF1ZW5jeT0nMC44JyBudW1PY3RhdmVzPSc0JyBzdGl0Y2hUaWxlcz0nc3RpdGNoJy8+PGZlQ29sb3JNYXRyaXggdHlwZT0nc2F0dXJhdGUnIHZhbHVlcz0nMCcvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPScxNjAnIGhlaWdodD0nMTYwJyBmaWx0ZXI9J3VybCgjZyknIG9wYWNpdHk9JzAuNScvPjwvc3ZnPg==");
+}
+
+/* La viñeta: un oscurecimiento casi imperceptible en las esquinas. Es lo que
+   hace que la página se lea como una superficie con volumen y no como un
+   rectángulo de color. Muy suave a propósito — en cuanto se nota, molesta.
+
+   Va también por encima del iframe, por lo mismo que el grano. */
+.reader.grano::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    background: radial-gradient(120% 92% at 50% 50%, transparent 58%, rgba(72, 58, 38, .13) 100%);
+}
+
+/* En tinta electrónica, nada de esto. El grano es ruido que el panel tiene que
+   refrescar partícula a partícula, y la viñeta se convierte en una trama de
+   puntos porque no hay niveles intermedios que dar. */
+.reader.eink.grano::before,
+.reader.eink.grano::after { display: none; }
+
+
 
 /* El relleno de lectura va AQUÍ, en el contenedor, nunca dentro del iframe:
    epub.js calcula el ancho de columna con este elemento, y un padding dentro
@@ -1141,6 +1205,8 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     position: absolute;
     inset: 0;
     padding: calc(var(--safe-top) + 28px) var(--reader-margin, 20px) calc(var(--safe-bottom) + 34px);
+    /* Por encima del grano y de la viñeta, que son capas del contenedor. */
+    z-index: 2;
 }
 
 .reader-loading {

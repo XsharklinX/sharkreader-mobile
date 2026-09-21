@@ -23,12 +23,57 @@ const readableDate = (now = new Date()) => now.toLocaleDateString('es-ES', {
     day: '2-digit', month: '2-digit', year: 'numeric',
 });
 
-export const createHighlight = ({ cfi, text, color = 'yellow', comment = '' }) => ({
+/**
+ * Formas de marcar, además del color.
+ *
+ * Sirven para distinguir «importante» de «dudoso» sin gastar un color: con cinco
+ * colores y tres formas hay quince marcas distinguibles, y con solo colores hay
+ * cinco y hay que acordarse de qué significaba cada uno.
+ *
+ * No hay onda. epub.js dibuja los subrayados como líneas SVG y una onda necesita
+ * un trazado propio; se puede, pero una onda mal hecha se ve como un subrayado
+ * tembloroso y es peor que no tenerla.
+ */
+export const HIGHLIGHT_STYLES = {
+    fill: { label: 'Relleno' },
+    underline: { label: 'Subrayado' },
+    strike: { label: 'Tachado' },
+};
+
+export const DEFAULT_HIGHLIGHT_STYLE = 'fill';
+
+/**
+ * El estilo de un subrayado guardado.
+ *
+ * Va **dentro** del JSON de `note`, junto al texto y el comentario, y no como
+ * campo suelto. El registro de una anotación es exactamente el del escritorio
+ * —`{ cfi, note, date, color, kind }`— y añadir una columna rompería que un
+ * backup pueda ir y venir entre las dos apps sin conversiones.
+ *
+ * Lo guardado antes de que esto existiera no tiene estilo, y eso es relleno: es
+ * lo único que había.
+ */
+export const highlightStyle = (annotation) => {
+    try {
+        const datos = JSON.parse(annotation?.note || '{}');
+        return HIGHLIGHT_STYLES[datos.style] ? datos.style : DEFAULT_HIGHLIGHT_STYLE;
+    } catch {
+        return DEFAULT_HIGHLIGHT_STYLE;
+    }
+};
+
+export const createHighlight = ({ cfi, text, color = 'yellow', comment = '', style = DEFAULT_HIGHLIGHT_STYLE }) => ({
     cfi,
     kind: 'highlight',
     color,
     date: readableDate(),
-    note: JSON.stringify({ text: String(text || '').slice(0, 2000), comment }),
+    note: JSON.stringify({
+        text: String(text || '').slice(0, 2000),
+        comment,
+        // El relleno no se guarda: es lo que se asume al leer, y escribirlo en
+        // cada subrayado engorda el backup para no decir nada.
+        ...(style !== DEFAULT_HIGHLIGHT_STYLE ? { style } : {}),
+    }),
 });
 
 export const createNote = ({ cfi, comment }) => ({

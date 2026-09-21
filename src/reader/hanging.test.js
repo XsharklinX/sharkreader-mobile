@@ -42,7 +42,9 @@ describe('estilos de puntuación colgada', () => {
     });
 
     it('saca el signo fuera de la caja de texto', () => {
-        const styles = buildReaderStyles({ hangingPunctuation: true }, 'dark');
+        // Sin sangría, el valor es negativo a secas. Con sangría los dos se suman
+        // en el mismo `text-indent` — lo comprueba la prueba de abajo.
+        const styles = buildReaderStyles({ hangingPunctuation: true, paragraphStyle: 'space' }, 'dark');
         expect(styles['.sr-hang-dash']['text-indent']).toBe('-0.62em !important');
         expect(styles['.sr-hang-quote']['text-indent']).toBe('-0.34em !important');
     });

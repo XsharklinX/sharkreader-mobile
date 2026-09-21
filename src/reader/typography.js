@@ -16,20 +16,36 @@
  * Las dos cosas juntas eran la causa del texto enorme y desbordado.
  */
 
+/**
+ * Los valores de partida componen como un libro, no como una web.
+ *
+ * Antes eran interlineado 1,6, párrafos separados por 0,7em de aire y sin
+ * sangría — la composición de un artículo en pantalla. Medido contra Moon+ en el
+ * mismo teléfono, eso enseñaba un 40 % menos de texto por pantalla: 38,6 px de
+ * alto de línea contra 28,3, y catorce líneas menos.
+ *
+ * Un libro impreso usa interlineado corto y sangría de primera línea, y por eso
+ * cabe el doble sin cansar: el ojo no salta huecos en blanco entre párrafos.
+ * Mezclar sangría **y** espacio es el error de composición más común, así que se
+ * elige uno — y el que hace que parezca un libro es la sangría.
+ */
 export const DEFAULT_TYPOGRAPHY = {
     fontFamily: 'literata',
     fontSize: 18,
-    lineHeight: 1.6,
-    margin: 20,
+    lineHeight: 1.38,
+    margin: 14,
     letterSpacing: 0,
     paragraphSpacing: 0.7,
     // 'space' separa párrafos con aire; 'indent' los pega y sangra la primera
     // línea, que es como está compuesto cualquier libro en papel.
-    paragraphStyle: 'space',
+    paragraphStyle: 'indent',
     // Idioma para la partición de palabras. 'auto' usa el que declare el EPUB,
     // que muchos declaran mal o no declaran.
     hyphenLang: 'auto',
-    justify: false,
+    // Justificado, que es como está compuesto cualquier libro. Solo se sostiene
+    // con guionado: sin partir palabras se abren ríos de espacio entre ellas, y
+    // por eso los dos van juntos y no por separado.
+    justify: true,
     hyphens: true,
     // 'paginated' (por defecto) o 'scrolled': hay quien prefiere desplazar
     // en vez de pasar página, y epub.js soporta las dos formas de flujo.
@@ -70,21 +86,32 @@ export const FONT_FAMILIES = [
 
 /** Presets de un toque, los mismos que en escritorio. */
 export const TYPOGRAPHY_PRESETS = {
+    /**
+     * El de por defecto, y el que compone como un libro impreso.
+     *
+     * Va primero porque es el que se quiere el 90 % de las veces. Los otros tres
+     * existen para casos concretos —vista cansada, pantalla pequeña, dislexia— y
+     * ninguno debería ser el punto de partida.
+     */
+    book: {
+        label: 'Libro',
+        values: { fontSize: 18, lineHeight: 1.38, margin: 14, letterSpacing: 0, paragraphSpacing: 0.7, justify: true, paragraphStyle: 'indent' },
+    },
     balanced: {
         label: 'Equilibrado',
-        values: { fontSize: 18, lineHeight: 1.6, margin: 20, letterSpacing: 0, paragraphSpacing: 0.7, justify: false },
+        values: { fontSize: 18, lineHeight: 1.6, margin: 20, letterSpacing: 0, paragraphSpacing: 0.7, justify: false, paragraphStyle: 'space' },
     },
     focus: {
         label: 'Enfoque',
-        values: { fontSize: 20, lineHeight: 1.9, margin: 32, letterSpacing: 0.2, paragraphSpacing: 1, justify: false },
+        values: { fontSize: 20, lineHeight: 1.9, margin: 32, letterSpacing: 0.2, paragraphSpacing: 1, justify: false, paragraphStyle: 'space' },
     },
     compact: {
         label: 'Compacto',
-        values: { fontSize: 16, lineHeight: 1.45, margin: 14, letterSpacing: 0, paragraphSpacing: 0.4, justify: true },
+        values: { fontSize: 16, lineHeight: 1.45, margin: 14, letterSpacing: 0, paragraphSpacing: 0.4, justify: true, paragraphStyle: 'indent' },
     },
     accessible: {
         label: 'Accesible',
-        values: { fontSize: 23, lineHeight: 2, margin: 20, letterSpacing: 0.5, paragraphSpacing: 1.2, justify: false },
+        values: { fontSize: 23, lineHeight: 2, margin: 20, letterSpacing: 0.5, paragraphSpacing: 1.2, justify: false, paragraphStyle: 'space' },
     },
 };
 
@@ -93,13 +120,37 @@ export const FONT_SIZE_MAX = 32;
 export const MARGIN_MIN = 0;
 export const MARGIN_MAX = 48;
 
+/**
+ * Los temas de lectura.
+ *
+ * ## Contraste
+ *
+ * Los textos eran grises azulados buscando suavidad, y el precio era definición:
+ * cada letra en un WebView se compone con suavizado en escala de grises, y sobre
+ * un gris de fondo eso se lee como texto lavado. Subidos, el rango va de 11 a 16
+ * en vez de 9 a 13 — comprobado en `temas.test.js`, no a ojo.
+ *
+ * ## Grano
+ *
+ * `grain` dice si el tema se pinta con textura de papel. Lo que hace que una
+ * página se vea como una hoja de verdad no es el color: es que el fondo **no sea
+ * uniforme**. Medido sobre Moon+, su papel oscila entre 220 y 237 de luminosidad.
+ *
+ * El grano lo pinta el contenedor del lector, fuera del iframe del libro — ver
+ * `reader-chrome.css`. Dentro pelearía con la paginación por columnas de epub.js.
+ */
 export const READER_THEMES = {
-    dark:  { label: 'Oscuro', bg: '#12171D', text: '#C9D3DB', link: '#6BB8E8', ui: 'dark' },
-    black: { label: 'Negro',  bg: '#000000', text: '#B4B4B4', link: '#5AA9DB', ui: 'dark' },
-    sepia: { label: 'Sepia',  bg: '#F3E9D6', text: '#4A3A26', link: '#8A5A20', ui: 'light' },
-    cream: { label: 'Crema',  bg: '#FBF7F0', text: '#2E2A24', link: '#7A5416', ui: 'light' },
-    paper: { label: 'Papel',  bg: '#FFFFFF', text: '#1A1A1A', link: '#1064A8', ui: 'light' },
-    night: { label: 'Noche',  bg: '#0F1B2A', text: '#A9BCCB', link: '#5FA8D8', ui: 'dark' },
+    dark:  { label: 'Oscuro', bg: '#12171D', text: '#E7ECF1', link: '#7CC6F0', ui: 'dark' },
+    black: { label: 'Negro',  bg: '#000000', text: '#E4E4E4', link: '#6FB9E8', ui: 'dark' },
+    sepia: { label: 'Sepia',  bg: '#EFE4CE', text: '#33291B', link: '#8A5A20', ui: 'light', grain: true },
+    cream: { label: 'Crema',  bg: '#F7F1E6', text: '#241F18', link: '#7A5416', ui: 'light', grain: true },
+    paper: { label: 'Papel',  bg: '#E9E5E2', text: '#101010', link: '#1064A8', ui: 'light', grain: true },
+    // Pergamino: el más cálido de los claros, para leer de día sin blanco.
+    parchment: { label: 'Pergamino', bg: '#E8DCC0', text: '#2E2517', link: '#7A5416', ui: 'light', grain: true },
+    night: { label: 'Noche',  bg: '#0F1B2A', text: '#CBD8E3', link: '#6FB2DE', ui: 'dark' },
+    // Noche cálida: negro con texto crema y sin una gota de azul. Es el que se
+    // usa de madrugada — el azul de los temas fríos es justo lo que despierta.
+    warmnight: { label: 'Noche cálida', bg: '#1A1815', text: '#D6CCBA', link: '#C9A227', ui: 'dark', grain: true },
     // Tinta electrónica: negro sobre blanco puros. En un panel reflectante el
     // contraste real ya es bajo de por sí, así que cualquier gris —de los que
     // en un móvil se agradecen— se vuelve ilegible. Aquí no se suaviza nada.
@@ -129,6 +180,49 @@ export const EINK_OVERRIDES = {
 
 const fontStack = (id) =>
     FONT_FAMILIES.find((font) => font.id === id)?.stack || FONT_FAMILIES[0].stack;
+
+/**
+ * Los valores de composición de antes de que la página se compusiera como un
+ * libro. Se guardan para poder reconocer quién nunca tocó nada.
+ */
+const COMPOSICION_ANTIGUA = {
+    lineHeight: 1.6,
+    margin: 20,
+    paragraphStyle: 'space',
+    justify: false,
+};
+
+/**
+ * Trae a un libro ya empezado la composición nueva — si nunca la tocó.
+ *
+ * Los ajustes de tipografía se guardan **por libro**, así que cambiar los valores
+ * de partida solo arregla los libros que se abran a partir de ahora. Un lector con
+ * ciento treinta y seis libros empezados no vería el cambio en ninguno, que es lo
+ * que pasó al probarlo: la página seguía con aire entre párrafos y sin sangría.
+ *
+ * La regla es la única defendible: **si coincide exactamente con lo que había por
+ * defecto, es que nadie lo eligió** — es un valor heredado, no una preferencia. Y
+ * si cambió aunque sea uno de los cuatro, se respeta todo, porque quien ajusta el
+ * interlineado a mano no quiere que se lo muevan.
+ */
+export const migrarComposicion = (guardada) => {
+    // Sin nada guardado no hay nada que migrar: los valores de partida ya son
+    // los nuevos.
+    if (!guardada) return guardada;
+
+    const sinTocar = Object.entries(COMPOSICION_ANTIGUA)
+        .every(([clave, valor]) => guardada[clave] === valor);
+
+    if (!sinTocar) return guardada;
+
+    return {
+        ...guardada,
+        lineHeight: DEFAULT_TYPOGRAPHY.lineHeight,
+        margin: DEFAULT_TYPOGRAPHY.margin,
+        paragraphStyle: DEFAULT_TYPOGRAPHY.paragraphStyle,
+        justify: DEFAULT_TYPOGRAPHY.justify,
+    };
+};
 
 export const clampFontSize = (value) =>
     Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, Math.round(value)));
@@ -189,14 +283,40 @@ export const buildReaderStyles = (typography, themeId) => {
      */
     const touchAction = settings.flow === 'scrolled' ? 'pan-y' : 'none';
 
-    // Muchos EPUB traen color y fondo incrustados en su CSS o en atributos en
-    // línea. Sin `!important` sobre los elementos concretos, un libro con fondo
-    // blanco fijo sigue saliendo blanco en modo oscuro.
-    const forceColors = {
-        'color': `${theme.text} !important`,
-        'background-color': 'transparent !important',
-        'background-image': 'none !important',
-    };
+    /**
+     * Cuándo se pisan los colores que trae el libro.
+     *
+     * Muchos EPUB llevan color incrustado en su CSS o en atributos en línea. Se
+     * pisaban **siempre**, con `!important` sobre cada elemento, y el precio era
+     * alto: las versalitas, los títulos de capítulo y los ornamentos que compuso
+     * la editorial desaparecían en gris. Comparado con Moon+ en el mismo libro,
+     * ahí se ven un «2» y un «VIN REACCIONÓ DE INMEDIATO» en granate; en el
+     * nuestro salía todo del mismo color.
+     *
+     * La distinción es de sentido común: **un EPUB se compone para papel**. Sus
+     * colores están elegidos contra un fondo claro, así que en un tema claro se
+     * respetan enteros y el libro se ve como lo pensó su editor.
+     *
+     * En un tema oscuro esos mismos colores son una trampa —un rojo oscuro sobre
+     * negro no se lee, y un libro con `color: #000` fijo desaparece— así que ahí
+     * sí se imponen. Quien quiera ver el libro tal cual lo compuso el editor tiene
+     * los cuatro temas claros, que es donde esos colores tienen sentido.
+     */
+    const respetarColoresDelLibro = theme.ui === 'light';
+
+    const forceColors = respetarColoresDelLibro
+        ? {
+            // Ni siquiera en claro se deja el fondo del libro: un recuadro blanco
+            // puro sobre papel crema se ve como un parche, y es lo único que
+            // rompe la textura de la hoja.
+            'background-color': 'transparent !important',
+            'background-image': 'none !important',
+        }
+        : {
+            'color': `${theme.text} !important`,
+            'background-color': 'transparent !important',
+            'background-image': 'none !important',
+        };
 
     return {
         'html': {
@@ -256,7 +376,9 @@ export const buildReaderStyles = (typography, themeId) => {
             },
         } : {}),
         'h1, h2, h3, h4, h5, h6': {
-            'color': `${theme.text} !important`,
+            // En claro no se toca: el color de un título de capítulo es una
+            // decisión de composición del editor, no un accidente.
+            ...(respetarColoresDelLibro ? {} : { 'color': `${theme.text} !important` }),
             'background': 'transparent !important',
             'line-height': '1.25 !important',
             'text-align': 'left !important',
@@ -278,7 +400,7 @@ export const buildReaderStyles = (typography, themeId) => {
             'white-space': 'pre-wrap !important',
             'overflow-wrap': 'break-word !important',
             'font-size': '.88em !important',
-            'color': `${theme.text} !important`,
+            ...(respetarColoresDelLibro ? {} : { 'color': `${theme.text} !important` }),
         },
         'table': {
             'display': 'block',

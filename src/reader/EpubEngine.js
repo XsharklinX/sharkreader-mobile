@@ -1,5 +1,6 @@
 import ePub from 'epubjs';
 import { SECTION_PAUSE_MS } from './locationMap.js';
+import { resolveHyphenLang } from './detectLanguage.js';
 
 /**
  * Envoltorio sobre epub.js.
@@ -98,7 +99,11 @@ export const createEpubEngine = () => {
             // colgado — no responde ni al toque ni al deslizamiento.
             if (gestureHandlers) this.registerContentHooks(gestureHandlers);
             if (fontCss) this.injectFonts(fontCss);
-            if (hyphenLang) this.setHyphenLanguage(hyphenLang);
+            // Se llama siempre, también con 'auto': resolverlo es su trabajo.
+            // Antes se saltaba el registro cuando el valor era 'auto' —que es el
+            // de por defecto— así que el guionado no se activaba nunca y el
+            // justificado salía con ríos.
+            this.setHyphenLanguage(hyphenLang);
 
             await rendition.display(startCfi || undefined);
             await book.ready;
@@ -271,15 +276,48 @@ export const createEpubEngine = () => {
          * está el texto, y muchos EPUB no declaran `lang` o lo declaran mal.
          * El resultado es un justificado lleno de ríos blancos.
          */
-        setHyphenLanguage(lang) {
-            if (!rendition || !lang || lang === 'auto') return;
+        setHyphenLanguage(preferido) {
+            if (!rendition) return;
+
+            // El idioma no cambia entre capítulos, así que se resuelve una vez y
+            // se reutiliza: recorrer el texto de cada capítulo para volver a
+            // llegar a la misma conclusión sería trabajo por nada.
+            let resuelto = null;
+
             rendition.hooks.content.register((contents) => {
-                const html = contents.document?.documentElement;
-                if (html) {
-                    html.setAttribute('lang', lang);
-                    html.setAttribute('xml:lang', lang);
+                const doc = contents.document;
+                const html = doc?.documentElement;
+                if (!html) return;
+
+                if (!resuelto) {
+                    resuelto = resolveHyphenLang({
+                        elegido: preferido,
+                        // Lo que declare el propio capítulo o el paquete del libro.
+                        declarado: html.getAttribute('lang')
+                            || html.getAttribute('xml:lang')
+                            || book?.packaging?.metadata?.language
+                            || '',
+                        // Un trozo basta: con treinta palabras ya decide, y leer el
+                        // capítulo entero de una novela son cientos de miles de
+                        // caracteres por nada.
+                        texto: (doc.body?.textContent || '').slice(0, 4000),
+                    });
                 }
+
+                // Sin idioma claro no se pone nada. Es mejor un justificado con
+                // ríos que un guionado que parte las palabras por donde no toca:
+                // lo primero se lee peor, lo segundo se lee mal.
+                if (!resuelto) return;
+
+                html.setAttribute('lang', resuelto);
+                html.setAttribute('xml:lang', resuelto);
             });
+        },
+
+        /** El idioma con el que se está guionando. Para poder enseñarlo. */
+        hyphenLanguage() {
+            const contents = [].concat(rendition?.getContents?.() || []);
+            return contents[0]?.document?.documentElement?.getAttribute('lang') || '';
         },
 
         /**
@@ -683,16 +721,33 @@ export const createEpubEngine = () => {
             });
         },
 
-        /** Pinta un subrayado. epub.js lo dibuja como overlay SVG sobre el texto. */
-        addHighlight(cfiRange, color, onClick) {
+        /**
+         * Pinta un subrayado. epub.js lo dibuja como overlay SVG sobre el texto.
+         *
+         * El relleno y el subrayado son dos primitivas distintas de epub.js. El
+         * tachado no existe: es el mismo subrayado subido a media altura con una
+         * clase, porque la línea se dibuja siempre en la base del texto.
+         */
+        addHighlight(cfiRange, color, onClick, style = 'fill') {
             if (!rendition || !cfiRange) return;
             try {
-                rendition.annotations.highlight(
+                if (style === 'fill') {
+                    rendition.annotations.highlight(
+                        cfiRange,
+                        {},
+                        () => onClick?.(cfiRange),
+                        `sr-hl-${color}`,
+                        { fill: color, 'fill-opacity': '0.32', 'mix-blend-mode': 'multiply' }
+                    );
+                    return;
+                }
+
+                rendition.annotations.underline(
                     cfiRange,
                     {},
                     () => onClick?.(cfiRange),
-                    `sr-hl-${color}`,
-                    { fill: color, 'fill-opacity': '0.32', 'mix-blend-mode': 'multiply' }
+                    `sr-hl-${style}`,
+                    { stroke: color, 'stroke-width': '2', 'stroke-opacity': '0.9' }
                 );
             } catch {
                 // Un CFI que ya no existe (libro reemplazado) no debe romper la vista.
@@ -700,7 +755,10 @@ export const createEpubEngine = () => {
         },
 
         removeHighlight(cfiRange) {
+            // Se intentan los dos tipos: al quitar una marca no se sabe con cuál
+            // se pintó, y pedir el que no es simplemente no encuentra nada.
             try { rendition?.annotations.remove(cfiRange, 'highlight'); } catch { /* ya no estaba */ }
+            try { rendition?.annotations.remove(cfiRange, 'underline'); } catch { /* ya no estaba */ }
         },
 
         /**
@@ -712,9 +770,37 @@ export const createEpubEngine = () => {
             try { rendition?.resize(); } catch { /* aún no hay vista */ }
         },
 
+        /**
+         * Cambia los estilos del libro.
+         *
+         * ## Por qué hay que borrar la hoja antes
+         *
+         * epub.js **acumula**. Su `addStylesheetRules` hace
+         * `insertRule(regla, cssRules.length)`: mete cada regla al final de la
+         * misma hoja y no quita nada. Cambiar de tema no sustituye el anterior,
+         * lo apila encima.
+         *
+         * Mientras todos los temas declaraban exactamente las mismas propiedades
+         * eso no se notaba —la última gana por orden—, pero en cuanto un tema
+         * deja de declarar una, se queda la del tema anterior. Pasando de oscuro
+         * a papel, el texto conservaba el color del oscuro: casi blanco sobre
+         * casi blanco, ilegible.
+         *
+         * La hoja de las fuentes es otra (`sr-fonts`), así que esto no se las
+         * lleva por delante.
+         */
         applyStyles(styles) {
             if (!rendition) return;
+
+            [].concat(rendition.getContents?.() || []).forEach((contents) => {
+                const doc = contents?.document;
+                if (!doc) return;
+                doc.querySelectorAll('[id^="epubjs-inserted-css"]')
+                    .forEach((hoja) => hoja.remove());
+            });
+
             rendition.themes.default(styles);
+
             // epub.js no repinta el iframe al cambiar el tema por sí solo.
             const current = rendition.currentLocation();
             const cfi = current?.start?.cfi;

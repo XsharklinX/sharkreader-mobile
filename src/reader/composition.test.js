@@ -52,8 +52,18 @@ describe('modo dislexia', () => {
 });
 
 describe('párrafos: sangría o espacio, nunca los dos', () => {
-    it('por defecto separa con espacio y no sangra', () => {
+    it('por defecto sangra y pega los párrafos, como un libro', () => {
+        // Medido contra Moon+ en el mismo teléfono: con aire entre párrafos se
+        // enseñaba un 40 % menos de texto por pantalla.
         const styles = buildReaderStyles(DEFAULT_TYPOGRAPHY, 'dark');
+        expect(styles.p['text-indent']).toContain('1.4em');
+        expect(styles.p.margin).toBe('0 !important');
+    });
+
+    it('con espacio, ni sangra ni pega', () => {
+        // El modo sigue existiendo para quien lo prefiera; lo que cambió es cuál
+        // es el punto de partida.
+        const styles = buildReaderStyles({ ...DEFAULT_TYPOGRAPHY, paragraphStyle: 'space' }, 'dark');
         expect(styles.p['text-indent']).toBe('0 !important');
         expect(styles.p.margin).toContain('em');
     });
@@ -73,7 +83,7 @@ describe('párrafos: sangría o espacio, nunca los dos', () => {
     });
 
     it('sin sangría no se genera esa regla, para no ensuciar la hoja', () => {
-        const styles = buildReaderStyles(DEFAULT_TYPOGRAPHY, 'dark');
+        const styles = buildReaderStyles({ ...DEFAULT_TYPOGRAPHY, paragraphStyle: 'space' }, 'dark');
         expect(styles['h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p, hr + p, blockquote + p']).toBeUndefined();
     });
 });

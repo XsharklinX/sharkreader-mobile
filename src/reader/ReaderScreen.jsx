@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createEpubEngine } from './EpubEngine.js';
 import { createGestureHandlers } from './useGestures.js';
-import { buildReaderStyles, DEFAULT_TYPOGRAPHY, READER_THEMES, EINK_OVERRIDES } from './typography.js';
+import { buildReaderStyles, DEFAULT_TYPOGRAPHY, READER_THEMES, EINK_OVERRIDES, migrarComposicion } from './typography.js';
 import { mapStatus, progressLabel } from './locationMap.js';
 import { createRefreshCounter, flashScreen, DEFAULT_REFRESH_EVERY } from './einkRefresh.js';
 import Loading from '../ui/Loading.jsx';
@@ -22,12 +22,13 @@ import SpeechBar from './SpeechBar.jsx';
 import SpeechSheet from './SpeechSheet.jsx';
 import { useSpeech } from './useSpeech.js';
 import { useAutoScroll } from './useAutoScroll.js';
+import { useReadingStatus } from './useReadingStatus.js';
 import DictionarySheet from './DictionarySheet.jsx';
 import { renderQuoteImage } from './quoteImage.js';
 import { shareImage } from '../library/backup.js';
 import {
     createHighlight, createBookmark, addAnnotation, removeAnnotation, HIGHLIGHT_SWATCHES,
-    updateHighlight, findAnnotation,
+    updateHighlight, findAnnotation, highlightStyle, DEFAULT_HIGHLIGHT_STYLE,
 } from './annotations.js';
 import { columnsFor, spreadValue, marginForColumns, SPREAD_MIN_WIDTH } from './spread.js';
 import { DEFAULT_GESTURE_GRID, normalizeGrid } from './gestureGrid.js';
@@ -58,6 +59,10 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     const [chrome, setChrome] = useState(false);
     const [panel, setPanel] = useState(null);
     const [selection, setSelection] = useState(null);
+    // La forma de marcar se recuerda dentro de la sesión: quien empieza a
+    // subrayar suele seguir subrayando, y volver a elegirla en cada marca
+    // convierte dos toques en tres.
+    const [estiloMarca, setEstiloMarca] = useState(DEFAULT_HIGHLIGHT_STYLE);
     const [toc, setToc] = useState([]);
     const [dim, setDim] = useState(0);
     // Filtro cálido: quitar azul es distinto de atenuar. De madrugada lo que
@@ -70,8 +75,14 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         chapterProgress: 0,
     });
 
+    // Un libro empezado antes trae guardada su composición. Si es exactamente la
+    // que había por defecto, nadie la eligió: se trae la nueva. Ver
+    // `migrarComposicion`.
     const [typography, setTypography] = useState(
-        () => ({ ...DEFAULT_TYPOGRAPHY, ...(book.readerPreferences?.typography || {}) })
+        () => ({
+            ...DEFAULT_TYPOGRAPHY,
+            ...(migrarComposicion(book.readerPreferences?.typography) || {}),
+        })
     );
     const [theme, setTheme] = useState(book.readerPreferences?.theme || 'dark');
     // Un libro empezado cuando había siete transiciones puede traer `curl` o
@@ -119,6 +130,11 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         [typography, effectiveTheme]
     );
     const palette = READER_THEMES[effectiveTheme] || READER_THEMES.dark;
+
+    // Hora y batería para la línea de estado. Solo se calculan con el chrome
+    // oculto, que es cuando esa línea existe: con la barra puesta la hora ya la
+    // enseña el sistema.
+    const { hora, bateria } = useReadingStatus(!chrome && state === 'ready');
 
     const progressRef = useRef(onProgress);
     progressRef.current = onProgress;
@@ -361,7 +377,8 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     .forEach((bookmark) => engine.addHighlight(
                         bookmark.cfi,
                         HIGHLIGHT_SWATCHES[bookmark.color] || HIGHLIGHT_SWATCHES.yellow,
-                        setEditing
+                        setEditing,
+                        highlightStyle(bookmark)
                     ));
 
                 engine.onSelected((cfiRange) => {
@@ -445,6 +462,25 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             StatusBar.setStyle({ style: appClara ? Style.Light : Style.Dark }).catch(() => {});
         };
     }, [effectiveTheme]);
+
+    /**
+     * Pantalla completa mientras se lee.
+     *
+     * Con el chrome oculto, la barra del sistema también se va: son 40 px de
+     * pantalla en los que no hay nada que leer, y con el texto justo debajo el
+     * ojo tropieza con la hora y la batería en cada salto de línea.
+     *
+     * Vuelve al sacar el chrome, y al salir del libro se restaura pase lo que
+     * pase — una app que se queda sin barra de estado parece colgada.
+     */
+    useEffect(() => {
+        if (state !== 'ready') return undefined;
+
+        if (chrome) StatusBar.show().catch(() => {});
+        else StatusBar.hide().catch(() => {});
+
+        return () => { StatusBar.show().catch(() => {}); };
+    }, [chrome, state]);
 
     useEffect(() => {
         if (state === 'ready') engineRef.current?.applyStyles(styles);
@@ -643,12 +679,14 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
 
     const highlightSelection = useCallback((color, comment) => {
         if (!selection) return;
-        const annotation = createHighlight({ cfi: selection.cfiRange, text: selection.text, color, comment });
+        const annotation = createHighlight({
+            cfi: selection.cfiRange, text: selection.text, color, comment, style: estiloMarca,
+        });
         onAnnotationsChange?.(addAnnotation(annotationsRef.current, annotation));
-        engineRef.current?.addHighlight(selection.cfiRange, HIGHLIGHT_SWATCHES[color], setEditing);
+        engineRef.current?.addHighlight(selection.cfiRange, HIGHLIGHT_SWATCHES[color], setEditing, estiloMarca);
         engineRef.current?.clearSelection();
         setSelection(null);
-    }, [selection, onAnnotationsChange]);
+    }, [selection, onAnnotationsChange, estiloMarca]);
 
     /**
      * Guarda los cambios de un subrayado existente.
@@ -663,7 +701,14 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         onAnnotationsChange?.(updateHighlight(annotationsRef.current, cfi, { color, comment }));
         const engine = engineRef.current;
         engine?.removeHighlight(cfi);
-        engine?.addHighlight(cfi, HIGHLIGHT_SWATCHES[color], setEditing);
+        // Se conserva la forma con la que se marcó: al cambiar el color no se
+        // está pidiendo cambiar de subrayado a relleno.
+        engine?.addHighlight(
+            cfi,
+            HIGHLIGHT_SWATCHES[color],
+            setEditing,
+            highlightStyle(findAnnotation(annotationsRef.current, cfi))
+        );
         setEditing(null);
     }, [editing, onAnnotationsChange]);
 
@@ -885,7 +930,10 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
 
     return (
         <div
-            className={`reader${eink ? ' eink' : ''}`}
+            // `grano` lo pide el propio tema. Ver READER_THEMES: los claros se
+            // pintan con textura de papel, los oscuros no — el grano sobre negro
+            // no se lee como fibra, se lee como ruido de sensor.
+            className={`reader${eink ? ' eink' : ''}${palette.grain ? ' grano' : ''}`}
             style={{
                 '--reader-bg': palette.bg,
                 '--reader-text': palette.text,
@@ -948,8 +996,29 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 </div>
             )}
 
-            {!chrome && location.page > 0 && !history.canGoBack && (
-                <span className="page-chip">{location.page} / {location.totalPages}</span>
+            {/* ── La línea de estado ───────────────────────────────────────
+                Batería, hora, capítulo y porcentaje, siempre visibles mientras se
+                lee. Antes aquí solo había «2 / 28» centrado.
+
+                Con la barra del sistema oculta, esto es lo único que dice qué hora
+                es. Mirar la hora es la interrupción más común de una sesión de
+                lectura, y hasta ahora costaba sacar el chrome. */}
+            {!chrome && state === 'ready' && !history.canGoBack && (
+                <div className="reader-estado" aria-hidden="true">
+                    <span className="re-izq">
+                        {bateria !== null && <b className="re-bat">{bateria}</b>}
+                        <span>{hora}</span>
+                    </span>
+
+                    <span className="re-centro">{location.chapter || ''}</span>
+
+                    <span className="re-der">
+                        {location.page > 0 && (
+                            <span>{location.page} / {location.totalPages}</span>
+                        )}
+                        <b>{percent} %</b>
+                    </span>
+                </div>
             )}
 
             {/* Solo aparece si hay a dónde volver, así que su presencia ya es la
@@ -1268,6 +1337,8 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     onLookup={openDictionary}
                     onQuote={shareQuote}
                     onCite={openCitation}
+                    estilo={estiloMarca}
+                    onEstilo={setEstiloMarca}
                 />
             )}
 

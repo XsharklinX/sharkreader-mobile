@@ -334,3 +334,102 @@
     margin-bottom: var(--sp-2);
 }
 .drawer-more b { font-family: var(--font-mono); font-size: var(--t-micro); color: var(--text-3); font-weight: 400; }
+
+
+/* ── La línea de estado ──────────────────────────────────────────────────────
+ *
+ * Ver `ReaderScreen`: batería, hora, capítulo y porcentaje mientras se lee, con
+ * la barra del sistema oculta. Es lo que hace que mirar la hora no obligue a
+ * interrumpir la lectura.
+ *
+ * Va en el color del texto del libro, muy apagada. Tiene que poder ignorarse
+ * durante una hora y encontrarse en cuanto se busca — si se lee tan bien como el
+ * texto, compite con él.
+ */
+.reader-estado {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 6;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 0 14px calc(var(--safe-bottom) + 7px);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.03em;
+    color: var(--reader-text, var(--text));
+    opacity: .38;
+    pointer-events: none;
+}
+
+.re-izq, .re-der { display: flex; align-items: center; gap: 7px; }
+.re-der { justify-content: flex-end; }
+
+/* El capítulo, en medio y recortado: es lo único de largo variable, así que es lo
+   único que puede ceder cuando no cabe. */
+.re-centro {
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+/* La batería dentro de su cajita, como en cualquier barra de estado: el número
+   solo se confundiría con el porcentaje del libro, que está al otro lado. */
+.re-bat {
+    font-weight: 400;
+    border: 1px solid currentColor;
+    border-radius: 2px;
+    padding: 0 3px;
+    position: relative;
+}
+.re-bat::after {
+    content: "";
+    position: absolute;
+    right: -3px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2px;
+    height: 5px;
+    border-radius: 0 1px 1px 0;
+    background: currentColor;
+}
+
+.reader-estado b { font-weight: 400; }
+
+/* En tinta electrónica se va: son elementos pequeños que cambian solos cada
+   minuto, y cada cambio es un refresco parcial que deja rastro. */
+.reader.eink .reader-estado { display: none; }
+
+/* ── Formas de marcar ────────────────────────────────────────────────────────
+ *
+ * Ver `annotations.js`. El relleno y el subrayado son dos primitivas distintas de
+ * epub.js; el tachado no existe, es el mismo subrayado subido a media altura,
+ * porque la línea se dibuja siempre en la base del texto.
+ */
+.sr-hl-strike { transform: translateY(-0.42em); }
+
+/* Los botones de forma, en la barra de selección. Cada uno se dibuja con la
+   forma que aplica: se elige mirando, no leyendo una etiqueta. */
+.formas { display: flex; gap: var(--sp-2); }
+
+.forma {
+    min-width: 44px;
+    min-height: 34px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: none;
+    color: var(--text-2);
+    font-family: var(--font-read);
+    font-size: var(--t-small);
+}
+.forma.on { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+
+.forma-fill { background: color-mix(in srgb, var(--hl-yellow) 32%, transparent); color: var(--text); }
+.forma-fill.on { background: color-mix(in srgb, var(--hl-yellow) 48%, transparent); }
+.forma-underline { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 2px; }
+.forma-strike { text-decoration: line-through; text-decoration-thickness: 2px; }
