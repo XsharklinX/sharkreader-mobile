@@ -11,6 +11,7 @@ import DisplaySheet from './DisplaySheet.jsx';
 import BookInfoSheet from './BookInfoSheet.jsx';
 import { runTurn, DEFAULT_TRANSITION, normalizeTransition, usesCurl } from './transitions.js';
 import PageFold from './PageFold.jsx';
+import { iniciar as cronometrar, exponer as exponerPerf, medir as medirPerf } from './perf.js';
 import { buildFontFaceCss } from './fontLoader.js';
 import { useHistory } from './useHistory.js';
 import FootnoteSheet from './FootnoteSheet.jsx';
@@ -111,6 +112,19 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     // del capítulo en iframes propios. Ver `PageFold.jsx`.
     const [foldSheet, setFoldSheet] = useState(null);
     const foldRef = useRef(null);
+
+    // ── Medición ─────────────────────────────────────────────────────────────
+    //
+    // Las dos esperas que se notan al leer —pasar página y abrir el libro— se
+    // cronometran cuando se pide. Ver `perf.js`: apagado no guarda nada, y se
+    // lee desde el ordenador con `adb logcat` tras llamar a `window.__perf.log()`.
+    const cierreVuelta = useRef(null);
+    useEffect(() => {
+        exponerPerf();
+        // Encenderlo desde la URL es lo que permite medir en el teléfono sin
+        // recompilar. El acceso va con cautela: no todo entorno tiene `location`.
+        if (globalThis.location?.search?.includes?.('perf')) medirPerf(true);
+    }, []);
 
     // Limpieza de pantalla en tinta electrónica. Ver `einkRefresh.js`: se cuenta
     // pasando página, no por tiempo, porque el rastro lo produce el cambio de
@@ -229,6 +243,12 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
          * ninguna a medias no hace nada.
          */
         foldRef.current?.finish(direction);
+
+        // Se cronometra desde aquí porque aquí llegan las tres formas de pasar
+        // página. Se cierra al asentarse la nueva, no al llamar a `next()`:
+        // epub.js vuelve enseguida y lo que se tarda es lo de después.
+        cierreVuelta.current?.();
+        cierreVuelta.current = cronometrar('pasar-pagina');
 
         turnRef.current = runTurn({
             element: viewportRef.current,
@@ -361,6 +381,9 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         const engine = createEpubEngine();
         engineRef.current = engine;
 
+        // Abrir el libro: desde que se pide hasta que se ve la primera página.
+        const cierreApertura = cronometrar('abrir-libro');
+
         const load = async () => {
             try {
                 const blob = await readBookBlob(book.sourcePath);
@@ -426,6 +449,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 engine.registerHangingPunctuation(Boolean(typography.hangingPunctuation));
 
                 setState('ready');
+                cierreApertura();
             } catch (loadError) {
                 if (cancelled) return;
                 setError(loadError?.message || 'No se pudo abrir el libro.');
@@ -468,6 +492,11 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 totalPages: total,
             });
             progressRef.current?.({ cfi, progress });
+
+            // La página nueva ya está colocada. `perf` espera además dos
+            // fotogramas, que es cuando de verdad se ve.
+            cierreVuelta.current?.();
+            cierreVuelta.current = null;
 
             // El capítulo siguiente se carga por adelantado: es el único
             // momento en que pasar página no es instantáneo, y ocurre siempre
