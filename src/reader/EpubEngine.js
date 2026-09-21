@@ -1,5 +1,5 @@
 import ePub from 'epubjs';
-import { SECTION_PAUSE_MS } from './locationMap.js';
+import { SECTION_PAUSE_MS, CALMA_MS, hayCalma } from './locationMap.js';
 import { resolveHyphenLang } from './detectLanguage.js';
 
 /**
@@ -64,6 +64,9 @@ export const createEpubEngine = () => {
     // Contenedor del lector. Se guarda porque en modo continuo hay que medir lo
     // visible contra él y no contra el iframe, que ahí mide miles de píxeles.
     let container = null;
+    // Instante del último paso de página. El mapa de posiciones lo mira para no
+    // trabajar mientras el usuario está pasando páginas. Ver `hayCalma`.
+    let ultimoPaso = 0;
 
     return {
         /**
@@ -72,7 +75,7 @@ export const createEpubEngine = () => {
          * @param {Object} options
          */
         async open(data, element, {
-            styles, savedLocations, startCfi, gestureHandlers,
+            styles, startCfi, gestureHandlers,
             flow = 'paginated', fontCss, hyphenLang,
         } = {}) {
             book = ePub(data);
@@ -123,28 +126,39 @@ export const createEpubEngine = () => {
             await rendition.display(startCfi || undefined);
             await book.ready;
 
-            // El mapa de posiciones NO se espera aquí. Ver `locationMap.js`: la
-            // primera página ya está pintada detrás de la pantalla de carga, y
-            // hacer esperar al usuario varios segundos por un dato que no hace
-            // falta para leerla era el verdadero coste. Si ya se calculó en una
-            // sesión anterior se restaura al instante, que sí es gratis.
-            let hasLocations = false;
-            if (savedLocations) {
-                try {
-                    book.locations.load(savedLocations);
-                    hasLocations = (book.locations.total || 0) > 0;
-                } catch {
-                    hasLocations = false;
-                }
-            }
-
             const navigation = await book.loaded.navigation;
 
             return {
                 toc: flattenToc(navigation?.toc || []),
-                hasLocations,
+                hasLocations: (book.locations.total || 0) > 0,
                 totalLocations: book.locations.total || 0,
             };
+        },
+
+        /**
+         * Restaura el mapa de posiciones calculado en otra sesión.
+         *
+         * **Va después de abrir, a propósito.** El mapa es lo que permite decir
+         * «vas por el 34 %», y no hace ninguna falta para pintar la primera
+         * página. Leerlo antes de abrir costaba cuatrocientos milisegundos de
+         * espera con la pantalla de «Abriendo…» delante: casi un tercio de todo
+         * lo que se tardaba en abrir un libro, por un dato que no se mira hasta
+         * que el texto ya está en pantalla.
+         *
+         * @param {string} guardado
+         * @returns {boolean} si el libro ya tiene mapa
+         */
+        loadLocations(guardado) {
+            if (!book || destroyed) return false;
+            if ((book.locations.total || 0) > 0) return true;
+            if (!guardado) return false;
+            try {
+                book.locations.load(guardado);
+                return (book.locations.total || 0) > 0;
+            } catch {
+                // Un mapa corrupto no impide leer: se recalcula.
+                return false;
+            }
         },
 
         /**
@@ -170,11 +184,20 @@ export const createEpubEngine = () => {
             // `generate()` no informa por sí solo, y sin cuenta atrás el aviso
             // sería un indicador indeterminado eterno.
             const original = book.locations.process.bind(book.locations);
-            book.locations.process = (section) => original(section).then((result) => {
-                done += 1;
-                if (!destroyed) onProgress?.(done, total);
-                return result;
-            });
+            book.locations.process = async (section) => {
+                // **El lector va primero.** Procesar un capítulo es un bloque de
+                // trabajo síncrono, y si cae justo cuando el dedo toca, la página
+                // tarda treinta milisegundos más —medido—. El mapa espera a que
+                // haya un hueco de verdad.
+                while (!destroyed && !hayCalma(ultimoPaso, Date.now())) {
+                    await new Promise((listo) => { setTimeout(listo, CALMA_MS); });
+                }
+                return original(section).then((result) => {
+                    done += 1;
+                    if (!destroyed) onProgress?.(done, total);
+                    return result;
+                });
+            };
 
             try {
                 await book.locations.generate(LOCATIONS_CHARS);
@@ -189,8 +212,8 @@ export const createEpubEngine = () => {
             }
         },
 
-        next: () => rendition?.next(),
-        prev: () => rendition?.prev(),
+        next: () => { ultimoPaso = Date.now(); return rendition?.next(); },
+        prev: () => { ultimoPaso = Date.now(); return rendition?.prev(); },
 
         display: (target) => rendition?.display(target),
 

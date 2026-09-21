@@ -33,6 +33,10 @@ const makeEngine = () => ({
         registered = options.gestureHandlers;
         return { toc: [], hasLocations: true, totalLocations: 100 };
     }),
+    // El mapa de posiciones se restaura DESPUÉS de abrir, no dentro: leerlo
+    // antes costaba cuatrocientos milisegundos de pantalla de carga por un dato
+    // que no hace falta para pintar la primera página.
+    loadLocations: vi.fn(() => true),
     buildLocations: vi.fn(async () => null),
     next: vi.fn(async () => {}),
     prev: vi.fn(async () => {}),

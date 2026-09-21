@@ -67,10 +67,23 @@ export const midiendo = () => encendido;
  * caminos —el gesto, el temporizador de seguridad— y contar el segundo daría una
  * medida absurdamente larga que ensucia la mediana.
  *
+ * ## `pintado`: la diferencia entre lo que se tarda y lo que se ve
+ *
+ * Hay dos preguntas distintas y confundirlas arruina la medida.
+ *
+ * Para **lo que el usuario espera** —pasar página, abrir el libro— lo que
+ * importa es cuándo se ve, así que la medida se cierra tras dos fotogramas.
+ *
+ * Para **un tramo interno** —cuánto cuesta este trozo de código— esos dos
+ * fotogramas son ruido: son entre 17 y 33 ms que se suman a todos los tramos
+ * por igual y hacen creer que cada pieza es mucho más cara de lo que es. Ahí se
+ * cierra al momento, con `{ pintado: false }`.
+ *
  * @param {string} nombre
+ * @param {{ pintado?: boolean }} [opciones]
  * @returns {() => void}
  */
-export const iniciar = (nombre) => {
+export const iniciar = (nombre, { pintado = true } = {}) => {
     if (!encendido) return () => {};
 
     const desde = ahora();
@@ -79,21 +92,30 @@ export const iniciar = (nombre) => {
     return () => {
         if (cerrado) return;
         cerrado = true;
-        trasPintar(() => {
-            const tardo = ahora() - desde;
-            const lista = registro.get(nombre) || [];
-            lista.push(tardo);
-            if (lista.length > MAXIMO) lista.shift();
-            registro.set(nombre, lista);
-
-            // Cada medida se escribe además en la consola. En el teléfono no hay
-            // forma de preguntar por la tabla —no hay consola interactiva—, pero
-            // `adb logcat` sí recoge lo que la app escribe, y estando apagado por
-            // defecto esto no ensucia nada.
-            // eslint-disable-next-line no-console
-            console.log(`[perf] ${nombre} ${Math.round(tardo)}ms`);
-        });
+        // El trabajo se cierra aquí mismo; lo que se ve, dos fotogramas después.
+        const tardo = pintado ? null : ahora() - desde;
+        const anotar = () => {
+            const tomado = tardo ?? (ahora() - desde);
+            apuntar(nombre, tomado);
+        };
+        if (pintado) trasPintar(anotar);
+        else anotar();
     };
+};
+
+/** Guarda una medida y la escribe en la consola. */
+const apuntar = (nombre, tardo) => {
+    const lista = registro.get(nombre) || [];
+    lista.push(tardo);
+    if (lista.length > MAXIMO) lista.shift();
+    registro.set(nombre, lista);
+
+    // Cada medida se escribe además en la consola. En el teléfono no hay
+    // forma de preguntar por la tabla —no hay consola interactiva—, pero
+    // `adb logcat` sí recoge lo que la app escribe, y estando apagado por
+    // defecto esto no ensucia nada.
+    // eslint-disable-next-line no-console
+    console.log(`[perf] ${nombre} ${Math.round(tardo)}ms`);
 };
 
 /**

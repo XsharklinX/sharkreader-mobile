@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mapStatus, progressLabel, SECTION_PAUSE_MS } from './locationMap.js';
+import { mapStatus, progressLabel, SECTION_PAUSE_MS, CALMA_MS, hayCalma } from './locationMap.js';
 
 describe('mapStatus', () => {
     it('se calla cuando el mapa ya está', () => {
@@ -70,5 +70,29 @@ describe('SECTION_PAUSE_MS', () => {
         expect(SECTION_PAUSE_MS).toBeLessThan(50);
         // Pero sigue dejando hueco para pintar un fotograma.
         expect(SECTION_PAUSE_MS).toBeGreaterThan(0);
+    });
+});
+
+describe('hayCalma', () => {
+    it('sin ningún paso de página, el mapa trabaja', () => {
+        // Al abrir el libro nadie está pasando páginas todavía.
+        expect(hayCalma(0, 10_000)).toBe(true);
+    });
+
+    it('recién pasada una página, el mapa espera', () => {
+        // Aquí es donde se perdían los treinta milisegundos: procesar un
+        // capítulo caía justo encima del dedo.
+        expect(hayCalma(10_000, 10_100)).toBe(false);
+    });
+
+    it('pasado el silencio, sigue', () => {
+        expect(hayCalma(10_000, 10_000 + CALMA_MS)).toBe(true);
+    });
+
+    it('el silencio es más largo que una página y más corto que leerla', () => {
+        // Pasando páginas seguidas el mapa se queda quieto; leyendo de verdad,
+        // avanza entre página y página.
+        expect(CALMA_MS).toBeGreaterThan(200);
+        expect(CALMA_MS).toBeLessThan(3000);
     });
 });

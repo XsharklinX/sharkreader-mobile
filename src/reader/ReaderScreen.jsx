@@ -118,7 +118,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     // Las dos esperas que se notan al leer —pasar página y abrir el libro— se
     // cronometran cuando se pide. Ver `perf.js`: apagado no guarda nada, y se
     // lee desde el ordenador con `adb logcat` tras llamar a `window.__perf.log()`.
-    const cierreVuelta = useRef(null);
+    const cierreAsentada = useRef(null);
     useEffect(() => {
         exponerPerf();
         // Encenderlo desde la URL es lo que permite medir en el teléfono sin
@@ -244,11 +244,21 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
          */
         foldRef.current?.finish(direction);
 
-        // Se cronometra desde aquí porque aquí llegan las tres formas de pasar
-        // página. Se cierra al asentarse la nueva, no al llamar a `next()`:
-        // epub.js vuelve enseguida y lo que se tarda es lo de después.
-        cierreVuelta.current?.();
-        cierreVuelta.current = cronometrar('pasar-pagina');
+        /**
+         * Dos relojes, porque son dos cosas distintas.
+         *
+         * `pasar-pagina` es lo que el usuario espera: desde que toca hasta que la
+         * página nueva está pintada. Se cierra en cuanto el motor ha cambiado de
+         * página, más dos fotogramas.
+         *
+         * `pagina-asentada` es cuándo epub.js termina su propio papeleo y avisa
+         * con `relocated`. Va unos sesenta milisegundos por detrás, y durante un
+         * tiempo se estuvo midiendo **eso** creyendo que era la espera del
+         * usuario: el número salía tres veces peor de lo que era.
+         */
+        cierreAsentada.current?.();
+        cierreAsentada.current = cronometrar('pagina-asentada', { pintado: false });
+        const finVuelta = cronometrar('pasar-pagina');
 
         turnRef.current = runTurn({
             element: viewportRef.current,
@@ -258,7 +268,13 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             id: flowRef.current === 'scrolled' ? 'none' : transitionRef.current,
             direction,
             reducedMotion: reducedMotionRef.current,
-            commit: () => (direction === 'next' ? engine.next() : engine.prev()),
+            commit: () => {
+                const p = direction === 'next' ? engine.next() : engine.prev();
+                // Aquí la página nueva ya está colocada; `perf` espera además dos
+                // fotogramas, que es cuando de verdad se ve.
+                Promise.resolve(p).then(finVuelta, finVuelta);
+                return p;
+            },
         });
 
         // La limpieza de tinta electrónica va cuando la página nueva ya está
@@ -386,23 +402,35 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
 
         const load = async () => {
             try {
-                const blob = await readBookBlob(book.sourcePath);
+                /**
+                 * Las tres lecturas van a la vez, y el mapa ni siquiera se espera.
+                 *
+                 * Iban en fila: el fichero, después el mapa de posiciones
+                 * guardado, después las fuentes. Ninguna necesita a la anterior,
+                 * así que era medio segundo de espera puesto ahí por el orden en
+                 * que estaba escrito.
+                 *
+                 * El mapa además sale del todo del camino: es lo que permite
+                 * decir «vas por el 34 %» y no hace falta para pintar la primera
+                 * página. Se recoge cuando el libro ya está en pantalla.
+                 */
+                const mapaGuardado = ports.storage.getSetting(LOCATIONS_KEY(book.id))
+                    .catch(() => null);
+
+                const [blob, fontCss] = await Promise.all([
+                    readBookBlob(book.sourcePath),
+                    // Las fuentes se preparan antes de abrir: el hook de contenido
+                    // debe estar registrado cuando epub.js monte el primer
+                    // capítulo, igual que los gestos.
+                    buildFontFaceCss().catch(() => ''),
+                ]);
                 const data = await blob.arrayBuffer();
-                if (cancelled) return;
-
-                const savedLocations = await ports.storage.getSetting(LOCATIONS_KEY(book.id));
-
-                // Las fuentes se preparan antes de abrir: el hook de contenido
-                // debe estar registrado cuando epub.js monte el primer capítulo,
-                // igual que los gestos.
-                const fontCss = await buildFontFaceCss().catch(() => '');
                 if (cancelled) return;
 
                 const result = await engine.open(data, viewportRef.current, {
                     fontCss,
                     hyphenLang: typography.hyphenLang,
                     styles,
-                    savedLocations,
                     startCfi: book.lastLocation || undefined,
                     gestureHandlers: gesturesRef.current,
                     flow: typography.flow,
@@ -410,14 +438,19 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 if (cancelled) return;
 
                 setToc(result.toc);
-                setLocationsReady(result.hasLocations);
+
+                // Ahora sí: el texto ya está pintado y el mapa se aplica sin que
+                // nadie lo note.
+                const hasLocations = engine.loadLocations(await mapaGuardado);
+                if (cancelled) return;
+                setLocationsReady(hasLocations);
 
                 // El mapa de posiciones se construye **después** de dar el
                 // libro por listo. Antes se esperaba a tenerlo entero antes de
                 // quitar la pantalla de «Abriendo…», con la primera página ya
                 // pintada detrás: varios segundos de espera por un dato que no
                 // hace falta para leerla.
-                if (!result.hasLocations) {
+                if (!hasLocations) {
                     engine.buildLocations((done, total) => {
                         if (!cancelled) setMapProgress({ done, total });
                     }).then((saved) => {
@@ -493,10 +526,9 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             });
             progressRef.current?.({ cfi, progress });
 
-            // La página nueva ya está colocada. `perf` espera además dos
-            // fotogramas, que es cuando de verdad se ve.
-            cierreVuelta.current?.();
-            cierreVuelta.current = null;
+            // epub.js ha terminado su papeleo: aquí se cierra el segundo reloj.
+            cierreAsentada.current?.();
+            cierreAsentada.current = null;
 
             // El capítulo siguiente se carga por adelantado: es el único
             // momento en que pasar página no es instantáneo, y ocurre siempre

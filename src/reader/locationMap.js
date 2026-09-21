@@ -36,6 +36,30 @@
 export const SECTION_PAUSE_MS = 24;
 
 /**
+ * Cuánto silencio hace falta para seguir calculando el mapa.
+ *
+ * **Medido, no elegido a ojo.** Con el mapa construyéndose de fondo, pasar
+ * página subía de 67 a 96 ms: los 24 ms entre capítulos dejan hueco para pintar,
+ * pero procesar un capítulo es un bloque de trabajo que cae encima del dedo si
+ * el dedo llega en mitad. El mapa no tiene prisa y el lector sí, así que el mapa
+ * cede.
+ *
+ * Tres cuartos de segundo es más de lo que tarda una página en asentarse y menos
+ * de lo que tarda nadie en leerla, así que pasando páginas seguidas el mapa se
+ * queda quieto y leyendo de verdad avanza entre página y página.
+ */
+export const CALMA_MS = 750;
+
+/**
+ * ¿Puede el mapa seguir trabajando?
+ *
+ * @param {number} ultimoUso instante del último paso de página
+ * @param {number} ahora
+ * @returns {boolean}
+ */
+export const hayCalma = (ultimoUso, ahora) => !ultimoUso || ahora - ultimoUso >= CALMA_MS;
+
+/**
  * Estado del mapa para la interfaz.
  *
  * @param {{done: number, total: number, ready: boolean}} progress
