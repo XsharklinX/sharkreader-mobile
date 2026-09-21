@@ -58,13 +58,25 @@ export const useLibrary = () => {
 
             setImporting({ done: 0, total: picked.books.length, name: '', phase: 'reading' });
 
-            const result = await importPickedBooks(picked.books, books, (progress) => {
-                setImporting({ ...progress, phase: 'reading' });
-            });
+            /**
+             * Cada libro entra en la lista en cuanto está, no al final.
+             *
+             * Se guarda en disco **después**, todos juntos: escribir de uno en uno
+             * son cien transacciones en lugar de una, y lo que hay que resolver
+             * aquí es que se vea el avance, no dónde está el dato. Si la
+             * importación se interrumpe, lo que se haya visto aparecer no estaba
+             * guardado todavía — y es preferible eso a dejar la biblioteca a
+             * medio escribir.
+             */
+            const result = await importPickedBooks(
+                picked.books,
+                books,
+                (progress) => setImporting({ ...progress, phase: 'reading' }),
+                (record) => setBooks((current) => [hydrateStoredBook(record), ...current])
+            );
 
             if (result.imported.length) {
                 await ports.storage.putBooks(result.imported);
-                setBooks((current) => [...result.imported.map(hydrateStoredBook), ...current]);
             }
 
             setImporting(null);

@@ -163,14 +163,23 @@ export const buildBookRecord = async (picked) => {
 };
 
 /**
- * Importa una tanda de ficheros ya copiados, descartando los que ya están en la
- * biblioteca.
+ * Importa lo elegido, avisando libro a libro.
+ *
+ * `onBook` se llama **en cuanto un libro está listo**, no al final. Importar una
+ * carpeta de cien libros tarda minutos, y hasta ahora la biblioteca se quedaba
+ * igual todo ese rato con un mensaje encima: no había forma de saber si estaba
+ * funcionando, ni cuáles habían entrado ya. Viéndolos aparecer, la espera deja
+ * de ser una pantalla parada y pasa a ser algo que ocurre.
+ *
+ * Descarta lo que ya está en la biblioteca: importar dos veces la misma carpeta
+ * no la duplica.
  *
  * @param {import('../adapters/SafPicker.js').PickedBook[]} picked
  * @param {Object[]} existing  Libros ya presentes.
- * @param {(progress: {done: number, total: number, name: string}) => void} [onProgress]
+ * @param {(p: {done: number, total: number, name: string}) => void} [onProgress]
+ * @param {(record: Object) => void} [onBook]
  */
-export const importPickedBooks = async (picked, existing = [], onProgress) => {
+export const importPickedBooks = async (picked, existing = [], onProgress, onBook) => {
     const seenFileKeys = new Set(existing.map(getBookDedupKey));
     const seenTitleKeys = new Set(existing.map(getBookTitleDedupKey));
 
@@ -195,7 +204,9 @@ export const importPickedBooks = async (picked, existing = [], onProgress) => {
 
             seenFileKeys.add(fileKey);
             seenTitleKeys.add(titleKey);
-            imported.push({ ...record, fileSize: item.size });
+            const completo = { ...record, fileSize: item.size };
+            imported.push(completo);
+            onBook?.(completo);
         } catch (error) {
             failed.push({ name: item.name, reason: error?.message || 'error desconocido' });
         }

@@ -1508,6 +1508,27 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 
 .pdf-viewport { position: absolute; inset: 0; display: grid; place-items: center; overflow: auto; padding: calc(var(--safe-top) + var(--sp-3)) 0 calc(var(--safe-bottom) + var(--sp-3)); }
 .pdf-canvas { display: block; max-width: 100%; box-shadow: var(--el-3); border-radius: 2px; }
+
+/* Desplazamiento continuo: las páginas, una debajo de otra.
+   `overscroll-behavior: contain` evita que llegar al final arrastre la pantalla
+   de detrás, que en Android se lee como si la app se cerrara sola. */
+.pdf-scroll {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: calc(var(--safe-top) + var(--sp-3)) 0 calc(var(--safe-bottom) + var(--sp-3));
+    scroll-behavior: auto;
+}
+
+.pdf-scroll-page {
+    display: flex;
+    justify-content: center;
+    /* El hueco entre páginas es lo único que dice dónde acaba una y empieza la
+       otra: sin él, dos páginas seguidas parecen una sola columna de texto mal
+       maquetada. */
+    margin-bottom: var(--sp-3);
+}
 .pdf-canvas.inverted { filter: invert(1) hue-rotate(180deg); }
 .pdf-slider { width: 100%; accent-color: var(--accent); min-height: 32px; }
 

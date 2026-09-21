@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import { copiarSiToca } from './library/autoBackupRunner.js';
+import { prepararMapas } from './library/prepararMapas.js';
 import { usePorts } from './ports/index.js';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { runBack } from './ui/backStack.js';
@@ -112,6 +113,31 @@ export default function App() {
 
         return () => { listener?.remove(); };
     }, [library.status]);
+
+    /**
+     * Los mapas de posiciones, preparados al arrancar.
+     *
+     * El mapa es lo que permite decir «vas por el 34 %». Se calculaba la primera
+     * vez que abrías cada libro, así que aparecía un aviso cargando **mientras
+     * leías** — justo cuando menos sentido tiene y encima del texto.
+     *
+     * Ahora se preparan antes, al arrancar, y por los libros que de verdad vas a
+     * abrir: los que ya has empezado, del más reciente al más antiguo. Hacerlo
+     * para los ciento treinta y seis de la biblioteca serían minutos de trabajo y
+     * de batería para calcular el porcentaje de libros que igual no abres nunca.
+     */
+    useEffect(() => {
+        if (library.status !== 'ready') return undefined;
+        // **Con un libro abierto, no.** Calcular un mapa abre otro EPUB entero en
+        // paralelo, y dos motores peleándose por el hilo se nota justo donde no
+        // debe notarse: al pasar página. Se para al entrar en un libro y sigue al
+        // salir, que es cuando la app no está haciendo nada.
+        if (readingId) return undefined;
+        return prepararMapas({ storage: ports.storage, books: library.books });
+        // La lista de libros cambia con cada página leída; reiniciar esto en cada
+        // cambio no terminaría nunca.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [library.status, readingId]);
 
     /**
      * La copia de seguridad diaria.

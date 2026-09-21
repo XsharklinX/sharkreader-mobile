@@ -1250,9 +1250,17 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 />
             )}
 
-            {/* El libro ya se lee; esto solo explica por qué aún no hay
-                porcentaje del total. */}
-            {mapStatusView.visible && (
+            {/**
+              * El aviso del mapa solo aparece con la barra de herramientas
+              * abierta.
+              *
+              * Antes salía de abajo a mitad de lectura, encima del texto, y no
+              * había forma de entender qué estaba cargando ni por qué justo
+              * entonces. Lo que se está calculando es el porcentaje del libro, y
+              * eso solo importa cuando miras los controles: mientras lees, la
+              * línea de estado ya dice por dónde vas dentro del capítulo.
+              */}
+            {chrome && mapStatusView.visible && (
                 <div className="map-progress" role="status">
                     <span className="map-progress-track">
                         <span

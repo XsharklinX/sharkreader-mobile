@@ -11,6 +11,8 @@ import {
 } from './annotations.js';
 import { normalizeAnnotationKind } from '../core/annotationExport.js';
 import { readBookBlob } from '../adapters/SafPicker.js';
+import { cajaDeContenido, unirCajas, recorteRelativo } from './pdfCrop.js';
+import PdfScroll from './PdfScroll.jsx';
 import {
     IconArrowLeft, IconBookmark, IconList, IconHighlight, IconSun, IconClose, IconBook,
 } from '../ui/icons.jsx';
@@ -30,6 +32,16 @@ import {
 
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 4;
+
+/**
+ * Cuántas páginas se miran para decidir el recorte de márgenes.
+ *
+ * Una sola no basta: la primera página de un PDF suele ser una portada a sangre
+ * o una portadilla casi vacía, y cualquiera de las dos daría un recorte que no
+ * vale para el resto del libro. Con cuatro repartidas por el documento se
+ * acierta el cuerpo, que es lo que se va a leer.
+ */
+const MUESTRAS_RECORTE = 4;
 
 export default function PdfReaderScreen({
     book,
@@ -51,6 +63,29 @@ export default function PdfReaderScreen({
     const [theme, setTheme] = useState(book.readerPreferences?.theme || 'dark');
     const [outline, setOutline] = useState([]);
     const [showOutline, setShowOutline] = useState(false);
+    /**
+     * Recorte de márgenes, en proporciones de la página.
+     *
+     * Un PDF está maquetado para un folio: en un móvil, ese folio se encoge
+     * entero —márgenes incluidos— y un tercio de la pantalla se va en blanco
+     * mientras el texto queda ilegible. Recortando el blanco, el mismo texto se
+     * ve a casi el doble sin tocar el zoom.
+     *
+     * Se calcula **una vez por documento** y vale para todas las páginas: si se
+     * calculara por página, el texto cambiaría de tamaño y de sitio en cada pase.
+     * Ver `pdfCrop.js`.
+     */
+    const [recorte, setRecorte] = useState(book.readerPreferences?.pdfCrop ?? null);
+    const [recortar, setRecortar] = useState(book.readerPreferences?.pdfCropOn !== false);
+    const recorteHecho = useRef(false);
+    /**
+     * Páginas sueltas o desplazamiento continuo.
+     *
+     * En EPUB el continuo existe desde hace tiempo; en PDF no, y leer un manual a
+     * saltos de página completa en un móvil es incómodo: cada pase cambia toda la
+     * pantalla y hay que volver a buscar por dónde ibas.
+     */
+    const [flujo, setFlujo] = useState(book.readerPreferences?.pdfFlow || 'paginated');
 
     // ── Carga ────────────────────────────────────────────────────────────────
     useEffect(() => {
@@ -101,6 +136,9 @@ export default function PdfReaderScreen({
     // ── Renderizado de la página actual ──────────────────────────────────────
     useEffect(() => {
         if (state !== 'ready' || !docRef.current) return;
+        // Desplazando, de pintar se encarga `PdfScroll`: aquí solo se pintaría
+        // encima un lienzo que ya no está en pantalla.
+        if (flujo === 'scrolled') return;
         let cancelled = false;
 
         const render = async () => {
@@ -117,16 +155,44 @@ export default function PdfReaderScreen({
             const ratio = window.devicePixelRatio || 1;
             const viewport = pdfPage.getViewport({ scale: 1 });
             const available = canvas.parentElement.clientWidth;
-            const fitScale = (available / viewport.width) * scale;
+            const caja = (recortar && recorte) ? recorte : null;
+
+            /**
+             * Con recorte, la escala se calcula contra **el ancho del texto**, no
+             * el del folio.
+             *
+             * Ahí está toda la ganancia: si la caja de texto ocupa el 70 % del
+             * folio, ajustarla a la pantalla en vez del folio entero agranda el
+             * texto un 40 % sin que el usuario toque nada.
+             */
+            const anchoUtil = viewport.width * (caja ? caja.w : 1);
+            const fitScale = (available / anchoUtil) * scale;
             const scaled = pdfPage.getViewport({ scale: fitScale * ratio });
 
-            canvas.width = Math.round(scaled.width);
-            canvas.height = Math.round(scaled.height);
-            canvas.style.width = `${Math.round(scaled.width / ratio)}px`;
-            canvas.style.height = `${Math.round(scaled.height / ratio)}px`;
+            const anchoLienzo = caja ? scaled.width * caja.w : scaled.width;
+            const altoLienzo = caja ? scaled.height * caja.h : scaled.height;
+
+            canvas.width = Math.round(anchoLienzo);
+            canvas.height = Math.round(altoLienzo);
+            canvas.style.width = `${Math.round(anchoLienzo / ratio)}px`;
+            canvas.style.height = `${Math.round(altoLienzo / ratio)}px`;
+
+            const contexto = canvas.getContext('2d');
+            // El recorte se hace desplazando el lienzo, no recortando después:
+            // pintar el folio entero para tirar los bordes gastaría memoria y
+            // tiempo en píxeles que nadie va a ver.
+            if (caja) {
+                contexto.setTransform(
+                    1, 0, 0, 1,
+                    -Math.round(scaled.width * caja.x),
+                    -Math.round(scaled.height * caja.y)
+                );
+            } else {
+                contexto.setTransform(1, 0, 0, 1, 0, 0);
+            }
 
             const task = pdfPage.render({
-                canvasContext: canvas.getContext('2d'),
+                canvasContext: contexto,
                 viewport: scaled,
             });
             renderTaskRef.current = task;
@@ -140,7 +206,66 @@ export default function PdfReaderScreen({
 
         render();
         return () => { cancelled = true; };
-    }, [page, scale, state]);
+    }, [page, scale, state, recorte, recortar, flujo]);
+
+    /**
+     * Encuentra el recorte mirando unas pocas páginas.
+     *
+     * Va después de que el libro esté en pantalla y con la primera página ya
+     * pintada: buscar la caja de texto obliga a rasterizar páginas enteras y leer
+     * sus píxeles, y hacerlo antes retrasaría la apertura por un ajuste que no
+     * hace falta para ver la primera página.
+     */
+    useEffect(() => {
+        if (state !== 'ready' || !docRef.current || recorteHecho.current) return;
+        if (recorte) { recorteHecho.current = true; return; }
+        recorteHecho.current = true;
+
+        let cancelado = false;
+
+        const detectar = async () => {
+            const doc = docRef.current;
+            const paginas = doc.numPages;
+            // Repartidas por el documento y saltándose la portada, que suele ser
+            // una imagen a sangre y daría un recorte que no vale para el cuerpo.
+            const indices = Array.from({ length: MUESTRAS_RECORTE }, (_, i) =>
+                Math.max(1, Math.min(paginas, Math.round(((i + 1) / (MUESTRAS_RECORTE + 1)) * paginas))));
+
+            const cajas = [];
+            let ancho = 0;
+            let alto = 0;
+
+            for (const indice of [...new Set(indices)]) {
+                if (cancelado) return;
+                try {
+                    const pdfPage = await doc.getPage(indice);
+                    // A escala pequeña: para encontrar el bloque de texto sobra
+                    // resolución, y a tamaño completo serían megas por página.
+                    const vista = pdfPage.getViewport({ scale: 0.4 });
+                    const lienzo = document.createElement('canvas');
+                    lienzo.width = Math.max(1, Math.round(vista.width));
+                    lienzo.height = Math.max(1, Math.round(vista.height));
+                    const ctx = lienzo.getContext('2d', { willReadFrequently: true });
+                    await pdfPage.render({ canvasContext: ctx, viewport: vista }).promise;
+
+                    const imagen = ctx.getImageData(0, 0, lienzo.width, lienzo.height);
+                    cajas.push(cajaDeContenido(imagen));
+                    ancho = lienzo.width;
+                    alto = lienzo.height;
+                } catch {
+                    // Una página que no se deja pintar no impide decidir con las
+                    // demás.
+                }
+            }
+
+            if (cancelado) return;
+            const encontrado = recorteRelativo(unirCajas(cajas), ancho, alto);
+            if (encontrado) setRecorte(encontrado);
+        };
+
+        detectar();
+        return () => { cancelado = true; };
+    }, [state, recorte]);
 
     // ── Progreso ─────────────────────────────────────────────────────────────
     // `onProgress` se guarda en una ref a propósito: cambia de identidad en cada
@@ -156,8 +281,12 @@ export default function PdfReaderScreen({
             cfi: String(page),
             progress: page / total,
             pdfScale: scale,
+            // El recorte se guarda calculado: encontrarlo obliga a rasterizar
+            // cuatro páginas y leer sus píxeles, y no hay razón para repetirlo
+            // cada vez que se abre el mismo libro.
+            readerPreferences: { theme, pdfCrop: recorte, pdfCropOn: recortar, pdfFlow: flujo },
         });
-    }, [page, total, scale, state]);
+    }, [page, total, scale, state, theme, recorte, recortar, flujo]);
 
     const goNext = useCallback(() => setPage((current) => Math.min(current + 1, total || current)), [total]);
     const goPrev = useCallback(() => setPage((current) => Math.max(1, current - 1)), []);
@@ -219,9 +348,22 @@ export default function PdfReaderScreen({
                 </div>
             )}
 
-            <div className="pdf-viewport" {...gestures}>
-                <canvas ref={canvasRef} className={dark ? 'pdf-canvas inverted' : 'pdf-canvas'} />
-            </div>
+            {flujo === 'scrolled' ? (
+                <PdfScroll
+                    doc={docRef.current}
+                    scale={scale}
+                    crop={(recortar && recorte) ? recorte : null}
+                    dark={dark}
+                    page={page}
+                    total={total}
+                    onPage={setPage}
+                    onTap={toggleChrome}
+                />
+            ) : (
+                <div className="pdf-viewport" {...gestures}>
+                    <canvas ref={canvasRef} className={dark ? 'pdf-canvas inverted' : 'pdf-canvas'} />
+                </div>
+            )}
 
             <header className={`reader-top${chromeVisible ? '' : ' hidden'}`}>
                 <button type="button" className="icon-btn" onClick={onClose} aria-label="Volver a la biblioteca">
@@ -279,6 +421,29 @@ export default function PdfReaderScreen({
                     >
                         <IconSun size={21} />
                     </button>
+                    <button
+                        type="button"
+                        className={`icon-btn${flujo === 'scrolled' ? ' on' : ''}`}
+                        onClick={() => setFlujo((modo) => (modo === 'scrolled' ? 'paginated' : 'scrolled'))}
+                        aria-label={flujo === 'scrolled' ? 'Leer por páginas' : 'Leer desplazando'}
+                        aria-pressed={flujo === 'scrolled'}
+                    >
+                        <IconList size={21} />
+                    </button>
+
+                    {/* Recortar márgenes. Solo aparece si hay algo que recortar:
+                        un botón que no haría nada es peor que no tenerlo. */}
+                    {recorte && (
+                        <button
+                            type="button"
+                            className={`icon-btn${recortar ? ' on' : ''}`}
+                            onClick={() => setRecortar((valor) => !valor)}
+                            aria-label={recortar ? 'Ver la página entera' : 'Recortar márgenes'}
+                            aria-pressed={recortar}
+                        >
+                            <IconBook size={21} />
+                        </button>
+                    )}
                     <button
                         type="button"
                         className="icon-btn"
