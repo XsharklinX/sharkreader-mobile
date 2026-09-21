@@ -67,6 +67,26 @@
 
 /** Las dos formas de pasar página. */
 export const PAGE_TRANSITIONS = {
+    /**
+     * Doblado de hoja.
+     *
+     * Vuelve tras haberse retirado por los fotogramas en negro. La causa estaba
+     * medida: el pliegue se dibujaba con dos iframes que solo se pintaban al
+     * empezar el gesto, y el WebView presentaba la capa antes de tener la
+     * textura. Ahora esas copias se mantienen pintadas —casi transparentes—
+     * mientras se lee, asi que la textura ya existe cuando el dedo se apoya.
+     * Ver `PageFold`.
+     *
+     * Al arrastrar sigue al dedo. Al tocar, el pliegue se recorre solo con esta
+     * duracion, y aqui no se declara `shift` porque el contenedor no se mueve:
+     * la pagina nueva esta quieta debajo mientras la vieja se dobla encima.
+     */
+    curl: {
+        label: 'Doblar hoja',
+        description: 'La hoja se dobla y se ve su dorso, como el papel. Arrastra para plegarla con el dedo.',
+        in: 300,
+        curl: true,
+    },
     none: {
         label: 'Ninguna',
         description: 'Cambio instantáneo. Lo más rápido y lo único sin coste.',
@@ -87,7 +107,7 @@ export const PAGE_TRANSITIONS = {
  * esperar, ni fotograma intermedio donde algo pueda salir mal. Hasta que el
  * doblado de hoja vuelva hecho sobre un mapa de bits, esta es la buena.
  */
-export const DEFAULT_TRANSITION = 'none';
+export const DEFAULT_TRANSITION = 'curl';
 
 /**
  * Devuelve una transición válida.
@@ -96,6 +116,9 @@ export const DEFAULT_TRANSITION = 'none';
  * `curl`, `paper`, `push`, `fade` y `zoom` de cuando había siete. Sin esto, un
  * libro empezado antes abriría el selector sin nada marcado.
  */
+/** ¿Esta transición dibuja un pliegue en vez de mover el contenedor? */
+export const usesCurl = (id) => Boolean(PAGE_TRANSITIONS[id]?.curl);
+
 export const normalizeTransition = (id) => (
     PAGE_TRANSITIONS[id] ? id : DEFAULT_TRANSITION
 );
@@ -119,7 +142,10 @@ export const phaseState = (id, direction, phase) => {
     const spec = PAGE_TRANSITIONS[id];
     const rest = { transform: 'translate3d(0,0,0)', veil: 0, duration: 0 };
 
-    if (!spec || id === 'none' || phase === 'rest') return rest;
+    // El doblado no describe nada aquí: el contenedor no se mueve. Lo que se
+    // dobla es una copia de la página que se va, dibujada encima por `PageFold`,
+    // y su geometría vive en `pageFold.js`.
+    if (!spec || id === 'none' || spec.curl || phase === 'rest') return rest;
 
     // Avanzando, la página nueva viene desde la derecha; retrocediendo, desde la
     // izquierda. Es el sentido que dice hacia dónde te mueves en el libro.
