@@ -67,9 +67,20 @@ describe('modo tinta electrónica', () => {
         expect(styles.body['font-weight']).toBe('500 !important');
     });
 
-    it('no toca el peso en una pantalla normal', () => {
-        const styles = buildReaderStyles({ eink: false }, 'paper');
-        expect(styles.body['font-weight']).toBeUndefined();
+    it('en una pantalla normal manda la preferencia', () => {
+        // El peso pasó a ser ajustable: en una pantalla a pleno brillo un trazo
+        // de 400 se lava, y de noche un 500 empasta. Las tres fuentes
+        // empaquetadas son variables de 400 a 700, así que es peso real y no una
+        // negrita sintética.
+        expect(buildReaderStyles({ eink: false }, 'paper').body['font-weight']).toBe('400 !important');
+        expect(buildReaderStyles({ eink: false, fontWeight: 500 }, 'paper').body['font-weight']).toBe('500 !important');
+    });
+
+    it('en tinta electrónica manda el panel, no la preferencia', () => {
+        // Ahí el trazo fino no es cuestión de gusto: la tinta se expande al
+        // asentarse y un peso ligero sale lavado.
+        const styles = buildReaderStyles({ eink: true, fontWeight: 400 }, 'eink');
+        expect(styles.body['font-weight']).toBe('500 !important');
     });
 
     it('el tema e-ink es negro puro sobre blanco puro', () => {

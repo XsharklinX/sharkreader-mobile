@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import { copiarSiToca } from './library/autoBackupRunner.js';
+import { usePorts } from './ports/index.js';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { runBack } from './ui/backStack.js';
 import { useBackHandler } from './ui/useBackHandler.js';
@@ -125,6 +126,7 @@ export default function App() {
      * se volvería a poner en cada cambio de la biblioteca —cada página leída— y
      * lo que se copia tiene que ser lo de ahora, no lo de cuando se registró.
      */
+    const ports = usePorts();
     const librosRef = useRef(library.books);
     librosRef.current = library.books;
 

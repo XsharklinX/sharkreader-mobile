@@ -112,6 +112,21 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     // del capítulo en iframes propios. Ver `PageFold.jsx`.
     const [foldSheet, setFoldSheet] = useState(null);
     const foldRef = useRef(null);
+    /**
+     * Sentido del pliegue que está tapando la pantalla, o `null`.
+     *
+     * Mientras vale algo, la página de verdad **ya ha cambiado** y lo que se ve
+     * es la copia de la que se va. Ver `armarPliegue`.
+     */
+    const pliegueArmado = useRef(null);
+    /**
+     * Dónde se tocó por última vez, en coordenadas de la hoja.
+     *
+     * Tocando el borde para pasar página, el pliegue tiene que levantarse desde
+     * la esquina que toca —si tocas arriba, la de arriba— y no siempre desde la
+     * misma, que se nota como una animación enlatada.
+     */
+    const ultimoToque = useRef(null);
 
     // ── Medición ─────────────────────────────────────────────────────────────
     //
@@ -233,6 +248,22 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         turnRef.current?.cancel();
 
         /**
+         * Tocando el borde, el pliegue se recorre solo.
+         *
+         * Es el mismo mecanismo que con el dedo —tapar, cambiar por debajo,
+         * levantar la hoja— solo que el recorrido lo hace la animación. Sin esto,
+         * tocar con el doblado elegido cambiaba de página de golpe y el efecto
+         * solo existía arrastrando.
+         */
+        if (foldRef.current && usesCurl(transitionRef.current)
+            && !reducedMotionRef.current && !pliegueArmado.current
+            && flowRef.current !== 'scrolled') {
+            armarPliegue(direction, ultimoToque.current);
+            foldRef.current.finish(direction, soltarPliegue);
+            return;
+        }
+
+        /**
          * El pliegue se remata aquí, no en el gesto.
          *
          * Por aquí pasan las tres formas de cambiar de página —arrastrar, tocar
@@ -308,7 +339,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
          * granularidad es invisible— y `translate3d`, que sube la hoja a una
          * capa de la GPU y la mueve como un mapa de bits ya rasterizado.
          */
-        const setShift = (shift, progress, direction) => {
+        const setShift = (shift, progress, direction, punto) => {
             const node = viewportRef.current;
             if (!node) return;
 
@@ -320,7 +351,11 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
              * puerta abriéndose y no como papel.
              */
             if (foldRef.current) {
-                foldRef.current.set(progress, direction);
+                // El primer movimiento tapa la pantalla y cambia de página por
+                // debajo. A partir de ahí el sentido ya no se discute: si el dedo
+                // se vuelve, lo que hace es deshacer el pliegue, no empezar otro.
+                if (!pliegueArmado.current) armarPliegue(direction, puntoEnHoja(punto));
+                foldRef.current.set(puntoEnHoja(punto));
                 return;
             }
 
@@ -330,8 +365,18 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         };
 
         const release = () => {
-            // La hoja vuelve a su sitio animándose. Antes saltaba a cero de golpe.
-            foldRef.current?.cancel('next');
+            const armado = pliegueArmado.current;
+            if (armado && foldRef.current) {
+                // La hoja vuelve a su sitio y, ya tapada del todo, se deshace el
+                // cambio de página. El usuario no llega a ver nada de esto.
+                foldRef.current.cancel(armado, () => {
+                    const engine = engineRef.current;
+                    Promise.resolve(armado === 'next' ? engine?.prev() : engine?.next())
+                        .catch(() => {})
+                        .then(() => soltarPliegue());
+                });
+                return;
+            }
 
             const node = viewportRef.current;
             if (!node) return;
@@ -349,6 +394,15 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
              * al empezar a deslizar.
              */
             onStart: () => {
+                // Un gesto nuevo encima de otro que todavía se estaba rematando
+                // dejaba el pliegue armado del anterior: el segundo arrastre movía
+                // la hoja pero no pasaba página, porque creía que ya la había
+                // pasado. Se cierra el anterior antes de empezar.
+                if (pliegueArmado.current) {
+                    pliegueArmado.current = null;
+                    foldRef.current?.disarm();
+                }
+
                 const node = viewportRef.current;
                 if (!node) return;
                 node.style.willChange = 'transform';
@@ -374,6 +428,14 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             onMove: setShift,
             onCancel: release,
             onCommit: (direction) => {
+                const armado = pliegueArmado.current;
+                if (armado && foldRef.current) {
+                    // La página ya cambió al empezar el gesto: aquí solo queda
+                    // terminar de doblar la hoja vieja y retirarla.
+                    foldRef.current.finish(armado, soltarPliegue);
+                    return;
+                }
+
                 // El dedo ya ha sacado la página de su sitio, así que la
                 // animación se salta la fase de salida: repetirla daría un salto
                 // hacia atrás antes de completar el gesto.
@@ -385,6 +447,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         // Los gestos de toque y el arrastre comparten los mismos eventos. El
         // arrastre se evalúa primero y, si ha consumido el gesto, el toque no
         // llega a interpretarse.
+        gesturesRef.current.onTapPoint = (punto) => { ultimoToque.current = puntoEnHoja(punto); };
         gesturesRef.current.onDragDown = dragRef.current.down;
         gesturesRef.current.onDragMove = dragRef.current.move;
         gesturesRef.current.onDragUp = dragRef.current.up;
@@ -480,6 +543,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 engine.registerFootnotes(setFootnote);
                 engine.registerImages(setImage);
                 engine.registerHangingPunctuation(Boolean(typography.hangingPunctuation));
+                engine.registerDropCapDetection();
 
                 setState('ready');
                 cierreApertura();
@@ -602,7 +666,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     // volver a medir para recalcular el ancho de columna.
     useEffect(() => {
         if (state === 'ready') engineRef.current?.resize();
-    }, [typography.margin, state]);
+    }, [typography.margin, typography.marginTop, typography.marginBottom, state]);
 
     useEffect(() => {
         if (state !== 'ready') return;
@@ -957,6 +1021,55 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     }, [grid, toggleBookmark, speech, history.canGoBack, goBack]);
 
     /**
+     * Pasa un punto de la ventana a coordenadas de la hoja.
+     *
+     * El dedo llega en coordenadas de pantalla y el pliegue se dibuja dentro del
+     * contenedor del lector, que tiene sus márgenes. Sin esta traducción la
+     * esquina se doblaría desplazada respecto al dedo, que es justo lo que mata
+     * la sensación de estar tocando papel.
+     */
+    const puntoEnHoja = useCallback((punto) => {
+        const caja = viewportRef.current?.getBoundingClientRect();
+        if (!caja || !punto) return { x: 0, y: 0 };
+        return { x: punto.x - caja.left, y: punto.y - caja.top };
+    }, []);
+
+    /**
+     * Tapa la pantalla con la página que se va y cambia de página por debajo.
+     *
+     * **Sin esto el pliegue no puede funcionar.** epub.js monta un solo
+     * documento: hasta que el giro se confirma, no existe la página siguiente en
+     * ninguna parte. Así que al levantar la hoja aparecía debajo la misma página
+     * que encima, media al derecho y media al revés — que es el desastre que se
+     * veía.
+     *
+     * La copia plana, sin doblar, ocupa la hoja entera y es idéntica a lo que ya
+     * había. Con la pantalla tapada se cambia de página de verdad, y al mover el
+     * dedo la hoja se levanta y deja ver la nueva, que es lo que hace Moon+.
+     *
+     * Si el gesto se cancela se deshace igual de tapado, así que tampoco se ve.
+     */
+    const armarPliegue = useCallback((direction, punto) => {
+        const engine = engineRef.current;
+        const fold = foldRef.current;
+        if (!engine || !fold || pliegueArmado.current) return false;
+
+        fold.arm(direction, punto);
+        pliegueArmado.current = direction;
+        Promise.resolve(direction === 'next' ? engine.next() : engine.prev()).catch(() => {});
+        return true;
+    }, []);
+
+    /** Destapa la pantalla y vuelve a dejar el pliegue listo para el siguiente. */
+    const soltarPliegue = useCallback(() => {
+        pliegueArmado.current = null;
+        foldRef.current?.disarm();
+        prepararTrasGesto.current?.();
+    }, []);
+
+    const prepararTrasGesto = useRef(null);
+
+    /**
      * Prepara las copias del capítulo con las que se dobla la página.
      *
      * Se hace en tiempo muerto —tras asentarse la página— y con `requestIdleCallback`
@@ -965,6 +1078,11 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     const prepareFold = useCallback(() => {
         const engine = engineRef.current;
         if (!engine) return;
+
+        // A mitad de gesto, no. Las copias llevan la página que se está doblando
+        // y rehacerlas ahora las pondría a enseñar la nueva: la hoja levantada
+        // cambiaría de contenido en la mano.
+        if (pliegueArmado.current) return;
 
         const run = () => {
             const sheet = engine.chapterSheet?.();
@@ -977,6 +1095,10 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             setTimeout(run, 220);
         }
     }, []);
+
+    // `soltarPliegue` se define antes que `prepareFold` y necesita llamarlo: se
+    // enlazan por referencia para no tener que reordenar medio componente.
+    prepararTrasGesto.current = prepareFold;
 
     /**
      * Atrás dentro del libro cierra una capa cada vez.
@@ -1061,6 +1183,8 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 '--reader-bg': palette.bg,
                 '--reader-text': palette.text,
                 '--reader-margin': `${effectiveMargin}px`,
+                '--reader-margin-top': `${typography.marginTop ?? 28}px`,
+                '--reader-margin-bottom': `${typography.marginBottom ?? 34}px`,
                 ...chromeVars,
             }}
         >
@@ -1095,6 +1219,14 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     width={viewportRef.current?.clientWidth || 0}
                     height={viewportRef.current?.clientHeight || 0}
                     controllerRef={foldRef}
+                    tinte={palette.bg}
+                    onStuck={() => {
+                        // El pliegue se destapó solo. La página de verdad ya es la
+                        // siguiente —se cambió al armar—, así que aquí solo hay que
+                        // dejar de creer que hay un gesto en marcha.
+                        pliegueArmado.current = null;
+                        prepareFold();
+                    }}
                 />
             )}
 

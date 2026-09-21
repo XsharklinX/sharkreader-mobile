@@ -65,6 +65,8 @@ export default function ReaderSettingsSheet({ typography, theme = 'dark', onChan
         typography.justify,
         Boolean(typography.dropCap),
         Boolean(typography.hangingPunctuation),
+        (typography.marginTop ?? 28) !== 28,
+        (typography.marginBottom ?? 34) !== 34,
     ].filter(Boolean).length;
 
     const pages = {
@@ -112,8 +114,12 @@ export default function ReaderSettingsSheet({ typography, theme = 'dark', onChan
                         onChange={(lineHeight) => set({ lineHeight })}
                     />
 
+                    {/* Los tres márgenes van por separado porque no quieren lo
+                        mismo: a los lados es aire de sujeción —donde va el
+                        pulgar—, arriba es respiración, y abajo tiene que convivir
+                        con la línea de estado, que ya pone texto ahí. */}
                     <Segmented
-                        label="Márgenes"
+                        label="Márgenes laterales"
                         value={typography.margin}
                         options={[
                             { value: 0, label: 'Sin' },
@@ -122,6 +128,29 @@ export default function ReaderSettingsSheet({ typography, theme = 'dark', onChan
                             { value: 36, label: 'Amplio' },
                         ]}
                         onChange={(margin) => set({ margin })}
+                    />
+
+                    <Segmented
+                        label="Margen superior"
+                        value={typography.marginTop ?? 28}
+                        options={[
+                            { value: 8, label: 'Poco' },
+                            { value: 28, label: 'Normal' },
+                            { value: 56, label: 'Amplio' },
+                        ]}
+                        onChange={(marginTop) => set({ marginTop })}
+                    />
+
+                    <Segmented
+                        label="Margen inferior"
+                        value={typography.marginBottom ?? 34}
+                        options={[
+                            { value: 12, label: 'Poco' },
+                            { value: 34, label: 'Normal' },
+                            { value: 64, label: 'Amplio' },
+                        ]}
+                        onChange={(marginBottom) => set({ marginBottom })}
+                        hint="Aquí va la línea de estado: con poco margen, el texto le pasa cerca."
                     />
 
                     <div className="rows">
@@ -246,6 +275,22 @@ export default function ReaderSettingsSheet({ typography, theme = 'dark', onChan
                         max={FONT_SIZE_MAX}
                         step={1}
                         onChange={(value) => set({ fontSize: clampFontSize(value) })}
+                    />
+
+                    {/* El peso va aquí y no en composición: es una propiedad de
+                        la letra, y se busca al lado del tamaño. Las tres fuentes
+                        empaquetadas son variables de 400 a 700, así que estos son
+                        pesos de verdad y no negritas sintéticas. */}
+                    <Segmented
+                        label="Peso de la letra"
+                        value={typography.fontWeight ?? 400}
+                        options={[
+                            { value: 400, label: 'Normal' },
+                            { value: 500, label: 'Medio' },
+                            { value: 600, label: 'Fuerte' },
+                        ]}
+                        onChange={(fontWeight) => set({ fontWeight })}
+                        hint="A pleno sol un trazo fino se lava; de noche, uno grueso empasta."
                     />
 
                     <div className="rows">

@@ -85,9 +85,16 @@ describe('controlador del gesto', () => {
         const { drag, onMove } = setup();
         drag.down(at(300));
         drag.move(at(200));
-        // Además del desplazamiento recibe el progreso y el sentido, que es lo
-        // que el doblado de hoja necesita para seguir al dedo.
-        expect(onMove).toHaveBeenCalledWith(-100, expect.any(Number), 'next');
+        // Además del desplazamiento recibe el progreso, el sentido y **el punto
+        // del dedo**. El doblado de esquina no se describe con un número: la
+        // esquina agarrada acaba justo debajo del dedo, así que hace falta saber
+        // dónde está.
+        expect(onMove).toHaveBeenCalledWith(
+            -100,
+            expect.any(Number),
+            'next',
+            expect.objectContaining({ x: expect.any(Number), y: expect.any(Number) })
+        );
     });
 
     it('un movimiento vertical cancela: era scroll o selección', () => {

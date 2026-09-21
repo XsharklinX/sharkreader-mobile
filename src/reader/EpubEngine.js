@@ -1,5 +1,6 @@
 import ePub from 'epubjs';
 import { SECTION_PAUSE_MS, CALMA_MS, hayCalma } from './locationMap.js';
+import { traeCapitular, MARCA as MARCA_CAPITULAR } from './dropCap.js';
 import { resolveHyphenLang } from './detectLanguage.js';
 
 /**
@@ -422,6 +423,41 @@ export const createEpubEngine = () => {
          * promesa vacía. Así que se marca cada párrafo afectado y se compensa
          * con una sangría negativa proporcional al signo.
          */
+        /**
+         * Marca los capítulos que ya traen su propia capitular.
+         *
+         * La nuestra se pone con `::first-letter`, que no puede preguntar si el
+         * editor ya compuso una: se suma a la suya y salen dos letras grandes
+         * seguidas, o una inicial enorme encima de una ilustración. Así que se
+         * mira el capítulo por dentro —aquí, que es donde se puede— y se marca el
+         * cuerpo para que el CSS se aparte. Ver `dropCap.js`.
+         *
+         * Se registra siempre, también con la capitular apagada: el hook de
+         * contenido solo corre para los capítulos que se monten después de
+         * registrarlo, y el ajuste se puede encender con el libro ya abierto.
+         */
+        registerDropCapDetection() {
+            if (!rendition) return;
+            rendition.hooks.content.register((contents) => {
+                const doc = contents.document;
+                if (!doc?.body) return;
+
+                const primero = doc.querySelector('p');
+                const ventana = doc.defaultView;
+                if (!primero || !ventana) return;
+
+                const estiloDe = (el) => {
+                    try {
+                        return ventana.getComputedStyle(el);
+                    } catch {
+                        return null;
+                    }
+                };
+
+                doc.body.classList.toggle(MARCA_CAPITULAR, traeCapitular(primero, estiloDe));
+            });
+        },
+
         registerHangingPunctuation(enabled) {
             if (!rendition) return;
             rendition.hooks.content.register((contents) => {

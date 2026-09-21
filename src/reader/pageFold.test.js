@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-    foldPosition, flatClip, backClip, backOrigin, backShade, castShadow, foldState,
+    foldPosition, flatClip, backClip, shadeClip, backOrigin, backShade, castShadow, crease, foldState,
 } from './pageFold.js';
 
 const W = 400;
@@ -63,15 +63,43 @@ describe('backClip y backOrigin', () => {
         expect(backOrigin(137)).toBe('137px center');
     });
 
-    it('el dorso no asoma por el borde de la hoja', () => {
-        // Sin recorte se vería texto invertido donde no hay papel doblado.
-        const clip = backClip(300, W, 'next');
-        expect(clip).toMatch(/^inset\(/);
-        expect(clip).not.toContain('-');
+    it('el dorso es exactamente la otra mitad de la hoja', () => {
+        // **Este es el test que faltaba y por eso el pliegue se veía horrible.**
+        // El recorte se aplica antes de reflejar, así que aquí se elige qué trozo
+        // de página se dobla. Se recortaba el mismo trozo que sigue plano, y al
+        // reflejarlo caía sobre la página nueva: texto al revés donde tenía que
+        // estar la página siguiente, y una banda ilegible junto al doblez.
+        //
+        // Plana queda [0, foldX]; doblada, [foldX, W]. Juntas, la hoja entera y
+        // ni un píxel compartido.
+        expect(flatClip(300, W, 'next')).toBe('inset(0 100px 0 0)');
+        expect(backClip(300, W, 'next')).toBe('inset(0 0 0 300px)');
+    });
+
+    it('y hacia atrás, al revés', () => {
+        expect(flatClip(100, W, 'prev')).toBe('inset(0 0 0 100px)');
+        expect(backClip(100, W, 'prev')).toBe('inset(0 300px 0 0)');
     });
 
     it('con la hoja sin doblar el dorso no ocupa nada', () => {
-        expect(backClip(W, W, 'next')).toBe('inset(0 0px 0 0px)');
+        // El doblez en el borde derecho: no hay nada al otro lado que doblar.
+        expect(backClip(W, W, 'next')).toBe('inset(0 0 0 400px)');
+    });
+});
+
+describe('shadeClip', () => {
+    it('la sombra del dorso cae donde cae el papel, no donde estaba', () => {
+        // El dorso se refleja; su sombra se dibuja encima, ya en coordenadas de
+        // pantalla. Con el doblez a 300 de 400, el papel doblado mide 100 y acaba
+        // ocupando de 200 a 300.
+        expect(shadeClip(300, W, 'next')).toBe('inset(0 100px 0 200px)');
+    });
+
+    it('nunca se sale de la hoja', () => {
+        // A mitad del gesto el papel doblado llegaría más allá del borde: se
+        // recorta en el borde y no se pinta sombra sobre la nada.
+        expect(shadeClip(100, W, 'next')).toBe('inset(0 300px 0 0px)');
+        expect(shadeClip(300, W, 'prev')).toBe('inset(0 0px 0 300px)');
     });
 });
 
@@ -129,5 +157,33 @@ describe('foldState', () => {
         // Un `rotateY` daría una puerta girando; `scaleX(-1)` sobre la línea del
         // doblez es literalmente lo que hace el papel.
         expect(foldState(0.5, W, 'next').backTransform).toContain('scaleX(-1)');
+    });
+});
+
+describe('la luz del pliegue según el tema', () => {
+    it('en un tema oscuro el dorso se aclara, no se ensombrece', () => {
+        // **Medido en el teléfono:** con el degradado negro sobre una página casi
+        // negra, entre el dorso y la página nueva había UN nivel de luminancia.
+        // Ensombrecer lo que ya está a oscuras no ensombrece nada, y el dorso se
+        // veía como texto al revés flotando en vez de como el reverso de una hoja.
+        expect(backShade(0.5, 'next', { dark: true }).gradient).toContain('255,255,255');
+        expect(backShade(0.5, 'next', { dark: false }).gradient).toContain('rgba(0,0,0');
+    });
+
+    it('el filo del doblez está justo en el doblez y es estrecho', () => {
+        // Un filo ancho deja de ser un filo y pasa a ser una banda.
+        const filo = crease(300);
+        expect(filo.left).toBe(299);
+        expect(filo.width).toBe(3);
+    });
+
+    it('el filo también cambia de color con el tema', () => {
+        expect(crease(300, { dark: true }).gradient).toContain('255,255,255');
+        expect(crease(300, { dark: false }).gradient).toContain('rgba(0,0,0');
+    });
+
+    it('el estado completo lleva el filo', () => {
+        const state = foldState(0.5, 400, 'next', { dark: true });
+        expect(state.crease.left).toBe(state.foldX - 1);
     });
 });

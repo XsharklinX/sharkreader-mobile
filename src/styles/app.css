@@ -1165,7 +1165,13 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
  * La intensidad va **dentro** del SVG y no como `opacity` del elemento:
  * `opacity` crea un contexto de composición propio y entonces el
  * `mix-blend-mode` ya no se mezcla con el fondo de la página. Es la misma
- * trampa, y también falla sin avisar. */
+ * trampa, y también falla sin avisar.
+ *
+ * **Y sí se ve, medido.** Estuvo semanas en duda porque a ojo no se distingue y
+ * las primeras mediciones daban cero. Sobre una captura del teléfono, en trozos
+ * de papel sin texto, la luminancia tiene una desviación típica de 4,8 y un
+ * rango de 33 niveles; una superficie plana de la app, medida igual, da 0,00 y
+ * rango 0. Hay textura y no es imaginación: se queda. */
 .reader.grano::before {
     content: "";
     position: absolute;
@@ -1204,7 +1210,12 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .reader-viewport {
     position: absolute;
     inset: 0;
-    padding: calc(var(--safe-top) + 28px) var(--reader-margin, 20px) calc(var(--safe-bottom) + 34px);
+    /* Cada lado por su cuenta: ver `marginTop` en typography.js. Los valores
+       de reserva son los que estaban fijos aquí antes. */
+    padding:
+        calc(var(--safe-top) + var(--reader-margin-top, 28px))
+        var(--reader-margin, 20px)
+        calc(var(--safe-bottom) + var(--reader-margin-bottom, 34px));
     /* Por encima del grano y de la viñeta, que son capas del contenedor. */
     z-index: 2;
 }

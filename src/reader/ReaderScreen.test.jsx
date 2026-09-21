@@ -50,6 +50,7 @@ const makeEngine = () => ({
     registerFootnotes: vi.fn(),
     registerImages: vi.fn(),
     registerHangingPunctuation: vi.fn(),
+    registerDropCapDetection: vi.fn(),
     addHighlight: vi.fn(),
     removeHighlight: vi.fn(),
     selectionText: vi.fn(() => ''),

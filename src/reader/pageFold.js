@@ -90,21 +90,40 @@ export const backTransform = (foldX) =>
 export const backOrigin = (foldX) => `${Math.round(foldX)}px center`;
 
 /**
- * Recorte del dorso.
+ * Recorte del dorso: **la otra mitad de la hoja**.
  *
- * El dorso solo existe entre el doblez y donde llega el papel doblado, que es a
- * la misma distancia por el otro lado. Sin este recorte, el reflejo asomaría por
- * el borde de la hoja y se vería texto invertido donde no toca.
+ * El recorte se aplica en las coordenadas propias del elemento, antes de
+ * reflejarlo. Así que lo que hay que recortar aquí no es dónde acaba el dorso en
+ * pantalla, sino **qué trozo de la página se dobla**: el que queda al otro lado
+ * del doblez que el trozo que sigue plano. Por eso esto es exactamente el
+ * complemento de `flatClip`, y así es imposible que las dos mitades se pisen.
+ *
+ * **Aquí estaba el desastre.** Se recortaba el mismo trozo que sigue plano, no
+ * el que se dobla. Al reflejarlo sobre el doblez, esa copia caía encima de la
+ * página nueva y se veía texto al revés donde tenía que verse la página
+ * siguiente — con una banda junto al doblez donde las dos se mezclaban y el
+ * texto salía ilegible.
  */
-export const backClip = (foldX, width, direction = 'next') => {
-    const reach = direction === 'next'
-        ? Math.max(0, foldX)
-        : Math.max(0, width - foldX);
+export const backClip = (foldX, width, direction = 'next') => (direction === 'next'
+    ? `inset(0 0 0 ${Math.max(0, foldX)}px)`
+    : `inset(0 ${Math.max(0, width - foldX)}px 0 0)`);
 
-    return direction === 'next'
-        // Desde el doblez hacia la izquierda, tanto como papel haya doblado.
-        ? `inset(0 ${Math.max(0, width - foldX)}px 0 ${Math.max(0, foldX - reach)}px)`
-        : `inset(0 ${Math.max(0, width - foldX - reach)}px 0 ${Math.max(0, foldX)}px)`;
+/**
+ * Dónde cae el papel doblado una vez reflejado.
+ *
+ * El reflejo sobre el doblez manda el trozo doblado al otro lado: un papel de
+ * ancho `W - foldX` acaba ocupando desde `2·foldX - W` hasta el doblez. Esta es
+ * la única pieza que necesita saberlo, porque la sombra del dorso **no se
+ * refleja** —se dibuja encima, ya en coordenadas de pantalla— y sin esto se
+ * pintaría sobre la mitad que no toca.
+ */
+export const shadeClip = (foldX, width, direction = 'next') => {
+    if (direction === 'next') {
+        const borde = Math.max(0, 2 * foldX - width);
+        return `inset(0 ${Math.max(0, width - foldX)}px 0 ${borde}px)`;
+    }
+    const borde = Math.min(width, 2 * foldX);
+    return `inset(0 ${Math.max(0, width - borde)}px 0 ${Math.max(0, foldX)}px)`;
 };
 
 /**
@@ -117,12 +136,39 @@ export const backClip = (foldX, width, direction = 'next') => {
  * Se devuelve la opacidad además del degradado porque al empezar el gesto la
  * hoja está casi plana y una sombra a plena intensidad delataría el truco.
  */
-export const backShade = (progress, direction = 'next') => {
+export const backShade = (progress, direction = 'next', { dark = false } = {}) => {
     const t = Math.min(1, Math.max(0, progress));
+    const hacia = direction === 'next' ? 'to left' : 'to right';
+
+    /**
+     * **En un tema oscuro la sombra tiene que ser luz.**
+     *
+     * Medido en el teléfono: con el degradado negro sobre una página casi negra,
+     * entre el dorso y la página nueva había **un nivel** de diferencia. Ensombrecer
+     * lo que ya está a oscuras no ensombrece nada, así que el dorso se veía como
+     * texto al revés flotando, no como el reverso de una hoja.
+     *
+     * Lo que distingue una hoja levantada de la que está debajo no es que sea
+     * oscura, es que **recibe otra luz**. En un tema claro eso se pinta como
+     * sombra; en uno oscuro, como un velo de claridad hacia el doblez, que es la
+     * parte más levantada y la que más luz coge.
+     */
+    /**
+     * El degradado va de claro a oscuro **en el mismo trazo**, no de sombra a
+     * nada.
+     *
+     * Una hoja levantada tiene dos cosas a la vez: el doblez, que es lo más alto
+     * y lo que más luz coge, y el filo suelto, que es lo que más se aleja y cae
+     * en sombra. Con un degradado que solo aclaraba junto al doblez, el dorso
+     * quedaba tan legible como la página de debajo y el ojo veía dos textos
+     * peleándose en lugar de una hoja volviéndose.
+     */
+    const gradient = dark
+        ? `linear-gradient(${hacia}, rgba(255,255,255,.20) 0%, rgba(255,255,255,.04) 38%, rgba(0,0,0,.30) 100%)`
+        : `linear-gradient(${hacia}, rgba(0,0,0,.30) 0%, rgba(0,0,0,.08) 40%, rgba(0,0,0,.42) 100%)`;
+
     return {
-        gradient: direction === 'next'
-            ? 'linear-gradient(to left, rgba(0,0,0,.34) 0%, rgba(0,0,0,.10) 42%, rgba(0,0,0,.02) 100%)'
-            : 'linear-gradient(to right, rgba(0,0,0,.34) 0%, rgba(0,0,0,.10) 42%, rgba(0,0,0,.02) 100%)',
+        gradient,
         // Sube rápido al principio y se estabiliza: es cuando el pliegue se
         // separa de la superficie y la sombra tiene sentido.
         opacity: Number(Math.min(1, t * 2.4).toFixed(3)),
@@ -130,19 +176,40 @@ export const backShade = (progress, direction = 'next') => {
 };
 
 /**
+ * El filo del doblez.
+ *
+ * Es la pieza que hace que se lea como papel en cualquier tema: en el pliegue de
+ * una hoja real hay una línea donde la luz rebota, y es lo primero que ve el ojo.
+ * Sin ella, el dorso y la página nueva se tocan con un corte plano que parece un
+ * recorte, que es exactamente lo que parecía.
+ *
+ * Estrecha a propósito —tres píxeles— porque un filo ancho deja de ser un filo y
+ * pasa a ser una banda.
+ */
+export const crease = (foldX, { dark = false } = {}) => ({
+    left: Math.round(foldX) - 1,
+    width: 3,
+    gradient: dark
+        ? 'linear-gradient(to right, rgba(255,255,255,0), rgba(255,255,255,.30), rgba(255,255,255,0))'
+        : 'linear-gradient(to right, rgba(0,0,0,0), rgba(0,0,0,.22), rgba(0,0,0,0))',
+});
+
+/**
  * Sombra que el papel doblado proyecta sobre la página de debajo.
  *
  * Es lo que da la sensación de que hay dos hojas y no un dibujo. Cae justo al
  * otro lado del doblez, sobre la página nueva.
  */
-export const castShadow = (foldX, direction = 'next') => ({
+export const castShadow = (foldX, direction = 'next', { dark = false } = {}) => ({
     // Ancho de la banda de sombra. Fijo y estrecho: una sombra amplia parece
     // niebla, no una hoja a un milímetro de la otra.
     left: direction === 'next' ? Math.round(foldX) : Math.round(foldX) - 24,
     width: 24,
+    // En oscuro se rebaja: una sombra negra sobre una página casi negra no se
+    // ve, y a plena intensidad solo ensucia el borde.
     gradient: direction === 'next'
-        ? 'linear-gradient(to right, rgba(0,0,0,.26), rgba(0,0,0,0))'
-        : 'linear-gradient(to left, rgba(0,0,0,.26), rgba(0,0,0,0))',
+        ? `linear-gradient(to right, rgba(0,0,0,${dark ? '.45' : '.26'}), rgba(0,0,0,0))`
+        : `linear-gradient(to left, rgba(0,0,0,${dark ? '.45' : '.26'}), rgba(0,0,0,0))`,
 });
 
 /**
@@ -153,9 +220,9 @@ export const castShadow = (foldX, direction = 'next') => ({
  * por separado, un redondeo distinto en cada una deja una costura de un píxel
  * justo en el doblez, que en una pantalla densa se ve como una línea clara.
  */
-export const foldState = (progress, width, direction = 'next') => {
+export const foldState = (progress, width, direction = 'next', { dark = false } = {}) => {
     const foldX = foldPosition(progress, width, direction);
-    const shade = backShade(progress, direction);
+    const shade = backShade(progress, direction, { dark });
 
     return {
         foldX,
@@ -163,8 +230,10 @@ export const foldState = (progress, width, direction = 'next') => {
         backClip: backClip(foldX, width, direction),
         backTransform: backTransform(foldX),
         backOrigin: backOrigin(foldX),
+        shadeClip: shadeClip(foldX, width, direction),
         backShade: shade,
-        shadow: castShadow(foldX, direction),
+        shadow: castShadow(foldX, direction, { dark }),
+        crease: crease(foldX, { dark }),
         // Al 0 no hay nada doblado: el componente puede ahorrarse pintar.
         visible: progress > 0.001,
     };

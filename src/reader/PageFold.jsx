@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { foldState } from './pageFold.js';
+import { cornerState, esquinaDe } from './pageCorner.js';
 
 /**
  * Lo que se ve del pliegue mientras no se usa.
@@ -15,6 +15,15 @@ import { foldState } from './pageFold.js';
  * ruido de la pantalla.
  */
 const OPACIDAD_FRIA = 0.004;
+
+/**
+ * Cuánto puede estar el pliegue tapando la pantalla sin que nadie lo conduzca.
+ *
+ * Generoso a propósito: un gesto lento con el dedo apoyado es normal, y cortarlo
+ * sería peor que el fallo que evita. Lo que no es normal es que pase un segundo y
+ * medio sin un solo movimiento ni un remate.
+ */
+const ARMADO_MAX_MS = 1500;
 
 /**
  * Mete el CSS del capítulo en su HTML.
@@ -65,11 +74,14 @@ export const withStyles = (html, css) => {
  * un render sesenta veces por segundo para mover un recorte es tirar el
  * presupuesto de tiempo.
  */
-export default function PageFold({ sheet, width, height, controllerRef }) {
+export default function PageFold({
+    sheet, width, height, controllerRef, tinte = '#000000', onStuck,
+}) {
     const flatRef = useRef(null);
     const backRef = useRef(null);
     const shadeRef = useRef(null);
     const shadowRef = useRef(null);
+    const creaseRef = useRef(null);
     const rootRef = useRef(null);
 
     // Las dos copias. Se montan a mano porque son iframes con `srcdoc` y hay que
@@ -141,21 +153,85 @@ export default function PageFold({ sheet, width, height, controllerRef }) {
         });
     }, [sheet]);
 
+    // El tema se lee de una referencia: cambia muy de vez en cuando y el efecto
+    // que registra el mando no debe volver a montarse por ello, que dejaría el
+    // pliegue sin controlador a mitad de gesto.
+    /**
+     * Color del papel, para teñir el dorso.
+     *
+     * **El dorso no es oscuro: es del color de la página.** Lo que se ve al
+     * volver una hoja es el reverso del mismo papel, con la tinta traspasando
+     * apenas. Pintarlo de negro solo funcionaba con el tema oscuro puesto; con el
+     * tema Papel se vería una mancha negra en mitad de la hoja.
+     */
+    const tinteRef = useRef(tinte);
+    tinteRef.current = tinte;
+
+    // Igual que el tema: por referencia, para que cambiar el aviso no vuelva a
+    // montar el mando a mitad de gesto.
+    const onStuckRef = useRef(onStuck);
+    onStuckRef.current = onStuck;
+
     useEffect(() => {
         if (!controllerRef) return undefined;
 
         let frame = 0;
         let shown = 0;
+        // Dónde está el dedo y qué esquina se agarró. El pliegue ya no se
+        // describe con un número: se describe con un punto.
+        let dedo = { x: width, y: height };
+        let rincon = 'bottom-right';
+        /**
+         * Armado: la copia tapa la pantalla aunque no haya nada doblado.
+         *
+         * Es lo que permite cambiar de página **por debajo** sin que se vea. Sin
+         * esto, bajo la hoja levantada aparecía la misma página que encima —con
+         * un solo iframe, epub.js no tiene la página nueva hasta que el giro se
+         * confirma— y el efecto era una página duplicada, la mitad al revés.
+         */
+        let armado = false;
+        /**
+         * Perro guardián del armado.
+         *
+         * Mientras el pliegue está armado, la copia **tapa la pantalla entera**.
+         * Eso es lo que permite cambiar de página por debajo sin que se vea, y es
+         * también lo que hace que un fallo aquí no se note como un fallo: se nota
+         * como que el libro se ha congelado. Pasó —y había que salir del libro y
+         * volver a entrar—, porque cualquier gesto que muriera sin avisar dejaba
+         * la copia puesta para siempre.
+         *
+         * Así que el armado caduca. Si en este tiempo nadie ha rematado el gesto,
+         * se destapa solo: peor es quedarse mirando una página que ya no existe.
+         */
+        let guardian = 0;
+        const vigilar = () => {
+            clearTimeout(guardian);
+            guardian = setTimeout(() => {
+                if (!armado) return;
+                armado = false;
+                paint(0, 'next');
+                onStuckRef.current?.();
+            }, ARMADO_MAX_MS);
+        };
 
-        const paint = (progress, direction) => {
-            shown = progress;
-            const state = foldState(progress, width, direction);
+        /**
+         * Pinta el pliegue con el dedo en un punto.
+         *
+         * El estado ya no es «cuánto progreso», es **dónde está el dedo**: es lo
+         * que permite que el doblez salga en diagonal y que la esquina acabe
+         * justo debajo del dedo, como el papel. Ver `pageCorner.js`.
+         */
+        const paint = (punto, esquina) => {
+            dedo = punto;
+            rincon = esquina;
+            const state = cornerState(punto, width, height, esquina);
+            shown = state.progreso;
 
             if (rootRef.current) {
                 // Ver `OPACIDAD_FRIA`: en reposo se queda casi transparente en vez
                 // de oculto, para que el WebView ya lo haya rasterizado cuando el
                 // dedo se apoye.
-                rootRef.current.style.opacity = state.visible ? '1' : String(OPACIDAD_FRIA);
+                rootRef.current.style.opacity = (armado || state.visible) ? '1' : String(OPACIDAD_FRIA);
             }
             if (flatRef.current) {
                 flatRef.current.style.clipPath = state.flatClip;
@@ -166,14 +242,42 @@ export default function PageFold({ sheet, width, height, controllerRef }) {
                 backRef.current.style.transform = state.backTransform;
             }
             if (shadeRef.current) {
-                shadeRef.current.style.clipPath = state.backClip;
-                shadeRef.current.style.background = state.backShade.gradient;
-                shadeRef.current.style.opacity = String(state.backShade.opacity);
+                /**
+                 * El reverso del papel, teñido y con su luz.
+                 *
+                 * Dos capas en el mismo elemento: encima el modelado —claro junto
+                 * al doblez, que es lo más levantado, y oscuro hacia el filo
+                 * suelto— y debajo el color de la página casi opaco. Ese tinte es
+                 * lo que convierte el texto reflejado en tinta que traspasa: sin
+                 * él, el dorso se lee tan bien como la página de debajo y el ojo
+                 * ve dos textos peleándose en vez de una hoja volviéndose.
+                 */
+                shadeRef.current.style.clipPath = state.shadeClip;
+                shadeRef.current.style.background = [
+                    'linear-gradient(to bottom right,'
+                        + ' rgba(255,255,255,.10) 0%, rgba(0,0,0,.05) 45%, rgba(0,0,0,.22) 100%)',
+                    tinteRef.current,
+                ].join(', ');
+                shadeRef.current.style.opacity = state.visible ? '0.88' : '0';
+            }
+            if (creaseRef.current) {
+                // El filo se pinta como una línea larga girada sobre el punto
+                // medio: el recorte del dorso la corta donde tiene que acabar.
+                const { crease } = state;
+                if (crease) {
+                    creaseRef.current.style.width = `${crease.largo}px`;
+                    creaseRef.current.style.left = `${crease.x - crease.largo / 2}px`;
+                    creaseRef.current.style.top = `${crease.y - 1.5}px`;
+                    creaseRef.current.style.height = '3px';
+                    creaseRef.current.style.transform = `rotate(${crease.angulo}deg)`;
+                    creaseRef.current.style.background = crease.gradient;
+                }
+                creaseRef.current.style.opacity = state.visible ? '1' : '0';
             }
             if (shadowRef.current) {
-                shadowRef.current.style.left = `${state.shadow.left}px`;
-                shadowRef.current.style.width = `${state.shadow.width}px`;
-                shadowRef.current.style.background = state.shadow.gradient;
+                // La sombra que el triángulo levantado proyecta sobre la página
+                // nueva: el mismo recorte, desplazado y difuminado.
+                shadowRef.current.style.clipPath = state.shadeClip;
                 shadowRef.current.style.opacity = state.visible ? '1' : '0';
             }
         };
@@ -187,17 +291,28 @@ export default function PageFold({ sheet, width, height, controllerRef }) {
          * esto, y las copias siguen teniendo la página vieja, así que la
          * animación sigue contando la verdad mientras dura.
          */
-        const animate = (to, direction, done) => {
+        /**
+         * Lleva el dedo imaginario de donde está hasta otro punto.
+         *
+         * Se interpola el **punto**, no el progreso: así la esquina recorre una
+         * línea recta hasta su destino, que es lo que hace una hoja soltada, y no
+         * una trayectoria rara que sale de mezclar ángulos.
+         */
+        const animate = (destino, esquina, done) => {
             cancelAnimationFrame(frame);
-            const from = shown;
+            const desde = dedo;
+            const distancia = Math.hypot(destino.x - desde.x, destino.y - desde.y);
             const start = performance.now();
-            const span = Math.max(90, 190 * Math.abs(to - from));
+            const span = Math.max(90, Math.min(320, distancia * 0.55));
 
             const step = (now) => {
                 const t = Math.min(1, (now - start) / span);
                 // Desacelera al final: el papel no se para en seco.
                 const eased = 1 - (1 - t) ** 3;
-                paint(from + (to - from) * eased, direction);
+                paint({
+                    x: desde.x + (destino.x - desde.x) * eased,
+                    y: desde.y + (destino.y - desde.y) * eased,
+                }, esquina);
                 if (t < 1) { frame = requestAnimationFrame(step); return; }
                 done?.();
             };
@@ -205,26 +320,81 @@ export default function PageFold({ sheet, width, height, controllerRef }) {
             frame = requestAnimationFrame(step);
         };
 
+        /** La esquina de partida: con el dedo ahí, la hoja está entera y plana. */
+        const reposo = (esquina) => {
+            const puntos = {
+                'bottom-right': { x: width, y: height },
+                'top-right': { x: width, y: 0 },
+                'bottom-left': { x: 0, y: height },
+                'top-left': { x: 0, y: 0 },
+            };
+            return puntos[esquina] || puntos['bottom-right'];
+        };
+
+        /** El destino de una hoja del todo vuelta: la esquina opuesta. */
+        const destinoFinal = (esquina) => {
+            const opuestas = {
+                'bottom-right': { x: -width * 0.1, y: height },
+                'top-right': { x: -width * 0.1, y: 0 },
+                'bottom-left': { x: width * 1.1, y: height },
+                'top-left': { x: width * 1.1, y: 0 },
+            };
+            return opuestas[esquina] || opuestas['bottom-right'];
+        };
+
         controllerRef.current = {
-            /** Sigue al dedo, fotograma a fotograma. */
-            set(progress, direction) {
+            /**
+             * Tapa la pantalla con la página que se va, sin doblar nada todavía.
+             *
+             * Con el doblez en el borde, la copia plana ocupa la hoja entera: lo
+             * que se ve es exactamente lo que ya había. A partir de aquí se puede
+             * cambiar de página por debajo sin que se note, y al mover el dedo la
+             * hoja se levanta y deja ver la nueva.
+             */
+            arm(direction, punto) {
                 cancelAnimationFrame(frame);
-                paint(progress, direction);
+                armado = true;
+                const esquina = esquinaDe(direction, punto?.y ?? height, height);
+                paint(reposo(esquina), esquina);
+                vigilar();
             },
-            /** Remata el doblado y retira la hoja. */
-            finish(direction) {
-                if (shown <= 0) return;
-                animate(1, direction, () => paint(0, direction));
+            /** ¿Está tapando la pantalla? */
+            armed: () => armado,
+            /** Sigue al dedo, fotograma a fotograma. */
+            set(punto) {
+                cancelAnimationFrame(frame);
+                paint(punto, rincon);
+                // Mientras el dedo se mueve, el gesto está vivo: el guardián
+                // espera. Solo salta si de verdad nadie está conduciendo esto.
+                if (armado) vigilar();
             },
-            /** Devuelve la hoja a su sitio: el gesto no llegó a pasar página. */
-            cancel(direction) {
-                if (shown <= 0) { paint(0, direction); return; }
-                animate(0, direction);
+            /** Remata el doblado y avisa al terminar. */
+            finish(direction, done) {
+                animate(destinoFinal(rincon), rincon, done);
+            },
+            /**
+             * Devuelve la hoja a su sitio y avisa.
+             *
+             * Al llegar a cero la copia vuelve a tapar la pantalla entera, que es
+             * cuando quien llama puede deshacer el cambio de página sin que se
+             * vea nada.
+             */
+            cancel(direction, done) {
+                animate(reposo(rincon), rincon, done);
+            },
+            /** Destapa la pantalla. Después de esto manda la página de verdad. */
+            disarm() {
+                cancelAnimationFrame(frame);
+                clearTimeout(guardian);
+                armado = false;
+                paint(reposo(rincon), rincon);
             },
             /** La retira sin animar, para cuando la página cambia por otra vía. */
             hide() {
                 cancelAnimationFrame(frame);
-                paint(0, 'next');
+                clearTimeout(guardian);
+                armado = false;
+                paint(reposo(rincon), rincon);
             },
         };
 
@@ -232,13 +402,14 @@ export default function PageFold({ sheet, width, height, controllerRef }) {
         // `style` del JSX: al volver a montarse el nodo conserva lo que le
         // escribimos a mano la última vez, y React no lo reescribe porque para él
         // la propiedad no ha cambiado. Ahí se quedaba el pliegue clavado.
-        paint(0, 'next');
+        paint(reposo('bottom-right'), 'bottom-right');
 
         return () => {
             cancelAnimationFrame(frame);
+            clearTimeout(guardian);
             controllerRef.current = null;
         };
-    }, [controllerRef, width]);
+    }, [controllerRef, width, height]);
 
     return (
         <div className="fold" ref={rootRef} aria-hidden="true" style={{ opacity: OPACIDAD_FRIA }}>
@@ -254,6 +425,10 @@ export default function PageFold({ sheet, width, height, controllerRef }) {
 
             {/* Sombreado del dorso, encima del reflejo. */}
             <span className="fold-shade" ref={shadeRef} />
+
+            {/* El filo del doblez, lo último: es lo que tiene que quedar por
+                encima de todo, como la arista de una hoja doblada. */}
+            <span className="fold-crease" ref={creaseRef} />
         </div>
     );
 }

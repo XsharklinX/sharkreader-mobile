@@ -214,6 +214,11 @@ export const createGestureHandlers = (handlers) => {
         const height = handlers.getHeight?.() || 0;
         const action = actionAt(handlers.grid, event.clientX, event.clientY, width, height);
 
+        // Dónde se tocó. El doblado de esquina levanta la esquina que toca —si
+        // tocas arriba, la de arriba— y sin el punto siempre levantaría la misma,
+        // que se nota como una animación enlatada.
+        handlers.onTapPoint?.({ x: event.clientX, y: event.clientY });
+
         // Las tres acciones básicas se resuelven aquí aunque no haya
         // despachador: son las que tiene cualquier lector y no deberían
         // depender de que quien monte los gestos se acuerde de conectarlas.

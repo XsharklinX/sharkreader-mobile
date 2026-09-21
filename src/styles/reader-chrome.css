@@ -364,7 +364,8 @@
 .fold-flat,
 .fold-back,
 .fold-shade,
-.fold-shadow {
+.fold-shadow,
+.fold-crease {
     position: absolute;
     top: 0;
     left: 0;
@@ -391,6 +392,14 @@
     right: 0;
     bottom: 0;
     will-change: clip-path, opacity;
+}
+
+/* El filo del doblez. Va por encima de todo lo demás del pliegue. */
+.fold-crease {
+    top: 0;
+    bottom: 0;
+    opacity: 0;
+    will-change: left, opacity;
 }
 
 /* La sombra que la hoja doblada proyecta sobre la de debajo. Estrecha: una

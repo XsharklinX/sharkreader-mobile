@@ -95,12 +95,14 @@ export const createPageDrag = ({
             start.dx = dx;
             const width = getWidth();
             const offset = dragOffset({ dx, width });
-            // Se pasa también el progreso y el sentido: el doblado de hoja
-            // necesita saber cuánto se ha recorrido, no solo cuántos píxeles.
+            // Se pasa también el progreso, el sentido y **dónde está el dedo**.
+            // El doblado de esquina no se describe con un número: la esquina
+            // agarrada acaba justo debajo del dedo, así que hace falta el punto.
             onMove(
                 offset,
                 width > 0 ? Math.min(1, Math.abs(offset) / width) : 0,
-                dx < 0 ? 'next' : 'prev'
+                dx < 0 ? 'next' : 'prev',
+                { x: event.clientX, y: event.clientY }
             );
         },
 

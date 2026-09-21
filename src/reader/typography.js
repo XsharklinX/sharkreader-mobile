@@ -33,8 +33,34 @@ export const DEFAULT_TYPOGRAPHY = {
     fontFamily: 'literata',
     fontSize: 18,
     lineHeight: 1.38,
+    // Margen lateral. Los de arriba y abajo van aparte y no valen lo mismo: ver
+    // `marginTop`.
     margin: 14,
+    /**
+     * Márgenes de arriba y de abajo, por separado.
+     *
+     * No quieren el mismo valor que los laterales ni el mismo entre ellos. A los
+     * lados el margen es aire de sujeción —donde va el pulgar—, arriba es solo
+     * respiración, y abajo tiene que convivir con la línea de estado, que ya pone
+     * texto ahí. Un único valor para los cuatro obliga a elegir cuál de los tres
+     * problemas se resuelve.
+     *
+     * Estos valores son los que la app tenía fijos en el CSS, así que quien no
+     * los toque no nota ningún cambio.
+     */
+    marginTop: 28,
+    marginBottom: 34,
     letterSpacing: 0,
+    /**
+     * Peso del cuerpo de texto.
+     *
+     * Las tres fuentes empaquetadas son variables de 400 a 700, así que 500 es un
+     * peso real y no una negrita sintética. Importa más de lo que parece: en una
+     * pantalla a pleno brillo, o al sol, un trazo de 400 se lava y cuesta leer;
+     * en una pantalla tenue de noche, un 500 empasta. Es el mismo texto pidiendo
+     * cosas distintas según dónde se lea.
+     */
+    fontWeight: 400,
     paragraphSpacing: 0.7,
     // 'space' separa párrafos con aire; 'indent' los pega y sangra la primera
     // línea, que es como está compuesto cualquier libro en papel.
@@ -347,8 +373,11 @@ export const buildReaderStyles = (typography, themeId) => {
             '-webkit-tap-highlight-color': 'transparent',
             'touch-action': touchAction,
             // En tinta electrónica el trazo fino se pierde: la tinta se expande
-            // al asentarse y un peso normal sale lavado.
-            ...(base.eink ? { 'font-weight': `${EINK_OVERRIDES.fontWeight} !important` } : {}),
+            // al asentarse y un peso normal sale lavado. Ahí manda el panel, no
+            // la preferencia.
+            ...(base.eink
+                ? { 'font-weight': `${EINK_OVERRIDES.fontWeight} !important` }
+                : { 'font-weight': `${settings.fontWeight || 400} !important` }),
         },
         // Nada puede ser más ancho que la columna. Es la otra mitad del arreglo
         // del desbordamiento: una tabla o una imagen grande empujaba el texto.
@@ -460,8 +489,12 @@ export const buildReaderStyles = (typography, themeId) => {
         // Va con `float` y no con `initial-letter` porque este último todavía
         // no funciona en el WebView de Android, y fallaría en silencio dejando
         // una letra normal donde se esperaba el efecto.
+        // `.sr-ya-capitular` lo pone el motor cuando el editor ya compuso una
+        // capitular en ese capítulo. Ver `dropCap.js`: encima de la del libro, la
+        // nuestra daba dos letras grandes seguidas o una letra gigante sobre una
+        // ilustración, que es peor que no tener ninguna.
         ...(base.dropCap ? {
-            'p:first-of-type::first-letter, h1 + p::first-letter, h2 + p::first-letter': {
+            'body:not(.sr-ya-capitular) p:first-of-type::first-letter, body:not(.sr-ya-capitular) h1 + p::first-letter, body:not(.sr-ya-capitular) h2 + p::first-letter': {
                 'float': 'left',
                 'font-size': '3.1em',
                 // El interlineado de la capitular se fija a 1 para que ocupe
