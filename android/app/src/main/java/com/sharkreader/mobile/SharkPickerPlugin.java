@@ -6,6 +6,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
+import android.util.Base64;
 
 import androidx.activity.result.ActivityResult;
 
@@ -17,6 +18,7 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -166,6 +168,265 @@ public class SharkPickerPlugin extends Plugin {
     public void pickFolder(PluginCall call) {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
         startActivityForResult(call, intent, "handlePickedFolder");
+    }
+
+    // ── Carpeta de copias de seguridad ───────────────────────────────────────
+    //
+    // **Por qué una carpeta elegida por el usuario y no un directorio de la app.**
+    // Una copia guardada dentro de la app no protege de lo único de lo que hay
+    // que protegerse: borrar los datos de la app o desinstalarla se lleva la copia
+    // junto con lo que copiaba. Una carpeta del almacenamiento compartido sí
+    // sobrevive, y con el Storage Access Framework no hace falta pedir ningún
+    // permiso de almacenamiento: el usuario elige una vez, Android recuerda el
+    // permiso y la app solo puede tocar esa carpeta.
+
+    /**
+     * Pide al usuario una carpeta donde guardar las copias, y **retiene el
+     * permiso**.
+     *
+     * `takePersistableUriPermission` es lo que hace que el acceso siga siendo
+     * válido después de reiniciar el teléfono. Sin esa llamada la URI serviría
+     * solo durante esta ejecución, que es justo cuando no se necesita.
+     */
+    @PluginMethod
+    public void pickBackupFolder(PluginCall call) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+            | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        startActivityForResult(call, intent, "handleBackupFolder");
+    }
+
+    @ActivityCallback
+    private void handleBackupFolder(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+
+        JSObject out = new JSObject();
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null) {
+            out.put("uri", null);
+            out.put("cancelled", true);
+            call.resolve(out);
+            return;
+        }
+
+        Uri treeUri = result.getData().getData();
+        try {
+            getContext().getContentResolver().takePersistableUriPermission(
+                treeUri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            );
+        } catch (Exception ignored) {
+            // Algunos proveedores no admiten permiso persistente. Se sigue: la
+            // carpeta servirá al menos mientras dure esta sesión, y al volver se
+            // pedirá otra vez.
+        }
+
+        out.put("uri", treeUri.toString());
+        out.put("label", readTreeName(treeUri));
+        call.resolve(out);
+    }
+
+    /** ¿Seguimos teniendo permiso sobre esta carpeta? */
+    @PluginMethod
+    public void hasBackupFolder(PluginCall call) {
+        String uri = call.getString("uri");
+        JSObject out = new JSObject();
+        out.put("ok", uri != null && holdsPermission(Uri.parse(uri)));
+        call.resolve(out);
+    }
+
+    /**
+     * Escribe una copia en la carpeta elegida.
+     *
+     * Si ya había un fichero con ese nombre se borra antes: el proveedor de
+     * documentos, al crear uno repetido, no sobrescribe sino que añade «(1)» al
+     * nombre, y en pocas semanas la carpeta tendría cincuenta copias con nombres
+     * inútiles en vez de las que se quieren conservar.
+     */
+    @PluginMethod
+    public void writeBackup(PluginCall call) {
+        String tree = call.getString("uri");
+        String name = call.getString("name");
+        String data = call.getString("data");
+        if (tree == null || name == null || data == null) {
+            call.reject("Faltan datos para guardar la copia.");
+            return;
+        }
+
+        try {
+            Uri treeUri = Uri.parse(tree);
+            Uri dir = DocumentsContract.buildDocumentUriUsingTree(
+                treeUri, DocumentsContract.getTreeDocumentId(treeUri));
+
+            Uri existing = findInTree(treeUri, name);
+            if (existing != null) {
+                try {
+                    DocumentsContract.deleteDocument(getContext().getContentResolver(), existing);
+                } catch (Exception ignored) {
+                    // Si no se puede borrar, se escribirá con nombre nuevo.
+                }
+            }
+
+            Uri file = DocumentsContract.createDocument(
+                getContext().getContentResolver(), dir, "application/json", name);
+            if (file == null) {
+                call.reject("La carpeta de copias no admite escritura.");
+                return;
+            }
+
+            byte[] bytes = Base64.decode(data, Base64.DEFAULT);
+            try (OutputStream out = getContext().getContentResolver().openOutputStream(file, "wt")) {
+                if (out == null) throw new Exception("sin flujo de escritura");
+                out.write(bytes);
+            }
+
+            JSObject result = new JSObject();
+            result.put("uri", file.toString());
+            result.put("size", bytes.length);
+            call.resolve(result);
+        } catch (Exception error) {
+            call.reject("No se pudo guardar la copia: " + error.getMessage());
+        }
+    }
+
+    /** Las copias que hay en la carpeta, de la más reciente a la más antigua. */
+    @PluginMethod
+    public void listBackups(PluginCall call) {
+        String tree = call.getString("uri");
+        JSArray files = new JSArray();
+        if (tree == null) {
+            JSObject out = new JSObject();
+            out.put("files", files);
+            call.resolve(out);
+            return;
+        }
+
+        try {
+            Uri treeUri = Uri.parse(tree);
+            Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(
+                treeUri, DocumentsContract.getTreeDocumentId(treeUri));
+
+            List<JSObject> found = new ArrayList<>();
+            try (Cursor cursor = getContext().getContentResolver().query(children, new String[] {
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_SIZE,
+                DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+            }, null, null, null)) {
+                while (cursor != null && cursor.moveToNext()) {
+                    String name = cursor.getString(1);
+                    if (name == null || !name.toLowerCase(Locale.ROOT).endsWith(".json")) continue;
+                    JSObject item = new JSObject();
+                    item.put("uri", DocumentsContract.buildDocumentUriUsingTree(treeUri, cursor.getString(0)).toString());
+                    item.put("name", name);
+                    item.put("size", cursor.getLong(2));
+                    item.put("modified", cursor.getLong(3));
+                    found.add(item);
+                }
+            }
+
+            // Ordenadas por fecha, la más reciente primero: al restaurar, la de
+            // arriba es la que el usuario quiere.
+            found.sort((a, b) -> Long.compare(b.optLong("modified", 0L), a.optLong("modified", 0L)));
+            for (JSObject item : found) files.put(item);
+
+            JSObject out = new JSObject();
+            out.put("files", files);
+            call.resolve(out);
+        } catch (Exception error) {
+            call.reject("No se pudo leer la carpeta de copias: " + error.getMessage());
+        }
+    }
+
+    /** Devuelve el contenido de una copia, en base64. */
+    @PluginMethod
+    public void readBackup(PluginCall call) {
+        String uri = call.getString("uri");
+        if (uri == null) {
+            call.reject("Falta la copia que leer.");
+            return;
+        }
+
+        try (InputStream in = getContext().getContentResolver().openInputStream(Uri.parse(uri))) {
+            if (in == null) throw new Exception("sin flujo de lectura");
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            byte[] chunk = new byte[8192];
+            int read;
+            while ((read = in.read(chunk)) > 0) buffer.write(chunk, 0, read);
+
+            JSObject out = new JSObject();
+            out.put("data", Base64.encodeToString(buffer.toByteArray(), Base64.NO_WRAP));
+            call.resolve(out);
+        } catch (Exception error) {
+            call.reject("No se pudo leer la copia: " + error.getMessage());
+        }
+    }
+
+    /** Borra una copia. Se usa al rotar: solo se guardan las últimas. */
+    @PluginMethod
+    public void deleteBackup(PluginCall call) {
+        String uri = call.getString("uri");
+        JSObject out = new JSObject();
+        if (uri == null) {
+            out.put("ok", false);
+            call.resolve(out);
+            return;
+        }
+        try {
+            out.put("ok", DocumentsContract.deleteDocument(
+                getContext().getContentResolver(), Uri.parse(uri)));
+        } catch (Exception error) {
+            out.put("ok", false);
+        }
+        call.resolve(out);
+    }
+
+    /** ¿Está el permiso persistente todavía concedido para esta carpeta? */
+    private boolean holdsPermission(Uri treeUri) {
+        try {
+            for (android.content.UriPermission held
+                    : getContext().getContentResolver().getPersistedUriPermissions()) {
+                if (held.getUri().equals(treeUri) && held.isWritePermission()) return true;
+            }
+        } catch (Exception ignored) {
+            // Sin permisos que consultar.
+        }
+        return false;
+    }
+
+    /** Busca un fichero por nombre dentro de la carpeta elegida. */
+    private Uri findInTree(Uri treeUri, String name) {
+        Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(
+            treeUri, DocumentsContract.getTreeDocumentId(treeUri));
+        try (Cursor cursor = getContext().getContentResolver().query(children, new String[] {
+            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+        }, null, null, null)) {
+            while (cursor != null && cursor.moveToNext()) {
+                if (name.equals(cursor.getString(1))) {
+                    return DocumentsContract.buildDocumentUriUsingTree(treeUri, cursor.getString(0));
+                }
+            }
+        } catch (Exception ignored) {
+            // Carpeta ilegible: se tratará como si el fichero no existiera.
+        }
+        return null;
+    }
+
+    /** Nombre legible de la carpeta, para poder enseñarlo en los ajustes. */
+    private String readTreeName(Uri treeUri) {
+        try {
+            Uri doc = DocumentsContract.buildDocumentUriUsingTree(
+                treeUri, DocumentsContract.getTreeDocumentId(treeUri));
+            try (Cursor cursor = getContext().getContentResolver().query(doc, new String[] {
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            }, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst()) return cursor.getString(0);
+            }
+        } catch (Exception ignored) {
+            // Sin nombre: los ajustes enseñarán uno genérico.
+        }
+        return "Carpeta elegida";
     }
 
     // ── Apertura desde otras apps ────────────────────────────────────────────

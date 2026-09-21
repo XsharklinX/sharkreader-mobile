@@ -6,6 +6,10 @@ import { readBookBlob } from '../adapters/SafPicker.js';
 import {
     parseBackupFile, mergeIntoLibrary, buildBackup, shareTextFile, exportAnnotations,
 } from '../library/backup.js';
+import {
+    leerEstado, elegirCarpeta, olvidarCarpeta, copiarAhora, listarCopias, leerCopia,
+} from '../library/autoBackupRunner.js';
+import { resumenCopias } from '../core/autoBackup.js';
 import { loadVocabulary, vocabularyToMarkdown } from '../reader/dictionary.js';
 import { getMobileAddons } from '../library/workshop.js';
 import { formatBytes, useStorageUsage } from './storage.js';
@@ -375,6 +379,72 @@ export const DataPage = ({ library, notify }) => {
         loadVocabulary(ports.storage).then(setVocabulary).catch(() => {});
     }, [ports]);
 
+    // ── Copias automáticas ───────────────────────────────────────────────
+    const [copias, setCopias] = useState({ carpeta: null, etiqueta: '', ultima: 0 });
+    const [restaurables, setRestaurables] = useState([]);
+
+    useEffect(() => {
+        leerEstado(ports.storage).then(setCopias).catch(() => {});
+    }, [ports]);
+
+    const refrescarCopias = async () => {
+        setCopias(await leerEstado(ports.storage));
+        setRestaurables(await listarCopias(ports.storage));
+    };
+
+    const elegirCarpetaCopias = async () => {
+        try {
+            const elegida = await elegirCarpeta(ports.storage);
+            if (!elegida.carpeta) return;
+            await refrescarCopias();
+            // La primera copia se hace en el momento: si no, el usuario elige la
+            // carpeta, la ve vacía y no sabe si ha funcionado.
+            setBusy('Guardando la primera copia…');
+            const hecho = await copiarAhora({ storage: ports.storage, books: library.books });
+            setBusy(null);
+            await refrescarCopias();
+            notify(hecho.ok ? `Copia guardada: ${hecho.nombre}` : (hecho.error || 'No se pudo copiar.'));
+        } catch (error) {
+            setBusy(null);
+            notify(error?.message || 'No se pudo elegir la carpeta.');
+        }
+    };
+
+    const copiarYa = async () => {
+        setBusy('Guardando copia…');
+        const hecho = await copiarAhora({ storage: ports.storage, books: library.books });
+        setBusy(null);
+        await refrescarCopias();
+        notify(hecho.ok ? `Copia guardada: ${hecho.nombre}` : (hecho.error || 'No se pudo copiar.'));
+    };
+
+    /**
+     * Restaura desde una copia de la carpeta.
+     *
+     * Fusiona, no sustituye: es el mismo camino que importar un backup a mano,
+     * así que si el móvil ya tiene algo más reciente no se pierde.
+     */
+    const restaurarCopia = async (uri, nombre) => {
+        setBusy(`Restaurando ${nombre}…`);
+        try {
+            const incoming = await leerCopia(uri);
+            const stats = (await ports.storage.getSetting('stats')) || {};
+            const result = mergeIntoLibrary(incoming, library.books, stats);
+
+            await library.replaceAll(result.books);
+            await ports.storage.setSetting('stats', result.stats);
+            if (result.achievements) await ports.storage.setSetting('achievements', result.achievements);
+
+            setBusy(null);
+            notify(`${result.summary.added} libros recuperados · ${result.summary.updated} actualizados`);
+        } catch (error) {
+            setBusy(null);
+            notify(error?.message || 'Esa copia no se pudo leer.');
+        }
+    };
+
+    const estadoCopias = resumenCopias(copias);
+
     const hasNotes = library.books.some((book) => book.bookmarks?.length);
 
     const importBackup = async () => {
@@ -386,7 +456,10 @@ export const DataPage = ({ library, notify }) => {
 
             setBusy('Leyendo el backup…');
             const blob = await readBookBlob(file.path);
-            const incoming = await parseBackupFile(blob, file.name);
+            // El validador envuelve lo leído en `{ backup, warnings }`. Pasarlo
+            // entero a la fusión era lo que hacía que importar un backup no
+            // restaurara nada.
+            const { backup: incoming, warnings } = await parseBackupFile(blob, file.name);
 
             setBusy('Fusionando con tu biblioteca…');
             const stats = (await ports.storage.getSetting('stats')) || {};
@@ -397,7 +470,8 @@ export const DataPage = ({ library, notify }) => {
             if (result.achievements) await ports.storage.setSetting('achievements', result.achievements);
 
             setBusy(null);
-            notify(`${result.summary.added} libros nuevos · ${result.summary.updated} actualizados`);
+            const aviso = warnings?.length ? ` · ${warnings.length} avisos` : '';
+            notify(`${result.summary.added} libros nuevos · ${result.summary.updated} actualizados${aviso}`);
         } catch (error) {
             setBusy(null);
             notify(error?.message || 'El backup no se pudo leer.');
@@ -422,6 +496,74 @@ export const DataPage = ({ library, notify }) => {
     return (
         <>
             {busy && <div className="banner" role="status">{busy}</div>}
+
+            <Group title="Copias automáticas">
+                <button
+                    type="button"
+                    className="row"
+                    onClick={elegirCarpetaCopias}
+                    disabled={!!busy}
+                    data-setting="backup-folder"
+                >
+                    <span className="row-icon"><IconFolder size={19} /></span>
+                    <span className="row-txt">
+                        <span>{estadoCopias.activo ? 'Carpeta de copias' : 'Activar copias automáticas'}</span>
+                        <span className="row-sub">
+                            {estadoCopias.activo ? `${estadoCopias.titulo} · ${estadoCopias.detalle}` : estadoCopias.detalle}
+                        </span>
+                    </span>
+                    <IconChevronRight size={18} />
+                </button>
+
+                {estadoCopias.activo && (
+                    <button type="button" className="row" onClick={copiarYa} disabled={!!busy || !library.books.length} data-setting="backup-now">
+                        <span className="row-icon"><IconShare size={19} /></span>
+                        <span className="row-txt"><span>Copiar ahora</span></span>
+                        <IconChevronRight size={18} />
+                    </button>
+                )}
+
+                {estadoCopias.activo && (
+                    <button type="button" className="row" onClick={refrescarCopias} disabled={!!busy} data-setting="backup-list">
+                        <span className="row-icon"><IconFolder size={19} /></span>
+                        <span className="row-txt">
+                            <span>Restaurar desde una copia</span>
+                            <span className="row-sub">
+                                {restaurables.length
+                                    ? `${restaurables.length} copias guardadas`
+                                    : 'Toca para ver las copias guardadas'}
+                            </span>
+                        </span>
+                        <IconChevronRight size={18} />
+                    </button>
+                )}
+
+                {restaurables.map((copia) => (
+                    <button
+                        key={copia.uri}
+                        type="button"
+                        className="row"
+                        onClick={() => restaurarCopia(copia.uri, copia.name)}
+                        disabled={!!busy}
+                    >
+                        <span className="row-icon"><IconChevronRight size={19} /></span>
+                        <span className="row-txt">
+                            <span>{copia.name}</span>
+                            <span className="row-sub">{Math.round((copia.size || 0) / 1024)} KB</span>
+                        </span>
+                    </button>
+                ))}
+
+                {estadoCopias.activo && (
+                    <button type="button" className="row" onClick={async () => { await olvidarCarpeta(ports.storage); await refrescarCopias(); }} disabled={!!busy}>
+                        <span className="row-icon"><IconFolder size={19} /></span>
+                        <span className="row-txt">
+                            <span>Dejar de copiar</span>
+                            <span className="row-sub">Las copias ya hechas se quedan donde están</span>
+                        </span>
+                    </button>
+                )}
+            </Group>
 
             <Group title="Copia de seguridad">
                 <button type="button" className="row" onClick={importBackup} disabled={!!busy} data-setting="backup-import">

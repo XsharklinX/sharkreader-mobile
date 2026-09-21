@@ -56,7 +56,29 @@ export const parseBackupFile = async (blob, fileName = '') => {
  *
  * @returns {{books: Object[], stats: Object, summary: Object}}
  */
-export const mergeIntoLibrary = (incoming, currentBooks = [], currentStats = {}) => {
+export const mergeIntoLibrary = (entrante, currentBooks = [], currentStats = {}) => {
+    /**
+     * **Aquí se perdían los backups en silencio.**
+     *
+     * `parseBackupFile` devuelve `{ backup, warnings }` —el envoltorio del
+     * validador— y aquí se recibía ese envoltorio entero como si fuera el
+     * backup. `mergeBackupData` buscaba `.books` donde no había nada, así que
+     * fusionaba cero libros, y la pantalla anunciaba «0 libros nuevos · 0
+     * actualizados» tan tranquila. Importar un backup no restauraba nada y no
+     * avisaba de nada, que es la peor forma posible de fallar para un respaldo.
+     *
+     * Se acepta cualquiera de las dos formas, y si después de desenvolver no hay
+     * libros se **avisa**. Un respaldo que no restaura tiene que dar un error,
+     * nunca un número tranquilizador.
+     */
+    const incoming = entrante?.backup && !Array.isArray(entrante.books)
+        ? entrante.backup
+        : entrante;
+
+    if (!incoming || !Array.isArray(incoming.books)) {
+        throw new Error('El backup no contiene ningún libro que restaurar.');
+    }
+
     const local = buildPortableBackup({
         books: currentBooks.map((book) => toStoredBookRecord(book, {}, { includeFile: false })),
         deletedBooks: {},

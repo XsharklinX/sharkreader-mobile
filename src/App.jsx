@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
+import { copiarSiToca } from './library/autoBackupRunner.js';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { runBack } from './ui/backStack.js';
 import { useBackHandler } from './ui/useBackHandler.js';
@@ -110,6 +111,38 @@ export default function App() {
 
         return () => { listener?.remove(); };
     }, [library.status]);
+
+    /**
+     * La copia de seguridad diaria.
+     *
+     * Se intenta al arrancar y cada vez que la app pasa a segundo plano, que es
+     * cuando el usuario ya no está esperando nada. `copiarSiToca` decide: sin
+     * carpeta elegida, con la biblioteca vacía o con una copia reciente, no hace
+     * nada y no cuesta nada.
+     *
+     * **La biblioteca se lee de una referencia, no de la dependencia del
+     * efecto.** Con `library.books` en las dependencias, el oyente se quitaría y
+     * se volvería a poner en cada cambio de la biblioteca —cada página leída— y
+     * lo que se copia tiene que ser lo de ahora, no lo de cuando se registró.
+     */
+    const librosRef = useRef(library.books);
+    librosRef.current = library.books;
+
+    useEffect(() => {
+        if (library.status !== 'ready') return undefined;
+
+        let listener;
+        const intentar = () => {
+            copiarSiToca({ storage: ports.storage, books: librosRef.current }).catch(() => {});
+        };
+
+        intentar();
+        CapApp.addListener('appStateChange', ({ isActive }) => {
+            if (!isActive) intentar();
+        }).then((handle) => { listener = handle; });
+
+        return () => { listener?.remove(); };
+    }, [library.status, ports]);
 
     // Accesos directos del icono y widget de continuar leyendo.
     //
