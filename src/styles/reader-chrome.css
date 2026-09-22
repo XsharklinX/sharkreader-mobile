@@ -43,6 +43,32 @@
     gap: var(--sp-3);
 }
 
+/* La fila de herramientas del lector de PDF y del de cómic.
+ *
+ * **Esta clase no tenía ni una regla.** Dentro de `.reader-bottom`, que es una
+ * columna, el contenedor sin estilos dejaba que sus botones —que son
+ * `display: grid`, así que ocupan toda la línea— se apilaran uno debajo de
+ * otro: la barra
+ * del PDF salía como una columna de iconos que llenaba media pantalla y no
+ * dejaba sitio ni para la página. Llevaba así desde siempre, sin que ningún test
+ * pudiera verlo, porque los tests prueban piezas y esto es maquetación.
+ *
+ * Se envuelve en vez de desbordar: con el recorte y el modo de lectura son
+ * siete botones, y en una pantalla estrecha cabe mejor en dos filas que
+ * apretados hasta no poder tocarlos.
+ */
+.reader-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-1);
+}
+
+/* El porcentaje de zoom, entre los botones de más y menos: ancho fijo para que
+   pasar de 100 % a 90 % no mueva toda la fila. */
+.reader-tools .mono { min-width: 4ch; text-align: center; }
+
 /* ── Progreso ─────────────────────────────────────────────────────────────── */
 
 .prog { display: flex; flex-direction: column; gap: var(--sp-2); }

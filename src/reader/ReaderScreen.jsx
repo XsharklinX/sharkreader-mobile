@@ -243,6 +243,23 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         const engine = engineRef.current;
         if (!engine) return;
 
+        /**
+         * **Que el pliegue no pueda dejar el libro clavado.**
+         *
+         * Mientras `pliegueArmado` vale algo, todo lo de abajo cree que hay un
+         * gesto en marcha y no pasa página. Si por lo que sea ese gesto no llega
+         * a rematarse —una animación que no arranca, un capítulo que tarda—, el
+         * libro se queda sin responder y hay que salir y volver a entrar. Es el
+         * síntoma que se ha visto y no se ha conseguido reproducir.
+         *
+         * Así que aquí se comprueba contra el propio pliegue en vez de fiarse de
+         * la bandera: si él dice que ya no está tapando la pantalla, el gesto
+         * terminó y la bandera está de más.
+         */
+        if (pliegueArmado.current && foldRef.current?.armed?.() === false) {
+            pliegueArmado.current = null;
+        }
+
         // Pasar página más rápido de lo que dura la animación cancela la
         // anterior: sin esto, dos animaciones se pelean por el mismo transform.
         turnRef.current?.cancel();
