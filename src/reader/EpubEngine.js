@@ -19,21 +19,6 @@ import { resolveHyphenLang } from './detectLanguage.js';
 /** Un carácter cada N para el mapa de localizaciones. Más bajo = más preciso y más lento. */
 const LOCATIONS_CHARS = 1024;
 
-const serializeStyles = (doc) => {
-    const blocks = [];
-
-    for (const sheet of Array.from(doc.styleSheets || [])) {
-        try {
-            const rules = Array.from(sheet.cssRules || []);
-            blocks.push(rules.map((rule) => rule.cssText).join('\n'));
-        } catch {
-            // Hoja de otro origen: no se puede leer y no es un error.
-        }
-    }
-
-    return blocks.join('\n');
-};
-
 /**
  * En qué página del capítulo estamos, medido sobre la geometría real.
  *
@@ -531,36 +516,6 @@ export const createEpubEngine = () => {
          * acierta siempre. Y de paso el texto sigue siendo texto en lugar de un
          * mapa de bits: se ve más nítido y no cuesta 200 ms de rasterizado.
          */
-        chapterSheet() {
-            const contents = [].concat(rendition?.getContents?.() || []);
-            const host = container?.getBoundingClientRect();
-            if (!host) return null;
-
-            for (const content of contents) {
-                const view = content?.window;
-                const doc = view?.document;
-                const frame = view?.frameElement;
-                if (!doc?.documentElement || !frame) continue;
-
-                const frameRect = frame.getBoundingClientRect();
-                return {
-                    html: doc.documentElement.outerHTML,
-                    // El aspecto del capítulo no está en su HTML: ni el tema, ni la
-                    // tipografía, ni las columnas. Hay que llevárselo aparte.
-                    css: serializeStyles(doc),
-                    // Ancho y alto reales del iframe: la copia tiene que medir lo
-                    // mismo o las columnas caerían en otros sitios y el
-                    // desplazamiento dejaría de corresponder.
-                    frameWidth: Math.round(frameRect.width),
-                    frameHeight: Math.round(frameRect.height),
-                    // Cuánto hay que mover la copia para que se vea esta página.
-                    offsetX: Math.round(host.left - frameRect.left),
-                    offsetY: Math.round(host.top - frameRect.top),
-                };
-            }
-            return null;
-        },
-
         /** Página dentro del capítulo, medida sobre las columnas. Ver `pageInChapter`. */
         chapterPage() {
             const contents = [].concat(rendition?.getContents?.() || []);

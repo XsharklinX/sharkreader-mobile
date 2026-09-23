@@ -7,7 +7,6 @@ import { AUTOSCROLL_SPEEDS } from './useAutoScroll.js';
 import { SPREAD_MODES } from './spread.js';
 import { RULER_MODES } from './ruler.js';
 import { REFRESH_INTERVALS, intervalLabel } from './einkRefresh.js';
-import { ORIENTATION_MODES } from '../adapters/ScreenOrientation.js';
 import { IconSun, IconColumns, IconRotate, IconEink, IconRuler } from '../ui/icons.jsx';
 
 /**
@@ -41,7 +40,6 @@ export default function DisplaySheet({
     flow, onChangeFlow,
     transition, onChangeTransition,
     spread, onChangeSpread, columns,
-    orientation, onChangeOrientation,
     ruler, onChangeRuler,
     eink, onChangeEink,
     refreshEvery, onChangeRefreshEvery, onFlashNow,
@@ -83,15 +81,9 @@ export default function DisplaySheet({
                         </button>
                     </Group>
 
-                    <Segmented
-                        label="Orientación"
-                        value={orientation || 'auto'}
-                        options={Object.entries(ORIENTATION_MODES)
-                            .map(([id, option]) => ({ value: id, label: option.label }))}
-                        onChange={onChangeOrientation}
-                        hint="Bloquearla evita que la página gire al leer tumbado, que es justo
-                              cuando el sensor más molesta."
-                    />
+                    {/* El bloqueo de giro se fue: la app entera es vertical, fijado
+                        en el manifiesto de Android. Un ajuste que solo puede decir
+                        «vertical» no es un ajuste. */}
                 </>
             ),
         },
@@ -310,9 +302,8 @@ export default function DisplaySheet({
                         />
                         <Row
                             icon={<IconRotate size={18} />}
-                            label="Gestos y orientación"
-                            hint="Nueve zonas, bloqueo de giro"
-                            value={orientation !== 'auto' ? ORIENTATION_MODES[orientation]?.label : null}
+                            label="Gestos"
+                            hint="Qué hace cada zona de la pantalla"
                             onClick={() => openPage('gestures')}
                         />
                         <Row

@@ -296,7 +296,7 @@ export const IconMenu = (p) => (
 );
 
 /**
- * Los iconos de las vistas de la biblioteca.
+ * Los iconos de las cuatro vistas de la biblioteca.
  *
  * Van juntos y en un solo componente porque solo tienen sentido como conjunto: lo
  * que hace que se entiendan no es cada dibujo, es que se vean como cuatro maneras
@@ -304,17 +304,6 @@ export const IconMenu = (p) => (
  * propio grosor y su propio margen.
  */
 export const IconView = ({ id, size = 17 }) => {
-    // La estantería: lomos de grosores distintos apoyados en una tabla. Es el
-    // único de los cinco que dibuja objetos y no celdas, porque es la única vista
-    // que enseña los libros como objetos.
-    if (id === 'lomos') {
-        return (
-            <Svg size={size}>
-                <path d="M4 7v10M7 5v12M10.5 8v9M14 6v11M18 7v10M3 19h18" />
-            </Svg>
-        );
-    }
-
     if (id === 'compact') {
         return (
             <Svg size={size}>

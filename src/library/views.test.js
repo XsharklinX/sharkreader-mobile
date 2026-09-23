@@ -23,11 +23,10 @@ describe('normalizeView', () => {
     });
 
     it('cada una dice a qué pregunta responde, y ninguna repite pregunta', () => {
-        // Son cinco desde que existe la estantería de lomos, que es la única que
-        // contesta «¿qué tengo?». Lo que importa no es cuántas hay sino que
-        // ninguna sobre: si dos vistas contestan lo mismo, una es ruido.
+        // Lo que importa no es cuántas hay sino que ninguna sobre: si dos vistas
+        // contestan lo mismo, una es ruido.
         const vistas = Object.values(LIBRARY_VIEWS);
-        expect(vistas.length).toBeGreaterThanOrEqual(4);
+        expect(vistas).toHaveLength(4);
         expect(new Set(vistas.map((v) => v.hint)).size).toBe(vistas.length);
         vistas.forEach((vista) => {
             expect(vista.label).toBeTruthy();

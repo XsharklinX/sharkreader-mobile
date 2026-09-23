@@ -9,7 +9,18 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <!-- Vertical y solo vertical.
+
+             Se fija aquí, en el manifiesto, y no desde JavaScript: el plugin de
+             orientación solo pide, y cualquier desbloqueo —el que hacía el lector
+             al salir— devolvía la app al sensor. Con `portrait` en la actividad,
+             girar el teléfono no hace nada, que es lo que se busca.
+
+             `screenOrientation` con `configChanges` incluyendo `orientation`: la
+             actividad no se recrea, así que no hay parpadeo ni se pierde la
+             posición de lectura. -->
         <activity
+            android:screenOrientation="portrait"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
             android:name=".MainActivity"
             android:label="@string/title_activity_main"

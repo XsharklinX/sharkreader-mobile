@@ -9,17 +9,6 @@
  * responde y no como una descripción de lo que dibuja.
  */
 export const LIBRARY_VIEWS = {
-    /**
-     * La estantería, vista de canto.
-     *
-     * Va primera porque es la que contesta «¿qué tengo?», que es la pregunta con
-     * la que se abre una biblioteca. Las otras tres contestan «¿qué leo ahora?»,
-     * y para eso ya está la tarjeta de seguir leyendo arriba.
-     */
-    lomos: {
-        label: 'Estantería',
-        hint: 'De canto, como en el mueble. Cuarenta libros por pantalla.',
-    },
     grid: {
         label: 'Rejilla',
         hint: 'Portada, título y autor. Para elegir qué leer.',
