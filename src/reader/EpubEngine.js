@@ -1,4 +1,4 @@
-import ePub from 'epubjs';
+import ePub, { EpubCFI } from 'epubjs';
 import { SECTION_PAUSE_MS, CALMA_MS, hayCalma } from './locationMap.js';
 import { traeCapitular, MARCA as MARCA_CAPITULAR } from './dropCap.js';
 import { resolveHyphenLang } from './detectLanguage.js';
@@ -44,6 +44,115 @@ export const PRESUPUESTO_CSS = 60 * 1024;
  * que se atasque en ellos.
  */
 export const PRESUPUESTO_HTML = 900 * 1024;
+
+/**
+ * Un píxel transparente. Lo que sustituye a cada imagen en la copia.
+ */
+export const PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+/**
+ * Quita las imágenes de la copia dejando su hueco exacto.
+ *
+ * **Esto es lo que rompía los libros ilustrados.** La copia del capítulo se monta
+ * dos veces —una plana y una reflejada—, así que cada ilustración se cargaba y
+ * se descodificaba **tres veces**: la real y las dos copias. Un capítulo con
+ * cuatro láminas a página completa son decenas de megas de mapa de bits en un
+ * WebView, y ahí es donde la app se quedaba sin memoria y se caía.
+ *
+ * Y lo peor es que ese gasto no compraba nada: las copias van en un iframe
+ * aislado, y las direcciones `blob:` con las que epub.js sirve las imágenes del
+ * libro **no se pueden abrir desde ahí**. Se estaba pagando por imágenes que
+ * nunca llegaban a verse.
+ *
+ * Así que cada imagen se cambia por un píxel transparente con el tamaño que
+ * tenía en pantalla. El hueco queda igual, las líneas de texto caen donde caían,
+ * y lo que se dobla sigue siendo la misma página — solo que con los recuadros de
+ * las ilustraciones vacíos, que es exactamente lo que ya se veía.
+ *
+ * @param {Document} doc
+ * @returns {string} El HTML de la copia.
+ */
+export const htmlSinImagenes = (doc) => {
+    const copia = doc.documentElement.cloneNode(true);
+    const vivas = doc.querySelectorAll('img, image, svg, video, canvas');
+    const clonadas = copia.querySelectorAll('img, image, svg, video, canvas');
+
+    clonadas.forEach((nodo, i) => {
+        // El tamaño se toma del elemento **vivo**, no del clon: el clon no está
+        // maquetado y no mide nada. Sin esta medida, quitar la imagen colapsaría
+        // el hueco y el texto de la copia caería en otro sitio que en la página.
+        const caja = vivas[i]?.getBoundingClientRect?.();
+        const ancho = Math.round(caja?.width || 0);
+        const alto = Math.round(caja?.height || 0);
+
+        const hueco = doc.createElement('img');
+        hueco.setAttribute('src', PIXEL);
+        hueco.setAttribute('alt', '');
+        hueco.setAttribute('aria-hidden', 'true');
+        if (ancho && alto) {
+            hueco.setAttribute('style', `width:${ancho}px;height:${alto}px;display:inline-block`);
+        }
+        nodo.replaceWith(hueco);
+    });
+
+    return copia.outerHTML;
+};
+
+/**
+ * El HTML de **la página que se está viendo**, no el del capítulo.
+ *
+ * ## Por qué importa tanto
+ *
+ * Para doblar una hoja hay que tenerla dos veces, y hasta ahora esas dos copias
+ * eran el capítulo entero: 605 KB de HTML cada una en un libro normal. Pero lo
+ * que se dobla es **una página**, y una página son unas cuantas decenas de
+ * líneas de texto. Se estaba copiando un libro para enseñar un folio.
+ *
+ * ## Cómo se recorta
+ *
+ * epub.js sabe exactamente dónde empieza y dónde acaba lo que se ve: lo publica
+ * como dos CFI en cada cambio de posición. Un CFI se puede convertir en un punto
+ * del DOM, y con el de inicio y el de fin se construye un rango que es, palabra
+ * por palabra, la página. Clonarlo da el contenido exacto — incluidos los
+ * párrafos cortados por la mitad, que es justo lo que la página enseña.
+ *
+ * ## Y la copia deja de necesitar columnas
+ *
+ * El capítulo se maqueta en columnas dentro de un iframe mucho más ancho que la
+ * pantalla, y la copia tenía que desplazarse para enseñar la columna correcta.
+ * Con solo la página, la copia es un bloque del tamaño de la pantalla: sin
+ * columnas, sin desplazamiento y sin la aritmética que las acompañaba.
+ *
+ * @returns {string|null} El HTML del fragmento, o null si no se puede recortar.
+ */
+export const htmlDeLaPagina = (rendition, doc) => {
+    try {
+        const loc = rendition?.currentLocation?.();
+        const inicio = loc?.start?.cfi;
+        const fin = loc?.end?.cfi;
+        if (!inicio || !fin) return null;
+
+        const desde = new EpubCFI(inicio).toRange(doc);
+        const hasta = new EpubCFI(fin).toRange(doc);
+        if (!desde || !hasta) return null;
+
+        const rango = doc.createRange();
+        rango.setStart(desde.startContainer, desde.startOffset);
+        rango.setEnd(hasta.endContainer, hasta.endOffset);
+
+        const trozo = doc.createElement('div');
+        trozo.appendChild(rango.cloneContents());
+
+        // El cuerpo lleva sus clases —las del libro y la que dice si ya trae
+        // capitular— porque de ellas dependen estilos que se ven en la página.
+        const clases = doc.body?.className || '';
+        return `<html><head></head><body class="${clases}">${trozo.innerHTML}</body></html>`;
+    } catch {
+        // Un CFI que no resuelve, un capítulo con estructura rara: se copia el
+        // capítulo entero, que es más caro pero siempre funciona.
+        return null;
+    }
+};
 
 /**
  * El CSS que necesita la copia, dentro del presupuesto.
@@ -601,12 +710,34 @@ export const createEpubEngine = () => {
                 const frame = view?.frameElement;
                 if (!doc?.documentElement || !frame) continue;
 
-                const html = doc.documentElement.outerHTML;
-                // El tope se mira **antes** de montar nada: lo caro no es medir, es
-                // parsear medio mega de HTML dos veces.
+                const frameRect = frame.getBoundingClientRect();
+
+                /**
+                 * Primero se intenta copiar **solo la página**.
+                 *
+                 * Cuando sale, la copia mide unas decenas de kilobytes en vez de
+                 * seiscientos, y además es un bloque del tamaño de la pantalla:
+                 * ni columnas ni desplazamiento. Ver `htmlDeLaPagina`.
+                 */
+                const soloPagina = htmlDeLaPagina(rendition, doc);
+                if (soloPagina) {
+                    return {
+                        html: soloPagina,
+                        css: serializeStyles(doc),
+                        frameWidth: Math.round(host.width),
+                        frameHeight: Math.round(host.height),
+                        offsetX: 0,
+                        offsetY: 0,
+                    };
+                }
+
+                // Red: el capítulo entero, sin imágenes, si el recorte no sale.
+                // Las imágenes salen **antes** de medir porque en un libro
+                // ilustrado son casi todo el peso, y son justo lo que no se puede
+                // ver en la copia. Ver `htmlSinImagenes`.
+                const html = htmlSinImagenes(doc);
                 if (html.length > PRESUPUESTO_HTML) return null;
 
-                const frameRect = frame.getBoundingClientRect();
                 return {
                     html,
                     css: serializeStyles(doc),

@@ -137,12 +137,26 @@ export const cornerState = (dedo, width, height, esquina = 'bottom-right', { dar
     ];
     const C = (ESQUINAS[esquina] || ESQUINAS['bottom-right'])(width, height);
 
-    // El dedo no puede pasarse de la esquina opuesta: más allá el papel ya está
-    // del todo vuelto y seguir estirando solo produce geometría imposible.
-    const P = {
-        x: Math.max(0, Math.min(width, dedo.x)),
-        y: Math.max(0, Math.min(height, dedo.y)),
-    };
+    /**
+     * El dedo, acotado a la hoja **y comprobado**.
+     *
+     * Lo de acotar es geometría: más allá de la esquina opuesta el papel ya está
+     * del todo vuelto y seguir estirando produce formas imposibles.
+     *
+     * Lo de comprobar es una cicatriz. Una llamada con la firma vieja pasaba un
+     * número en lugar de un punto, y de ahí salía un `NaN` que recorría toda la
+     * función hasta el `clip-path`. Un recorte con `NaN` no es un error que se
+     * vea: el navegador lo descarta y **deja la capa sin recortar**, tapando la
+     * pantalla entera. El lector se quedaba clavado y había que salir del libro.
+     *
+     * Un dedo que no es un punto significa que nadie está conduciendo el gesto,
+     * así que la respuesta correcta es la hoja en reposo, no una hoja rota.
+     */
+    const x0 = Number(dedo?.x);
+    const y0 = Number(dedo?.y);
+    const P = Number.isFinite(x0) && Number.isFinite(y0)
+        ? { x: Math.max(0, Math.min(width, x0)), y: Math.max(0, Math.min(height, y0)) }
+        : C;
 
     const dx = P.x - C.x;
     const dy = P.y - C.y;

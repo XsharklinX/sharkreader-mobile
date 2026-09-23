@@ -209,7 +209,22 @@ export default function PageFold({
             guardian = setTimeout(() => {
                 if (!armado) return;
                 armado = false;
-                paint(0, 'next');
+                /**
+                 * **Aquí estaba el congelado.**
+                 *
+                 * Esto llamaba a `paint(0, 'next')`, de cuando el pliegue se
+                 * describía con un número. Al pasar al doblado por esquina, `paint`
+                 * empezó a esperar un punto, y ese `0` daba una geometría en `NaN`:
+                 * un `clip-path` con `NaN` no es válido, el navegador lo ignora, y
+                 * la copia se quedaba **sin recortar y a plena opacidad, tapando la
+                 * pantalla entera**.
+                 *
+                 * Desde fuera eso es exactamente lo que se veía: el libro clavado
+                 * en una página, sin responder al dedo, y había que salir y volver
+                 * a entrar. No era el peso del capítulo: era el propio mecanismo de
+                 * rescate el que dejaba el lector inservible.
+                 */
+                paint(reposo(rincon), rincon);
                 onStuckRef.current?.();
             }, ARMADO_MAX_MS);
         };

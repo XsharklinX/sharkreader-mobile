@@ -141,3 +141,28 @@ describe('aClip', () => {
             .toBe('polygon(0.0px 0.0px, 10.0px 0.0px, 0.0px 10.0px)');
     });
 });
+
+describe('un dedo que no es un punto', () => {
+    it('devuelve la hoja en reposo, no una hoja rota', () => {
+        // **Esta es la cicatriz del congelado.** Una llamada con la firma vieja
+        // pasaba un número en vez de un punto; de ahí salía un `NaN` que llegaba
+        // hasta el `clip-path`, el navegador lo descartaba y la copia se quedaba
+        // sin recortar tapando la pantalla entera. El libro se veía clavado.
+        for (const malo of [0, null, undefined, {}, { x: 10 }, { x: NaN, y: 3 }]) {
+            const s = cornerState(malo, W, H, 'bottom-right');
+            expect(s.visible, String(malo)).toBe(false);
+            expect(s.flatClip).not.toContain('NaN');
+            expect(s.backClip).not.toContain('NaN');
+            expect(s.shadeClip).not.toContain('NaN');
+        }
+    });
+
+    it('ningún recorte lleva NaN, ni con medidas absurdas', () => {
+        for (const [w, h] of [[0, 0], [-10, 100], [NaN, NaN]]) {
+            const s = cornerState({ x: 5, y: 5 }, w, h, 'bottom-right');
+            expect(s.flatClip).not.toContain('NaN');
+            expect(s.backClip).not.toContain('NaN');
+            expect(s.shadeClip).not.toContain('NaN');
+        }
+    });
+});
