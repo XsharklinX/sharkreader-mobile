@@ -10,6 +10,7 @@ import ReaderSettingsSheet from './ReaderSettingsSheet.jsx';
 import DisplaySheet from './DisplaySheet.jsx';
 import BookInfoSheet from './BookInfoSheet.jsx';
 import { runTurn, DEFAULT_TRANSITION, normalizeTransition, usesCurl } from './transitions.js';
+import { atenuacionDe, brilloVisible } from './brilloGesto.js';
 import PageFold from './PageFold.jsx';
 import { iniciar as cronometrar, exponer as exponerPerf, medir as medirPerf } from './perf.js';
 import { buildFontFaceCss } from './fontLoader.js';
@@ -67,6 +68,22 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     const [estiloMarca, setEstiloMarca] = useState(DEFAULT_HIGHLIGHT_STYLE);
     const [toc, setToc] = useState([]);
     const [dim, setDim] = useState(0);
+
+    /**
+     * El brillo mientras se ajusta con el pulgar.
+     *
+     * `null` cuando no se está ajustando. Se guarda también de dónde se partía,
+     * porque el gesto es **relativo**: lo que mueve el dedo es la diferencia, no
+     * un valor absoluto. Sin eso, volver a tocar la franja saltaría al valor que
+     * corresponda a la altura del dedo, que se siente como un tirón.
+     */
+    const [ajustandoBrillo, setAjustandoBrillo] = useState(null);
+    const brilloDesde = useRef(0);
+
+    // El valor vivo, para los manejadores del gesto: se registran una sola vez y
+    // sin esto verían siempre la atenuación que había al montar.
+    const dimRef = useRef(0);
+    dimRef.current = dim;
     // Filtro cálido: quitar azul es distinto de atenuar. De madrugada lo que
     // molesta es el componente azul, no el brillo.
     const [warm, setWarm] = useState(book.readerPreferences?.warm ?? 0);
@@ -721,8 +738,27 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         return () => { StatusBar.show().catch(() => {}); };
     }, [chrome, state]);
 
+    /**
+     * Cambiar la composición repagina, y repaginar mueve la posición.
+     *
+     * Por eso el cambio va envuelto: se apunta dónde estabas antes y se vuelve
+     * ahí después. Ver `reanchor`. El primer pintado se salta —no hay nada que
+     * recuperar y un `display` extra al abrir es tiempo regalado.
+     */
+    const stylesMontado = useRef(false);
+
     useEffect(() => {
-        if (state === 'ready') engineRef.current?.applyStyles(styles);
+        if (state !== 'ready') return;
+        const engine = engineRef.current;
+        if (!engine) return;
+
+        if (!stylesMontado.current) {
+            stylesMontado.current = true;
+            engine.applyStyles(styles);
+            return;
+        }
+
+        engine.reanchor(() => engine.applyStyles(styles));
     }, [styles, state]);
 
     useEffect(() => {
@@ -731,9 +767,12 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     }, [eink, refreshEvery]);
 
     // Cambiar el margen mueve el contenedor, no el documento: epub.js tiene que
-    // volver a medir para recalcular el ancho de columna.
+    // volver a medir para recalcular el ancho de columna. Y como eso repagina,
+    // también hay que volver a donde estabas.
     useEffect(() => {
-        if (state === 'ready') engineRef.current?.resize();
+        if (state !== 'ready') return;
+        const engine = engineRef.current;
+        engine?.reanchor(() => engine.resize());
     }, [typography.margin, typography.marginTop, typography.marginBottom, state]);
 
     useEffect(() => {
@@ -745,6 +784,24 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             },
         });
     }, [typography, theme, transition, warm, spread, ruler, refreshEvery, state]);
+
+    /**
+     * La pantalla no se apaga mientras el libro está abierto.
+     *
+     * El tiempo de apagado del sistema son treinta segundos y está pensado para
+     * apps que se tocan. Leyendo no se toca nada: una página larga se lee en más
+     * de medio minuto sin mover un dedo, y se apaga a mitad de párrafo.
+     *
+     * Se suelta al salir del libro, **siempre**, aunque el ajuste esté puesto: el
+     * bloqueo es de la lectura, no de la app. Dejar la pantalla encendida en la
+     * biblioteca sería gastar batería sin que nada lo explique.
+     */
+    useEffect(() => {
+        const awake = ports.awake;
+        if (!awake) return undefined;
+        awake.set(preferences.keepAwake !== false).catch(() => {});
+        return () => { awake.set(false).catch(() => {}); };
+    }, [preferences.keepAwake, ports]);
 
     // ── Columnas ─────────────────────────────────────────────────────────────
 
@@ -874,6 +931,34 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     // `speech` existiera.
     const speechRef = useRef(speech);
     speechRef.current = speech;
+
+    /**
+     * El brillo con el pulgar, en el borde izquierdo.
+     *
+     * De noche el brillo se toca constantemente y los controles están detrás de
+     * dos toques, así que la mitad de las veces no se ajusta y se lee incómodo.
+     * Ver `brilloGesto.js` para por qué no choca con pasar página.
+     */
+    useEffect(() => {
+        gesturesRef.current.onBrilloEmpieza = () => {
+            brilloDesde.current = dimRef.current;
+            setAjustandoBrillo(brilloVisible(dimRef.current));
+        };
+
+        gesturesRef.current.onBrilloMueve = (dy) => {
+            const alto = viewportRef.current?.clientHeight || window.innerHeight;
+            const valor = atenuacionDe(brilloDesde.current, dy, alto);
+            dimRef.current = valor;
+            setDim(valor);
+            setAjustandoBrillo(brilloVisible(valor));
+        };
+
+        gesturesRef.current.onBrilloTermina = () => {
+            // El número se queda un momento y se va solo: mientras el dedo está
+            // puesto tapa el texto, y en cuanto se levanta ya no informa de nada.
+            setTimeout(() => setAjustandoBrillo(null), 450);
+        };
+    }, []);
 
     useEffect(() => {
         gesturesRef.current.onTapWhileSpeaking = (point) => {
@@ -1293,6 +1378,16 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 panel no tiene niveles intermedios y una capa semitransparente
                 se convierte en una trama de puntos. */}
             {!eink && dim > 0 && <div className="reader-dim" style={{ opacity: dim }} aria-hidden="true" />}
+
+            {/* Lo que se está ajustando, mientras se ajusta. Sin esto el gesto es
+                adivinar: se ve que la pantalla cambia pero no cuánto ni si va a
+                llegar donde quieres. */}
+            {ajustandoBrillo !== null && (
+                <div className="brillo-aviso" role="status">
+                    <span className="brillo-cifra">{ajustandoBrillo}</span>
+                    <span className="brillo-barra"><i style={{ height: `${ajustandoBrillo}%` }} /></span>
+                </div>
+            )}
             {!eink && warm > 0 && <div className="reader-warm" style={{ opacity: warm }} aria-hidden="true" />}
 
 

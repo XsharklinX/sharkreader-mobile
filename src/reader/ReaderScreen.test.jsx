@@ -43,6 +43,9 @@ const makeEngine = () => ({
     display: vi.fn(),
     destroy: vi.fn(),
     resize: vi.fn(),
+    // Repaginar mueve la posición, así que el cambio va envuelto: se apunta
+    // dónde estabas y se vuelve ahí. Ver `reanchor`.
+    reanchor: vi.fn(async (cambiar) => { cambiar?.(); return 'epubcfi(/6/4)'; }),
     setSpread: vi.fn(),
     applyStyles: vi.fn(),
     onRelocated: vi.fn(() => () => {}),

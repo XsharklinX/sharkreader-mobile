@@ -26,6 +26,7 @@
  */
 
 import { actionAt, tapZoneWidth, TAP_ZONE, TAP_ZONE_MAX_PX } from './gestureGrid.js';
+import { enLaFranja, esVertical } from './brilloGesto.js';
 
 // Reexportado: las zonas son ahora de `gestureGrid`, que es quien las
 // configura, pero media app las pide por aquí.
@@ -101,6 +102,17 @@ export const createGestureHandlers = (handlers) => {
             // navegando», y eso se decide al empezar el gesto, no al acabarlo.
             hadSelection: Boolean(shouldIgnore?.()),
         };
+        /**
+         * El brillo se decide **antes** que nada.
+         *
+         * Si el dedo cae en la franja izquierda, este gesto puede ser el del
+         * brillo, y hay que saberlo antes de que el arrastre o la pulsación larga
+         * lo reclamen. Todavía no se sabe —hace falta ver si el movimiento es
+         * vertical— así que solo se anota que es candidato.
+         */
+        start.brilloPosible = enLaFranja(event.clientX, handlers.getWidth?.() || 0);
+        start.brillo = false;
+
         handlers.onDragDown?.(event);
         clearLongPress();
         if (onLongPress) {
@@ -113,6 +125,34 @@ export const createGestureHandlers = (handlers) => {
     };
 
     const onPointerMove = (event) => {
+        /**
+         * Si esto es el brillo, no es ninguna otra cosa.
+         *
+         * En cuanto el movimiento se ve claramente vertical dentro de la franja,
+         * el gesto queda reclamado: ni pasa página, ni abre los controles, ni
+         * cuenta como pulsación larga. Devolver aquí es lo que evita que el
+         * arrastre vea el mismo movimiento y mueva la página a la vez.
+         */
+        if (start?.brilloPosible && !start.hadSelection) {
+            const dx = event.clientX - start.x;
+            const dy = event.clientY - start.y;
+
+            if (start.brillo || esVertical(dx, dy)) {
+                if (!start.brillo) {
+                    start.brillo = true;
+                    clearLongPress();
+                    handlers.onBrilloEmpieza?.();
+                }
+                event.preventDefault?.();
+                handlers.onBrilloMueve?.(dy);
+                return;
+            }
+
+            // En cuanto se va en horizontal deja de ser candidato: era pasar
+            // página, y no hay que volver a preguntárselo en cada movimiento.
+            if (Math.abs(dx) > Math.abs(dy)) start.brilloPosible = false;
+        }
+
         claimHorizontal(event);
         handlers.onDragMove?.(event);
     };
@@ -182,8 +222,18 @@ export const createGestureHandlers = (handlers) => {
         const dy = event.clientY - start.y;
         const elapsed = Date.now() - start.time;
         const width = getWidth?.() || event.currentTarget?.clientWidth || window.innerWidth;
-        const { hadSelection } = start;
+        const { hadSelection, brillo } = start;
         start = null;
+
+        /**
+         * Un gesto de brillo nunca es además otra cosa.
+         *
+         * Va aquí arriba y no más abajo porque `start` ya se ha vaciado: leerlo
+         * después daba siempre `undefined` y el gesto acababa contando también
+         * como deslizamiento. Y va antes del deslizamiento horizontal porque el
+         * orden es el que decide, no la intención.
+         */
+        if (brillo) { handlers.onBrilloTermina?.(); return; }
 
         // El dedo estaba marcando texto desde el principio: no navegaba.
         if (hadSelection) return;

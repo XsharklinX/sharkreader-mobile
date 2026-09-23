@@ -40,12 +40,21 @@
     gap: var(--sp-4);
     overflow-y: auto;
     overscroll-behavior: contain;
-    /* Tope alto para que la hoja nunca tape el libro entero: sigue siendo una
-       capa sobre la lectura, no una pantalla. */
-    max-height: 74dvh;
-    padding-bottom: var(--sp-2);
-    /* Espacio para la sombra del último control al hacer foco. */
-    margin-bottom: calc(var(--safe-bottom) * -0.5);
+
+    /* **El único que desplaza.** Ocupa lo que quede de la hoja —cuyo alto lo
+       limita `.sheet`— en lugar de llevar su propio tope. Antes tenía uno de
+       74dvh mientras la hoja permitía 88vh: dos topes distintos, en unidades
+       distintas, y entre ellos una franja de contenido a la que no se llegaba.
+
+       El `min-height: 0` es lo que hace que funcione: sin él, un hijo flexible
+       no se encoge por debajo de su contenido y el desplazamiento nunca llega a
+       activarse — la lista simplemente desborda y se corta. */
+    flex: 1 1 auto;
+    min-height: 0;
+
+    /* Aire al final para que el último control no quede pegado al borde ni
+       debajo del indicador de inicio. */
+    padding-bottom: var(--sp-4);
 }
 
 .sheet-group { display: flex; flex-direction: column; gap: var(--sp-2); }

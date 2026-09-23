@@ -138,8 +138,8 @@ export const ReadingPage = ({ stats, notify }) => {
                 <Toggle
                     id="keep-awake"
                     label="Mantener la pantalla encendida"
-                    sub="Mientras un libro está abierto"
-                    checked={prefs.keepAwake ?? false}
+                    sub="Mientras lees. El apagado del sistema son treinta segundos y leyendo no se toca nada"
+                    checked={prefs.keepAwake !== false}
                     onChange={(keepAwake) => stats.savePreferences({ keepAwake })}
                 />
                 <Toggle

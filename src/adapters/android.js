@@ -13,6 +13,7 @@ import { createLocalNotifier } from './LocalNotifier.js';
 import { createAndroidTts } from './AndroidTts.js';
 import { createWebdavSync } from './WebdavSync.js';
 import { createScreenOrientation } from './ScreenOrientation.js';
+import { createScreenAwake } from './ScreenAwake.js';
 import { createNeuralTts, createTtsRouter } from './NeuralTts.js';
 
 export const createAndroidPorts = () => {
@@ -30,6 +31,9 @@ export const createAndroidPorts = () => {
             createNeuralTts(() => storage.getSetting('neuralTts'))
         ),
         screen: createScreenOrientation(),
+        // Que la pantalla no se apague leyendo. El interruptor de Ajustes llevaba
+        // tiempo sin nada detrás; este es el puente que faltaba.
+        awake: createScreenAwake(),
         // El adaptador lee su configuración del almacenamiento cada vez, así
         // que cambiar de servidor en ajustes surte efecto sin reiniciar.
         sync: createWebdavSync(() => storage.getSetting('sync')),

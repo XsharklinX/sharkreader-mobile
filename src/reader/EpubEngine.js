@@ -1064,6 +1064,48 @@ export const createEpubEngine = () => {
         },
 
         /**
+         * Vuelve a colocar la página donde estaba tras repaginar.
+         *
+         * ## Por qué hace falta
+         *
+         * Cambiar el cuerpo de letra o el margen obliga a rehacer las columnas
+         * del capítulo. epub.js conserva el **desplazamiento**, no la posición:
+         * como las columnas ahora miden otra cosa, ese mismo desplazamiento cae
+         * en un sitio distinto del texto. Con un cambio de 18 a 22 la desviación
+         * es de varias páginas — se toca el tamaño de letra para leer mejor y se
+         * pierde el punto de lectura, que es de las cosas que más enfadan.
+         *
+         * Aquí se hace al revés: se apunta **dónde estabas** antes de tocar nada
+         * —un CFI, que es una posición en el texto y no en la pantalla— y se
+         * vuelve a ella después. La frase con la que empezaba la página sigue
+         * siendo la frase con la que empieza la página.
+         *
+         * Se devuelve el CFI usado para que quien llame pueda comprobarlo.
+         *
+         * @param {() => void} cambiar Lo que repagina.
+         */
+        async reanchor(cambiar) {
+            const antes = (() => {
+                try { return rendition?.currentLocation?.()?.start?.cfi || null; }
+                catch { return null; }
+            })();
+
+            cambiar?.();
+
+            // Sin posición conocida no hay nada que recuperar, y forzar un
+            // `display` sin destino mandaría al principio del libro, que es
+            // muchísimo peor que quedarse donde epub.js haya dejado la página.
+            if (!antes || !rendition) return null;
+
+            try {
+                await rendition.display(antes);
+                return antes;
+            } catch {
+                return null;
+            }
+        },
+
+        /**
          * Cambia los estilos del libro.
          *
          * ## Por qué hay que borrar la hoja antes

@@ -1012,8 +1012,16 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .sheet {
     margin-top: auto;
     width: 100%;
-    max-height: 88vh;
-    overflow-y: auto;
+    /* `dvh` y no `vh`: en Android, `vh` ignora la barra del sistema, así que una
+       hoja al 88 % podía quedar más alta que la pantalla real y con el último
+       control fuera. */
+    max-height: 88dvh;
+    /* **Aquí no se desplaza.** Antes desplazaban los dos —la hoja y su cuerpo—
+       con topes en unidades distintas, y esa es la receta exacta de «hay
+       opciones a las que no se llega»: el de dentro llega a su final, el de
+       fuera no toma el relevo, y lo que queda entre los dos topes no se alcanza
+       con ningún gesto. El único que desplaza es el cuerpo. */
+    overflow: hidden;
     background: var(--sf-1);
     border-radius: var(--r-lg) var(--r-lg) 0 0;
     padding: var(--sp-2) var(--sp-4) calc(var(--safe-bottom) + var(--sp-5));

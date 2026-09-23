@@ -551,3 +551,58 @@
 .forma-fill.on { background: color-mix(in srgb, var(--hl-yellow) 48%, transparent); }
 .forma-underline { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 2px; }
 .forma-strike { text-decoration: line-through; text-decoration-thickness: 2px; }
+
+/* El aviso del brillo mientras se ajusta con el pulgar.
+ *
+ * Va en el centro y no junto al dedo: bajo el pulgar quedaría tapado por la
+ * propia mano, que es el sitio donde no se puede leer. Y no lleva fondo opaco
+ * —solo un velo— porque lo que hay que ver es cómo cambia la página detrás; el
+ * número es la referencia, no el protagonista.
+ */
+.brillo-aviso {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-5);
+    border-radius: var(--r-lg);
+    background: rgba(10, 15, 26, 0.72);
+    backdrop-filter: blur(10px);
+    color: #F1F5F9;
+    pointer-events: none;
+}
+
+.brillo-cifra {
+    font-family: var(--font-mono);
+    font-size: 26px;
+    font-variant-numeric: tabular-nums;
+    min-width: 3ch;
+    text-align: right;
+}
+
+/* La barra se llena de abajo arriba, en el mismo sentido en que se mueve el
+   dedo: con una barra horizontal el gesto y su respuesta irían en ejes
+   distintos y cuesta relacionarlos. */
+.brillo-barra {
+    display: block;
+    width: 5px;
+    height: 54px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.22);
+    overflow: hidden;
+    position: relative;
+}
+
+.brillo-barra i {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: block;
+    background: #F1F5F9;
+    border-radius: 999px;
+}
