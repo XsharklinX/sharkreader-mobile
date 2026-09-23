@@ -9,28 +9,22 @@
  * mismo no es dar opciones: es no haber decidido cuál es la buena y pasarle la
  * decisión al usuario.
  *
- * Quedan dos. **Deslizar** es la de por defecto, y **ninguna** para quien quiera
- * el cambio instantáneo o lea en tinta electrónica.
+ * Quedan dos. **Ninguna** es la de por defecto: cambio instantáneo, cero coste,
+ * cero artefactos. **Deslizar** para quien quiera movimiento.
  *
- * ## Por qué el doblado de hoja no está, y esta vez con la causa medida
+ * ## Por qué el doblado de hoja no está
  *
- * Estuvo tres veces y funcionaba: pliegue en diagonal por la esquina, dorso
- * reflejado del color del papel, la página correcta a los dos lados. El problema
- * nunca fue la geometría.
+ * Estuvo, y funcionaba: pliegue recto, dorso reflejado, la página correcta a los
+ * dos lados. Pero doblaba dos `<iframe>` con una copia del capítulo, y el WebView
+ * de Android promueve un iframe a capa compuesta y lo presenta **antes de tener la
+ * textura lista**. Ese hueco es un fotograma en negro, y aguantando el dedo se veía
+ * entero. No es un defecto de la animación: un iframe no es material que se pueda
+ * plegar sesenta veces por segundo.
  *
- * Para doblar una página hay que tenerla **dos veces**, y con epub.js la única
- * forma era montar dos iframes con el capítulo entero dentro. Medido en un libro
- * normal: 605 KB de HTML y 583 KB de CSS por copia, 2,4 MB de documento vivo
- * mientras se lee, reconstruidos en cada cambio de capítulo.
- *
- * Eso explica los dos síntomas que no se conseguían reproducir a mano: que el
- * lector se congelara de vez en cuando, y que fuera **más rápido o más lento según
- * el libro** — porque dependía del tamaño del capítulo, no del código.
- *
- * Vuelve el día que lo que se doble sea un mapa de bits pedido al motor de
- * páginas, que es lo único que la GPU mueve sin nada que preparar. Hasta entonces
- * no se envía: un lector que pasa página igual de rápido en cualquier libro es
- * mejor producto que uno con un efecto bonito que a veces se cuelga.
+ * Vuelve cuando lo que se doble sea un mapa de bits pedido al propio motor de
+ * páginas, que es lo único que la GPU puede mover sin nada que preparar. Hasta
+ * entonces no se envía: un lector que pasa página al instante y sin artefactos es
+ * mejor producto que uno con un efecto bonito que parpadea.
  *
  * ## Por qué el texto no se anima nunca
  *
@@ -73,49 +67,57 @@
 
 /** Las dos formas de pasar página. */
 export const PAGE_TRANSITIONS = {
+    /**
+     * Doblado de hoja.
+     *
+     * Vuelve tras haberse retirado por los fotogramas en negro. La causa estaba
+     * medida: el pliegue se dibujaba con dos iframes que solo se pintaban al
+     * empezar el gesto, y el WebView presentaba la capa antes de tener la
+     * textura. Ahora esas copias se mantienen pintadas —casi transparentes—
+     * mientras se lee, asi que la textura ya existe cuando el dedo se apoya.
+     * Ver `PageFold`.
+     *
+     * Al arrastrar sigue al dedo. Al tocar, el pliegue se recorre solo con esta
+     * duracion, y aqui no se declara `shift` porque el contenedor no se mueve:
+     * la pagina nueva esta quieta debajo mientras la vieja se dobla encima.
+     */
+    curl: {
+        label: 'Doblar hoja',
+        description: 'La hoja se dobla y se ve su dorso, como el papel. Arrastra para plegarla con el dedo.',
+        in: 300,
+        curl: true,
+    },
     none: {
         label: 'Ninguna',
         description: 'Cambio instantáneo. Lo más rápido y lo único sin coste.',
         in: 0,
     },
-    /**
-     * Deslizar: la única que puede ser perfecta siempre.
-     *
-     * Mueve **un** elemento con una transformación. No monta nada, no copia nada
-     * y no depende del tamaño del capítulo, que es lo que hundía al doblado de
-     * hoja.
-     *
-     * Los 34 px de entrada no son un desplazamiento completo a propósito: la
-     * página no viene de fuera de la pantalla, se **asienta**. Un recorrido largo
-     * obliga al ojo a seguir el texto mientras se mueve y cansa a las cien
-     * páginas; uno corto se lee como que la hoja se ha posado.
-     */
     slide: {
         label: 'Deslizar',
-        description: 'La página se asienta desde el lado hacia el que avanzas.',
+        description: 'La página entra desde el lado hacia el que avanzas.',
         in: 190,
         shift: 34,
     },
 };
 
 /**
- * La de por defecto: deslizar.
+ * Sin animación, por defecto.
  *
- * El doblado de hoja se ha retirado por tercera y última vez, y esta vez con la
- * causa medida y no supuesta. Para doblar una página hacía falta tenerla dos
- * veces, y la única forma de conseguirlo con epub.js era montar dos iframes con
- * el capítulo entero dentro: en un libro normal son 1,19 MB de HTML y CSS por
- * copia, 2,4 MB de documento vivo mientras se lee, reconstruidos en cada cambio
- * de capítulo.
+ * Es la única que no puede fallar: no hay capa que promover, ni textura que
+ * esperar, ni fotograma intermedio donde algo pueda salir mal. Hasta que el
+ * doblado de hoja vuelva hecho sobre un mapa de bits, esta es la buena.
+ */
+/**
+ * La de por defecto: deslizar, hasta que el pliegue esté arreglado.
  *
- * Eso explica exactamente los síntomas que se veían y que no se conseguían
- * reproducir a mano: que el lector se congelara de vez en cuando, y que fuera
- * más rápido o más lento **según el libro** — porque dependía del tamaño del
- * capítulo.
+ * El doblado de hoja **sigue aquí** y se puede elegir: la geometría por la
+ * esquina funciona y el peso de la copia ya está resuelto —el CSS pasó de 583 KB
+ * a 11 con el presupuesto—. Lo que no funciona hoy es el gesto: con el pliegue
+ * activo, arrastrar no pasa página. Reproducido en el dispositivo.
  *
- * Deslizar mueve un solo elemento con una transformación. No monta nada, no
- * copia nada y no puede quedarse a medias: cuesta lo mismo en un libro de
- * cuarenta páginas que en uno de mil.
+ * Mientras eso siga así, la de por defecto no puede ser un efecto roto. Deslizar
+ * está medido en el mismo libro que fallaba: doce arrastres seguidos entre 58 y
+ * 63 ms, sin una sola variación.
  */
 export const DEFAULT_TRANSITION = 'slide';
 
@@ -126,6 +128,9 @@ export const DEFAULT_TRANSITION = 'slide';
  * `curl`, `paper`, `push`, `fade` y `zoom` de cuando había siete. Sin esto, un
  * libro empezado antes abriría el selector sin nada marcado.
  */
+/** ¿Esta transición dibuja un pliegue en vez de mover el contenedor? */
+export const usesCurl = (id) => Boolean(PAGE_TRANSITIONS[id]?.curl);
+
 export const normalizeTransition = (id) => (
     PAGE_TRANSITIONS[id] ? id : DEFAULT_TRANSITION
 );
@@ -149,7 +154,10 @@ export const phaseState = (id, direction, phase) => {
     const spec = PAGE_TRANSITIONS[id];
     const rest = { transform: 'translate3d(0,0,0)', veil: 0, duration: 0 };
 
-    if (!spec || id === 'none' || phase === 'rest') return rest;
+    // El doblado no describe nada aquí: el contenedor no se mueve. Lo que se
+    // dobla es una copia de la página que se va, dibujada encima por `PageFold`,
+    // y su geometría vive en `pageFold.js`.
+    if (!spec || id === 'none' || spec.curl || phase === 'rest') return rest;
 
     // Avanzando, la página nueva viene desde la derecha; retrocediendo, desde la
     // izquierda. Es el sentido que dice hacia dónde te mueves en el libro.

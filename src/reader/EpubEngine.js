@@ -20,6 +20,73 @@ import { resolveHyphenLang } from './detectLanguage.js';
 const LOCATIONS_CHARS = 1024;
 
 /**
+ * Cuánto CSS se copia, como mucho, a la hoja del pliegue.
+ *
+ * **Aquí estaba la mitad del problema.** Copiar todas las hojas del libro daba
+ * 583 KB de CSS por copia, y con dos copias vivas mientras se lee eso es lo que
+ * congelaba el lector en los libros grandes.
+ *
+ * Nuestras reglas —el tema y la tipografía, que epub.js inyecta con su propio
+ * identificador— van siempre y ocupan unos pocos kilobytes: son las que hacen
+ * que la copia se vea como la página. Las del libro entran solo mientras quepan
+ * en el presupuesto, empezando por las pequeñas, que suelen ser las que llevan
+ * las cursivas y las versalitas; la hoja gigante de una editorial se queda
+ * fuera y no se echa de menos.
+ */
+export const PRESUPUESTO_CSS = 60 * 1024;
+
+/**
+ * Cuánto HTML se acepta para montar el pliegue.
+ *
+ * Por encima de esto no se prepara y se pasa página deslizando. Un capítulo de
+ * medio mega montado dos veces es lo que hacía que el lector fuera más rápido o
+ * más lento según el libro — y preferimos perder el efecto en cuatro libros a
+ * que se atasque en ellos.
+ */
+export const PRESUPUESTO_HTML = 900 * 1024;
+
+/**
+ * El CSS que necesita la copia, dentro del presupuesto.
+ *
+ * @param {Document} doc
+ * @param {number} presupuesto
+ */
+export const serializeStyles = (doc, presupuesto = PRESUPUESTO_CSS) => {
+    const nuestras = [];
+    const delLibro = [];
+
+    for (const sheet of Array.from(doc.styleSheets || [])) {
+        try {
+            const texto = Array.from(sheet.cssRules || [])
+                .map((rule) => rule.cssText).join('\n');
+            if (!texto) continue;
+
+            // Las nuestras las marca epub.js con ese identificador al inyectar el
+            // tema. Van siempre: sin ellas la copia se ve con la tipografía del
+            // libro y no con la que el usuario tiene puesta.
+            const propia = String(sheet.ownerNode?.id || '').startsWith('epubjs-inserted-css');
+            (propia ? nuestras : delLibro).push(texto);
+        } catch {
+            // Hoja de otro origen: no se puede leer y no es un error.
+        }
+    }
+
+    // De la más pequeña a la más grande: con un presupuesto ajustado, entran más
+    // hojas útiles que si se empieza por la gorda.
+    delLibro.sort((a, b) => a.length - b.length);
+
+    const salida = [...nuestras];
+    let gastado = nuestras.reduce((n, t) => n + t.length, 0);
+    for (const hoja of delLibro) {
+        if (gastado + hoja.length > presupuesto) break;
+        salida.push(hoja);
+        gastado += hoja.length;
+    }
+
+    return salida.join('\n');
+};
+
+/**
  * En qué página del capítulo estamos, medido sobre la geometría real.
  *
  * epub.js publica un `displayed.page` en cada cambio de posición, pero dentro de
@@ -516,6 +583,42 @@ export const createEpubEngine = () => {
          * acierta siempre. Y de paso el texto sigue siendo texto en lugar de un
          * mapa de bits: se ve más nítido y no cuesta 200 ms de rasterizado.
          */
+        /**
+         * La copia del capítulo con la que se dibuja el pliegue.
+         *
+         * Devuelve `null` cuando el capítulo no cabe en el presupuesto. Quien
+         * llama ya sabe qué hacer con eso: no preparar el pliegue y pasar página
+         * deslizando, que cuesta lo mismo en cualquier libro.
+         */
+        chapterSheet() {
+            const contents = [].concat(rendition?.getContents?.() || []);
+            const host = container?.getBoundingClientRect();
+            if (!host) return null;
+
+            for (const content of contents) {
+                const view = content?.window;
+                const doc = view?.document;
+                const frame = view?.frameElement;
+                if (!doc?.documentElement || !frame) continue;
+
+                const html = doc.documentElement.outerHTML;
+                // El tope se mira **antes** de montar nada: lo caro no es medir, es
+                // parsear medio mega de HTML dos veces.
+                if (html.length > PRESUPUESTO_HTML) return null;
+
+                const frameRect = frame.getBoundingClientRect();
+                return {
+                    html,
+                    css: serializeStyles(doc),
+                    frameWidth: Math.round(frameRect.width),
+                    frameHeight: Math.round(frameRect.height),
+                    offsetX: Math.round(host.left - frameRect.left),
+                    offsetY: Math.round(host.top - frameRect.top),
+                };
+            }
+            return null;
+        },
+
         /** Página dentro del capítulo, medida sobre las columnas. Ver `pageInChapter`. */
         chapterPage() {
             const contents = [].concat(rendition?.getContents?.() || []);

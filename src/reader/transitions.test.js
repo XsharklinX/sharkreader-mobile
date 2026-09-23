@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
     PAGE_TRANSITIONS, DEFAULT_TRANSITION, phaseState, transitionDuration,
-    runTurn, normalizeTransition,
+    runTurn, normalizeTransition, usesCurl,
 } from './transitions.js';
 
 describe('catálogo de transiciones', () => {
@@ -26,12 +26,12 @@ describe('catálogo de transiciones', () => {
         expect(transitionDuration('none')).toBe(0);
     });
 
-    it('hay exactamente dos', () => {
+    it('hay exactamente tres', () => {
         // Había siete, y seis eran la misma línea de código con otro número.
-        // El doblado de hoja se fue por tercera vez, esta con la causa medida:
-        // para doblar una página hacía falta tenerla dos veces, y eso eran 2,4 MB
-        // de iframes vivos mientras se leía. Quedan las dos que no pueden fallar.
-        expect(Object.keys(PAGE_TRANSITIONS)).toEqual(['none', 'slide']);
+        // Ofrecer siete variantes de lo mismo es no haber decidido cuál es la
+        // buena y pasarle la decisión al usuario. Quedan las tres que son
+        // decisiones de verdad: doblar el papel, deslizar y no animar nada.
+        expect(Object.keys(PAGE_TRANSITIONS)).toEqual(['curl', 'none', 'slide']);
     });
 
     it('ninguna dura tanto como para estorbar al pasar páginas seguidas', () => {
@@ -40,29 +40,39 @@ describe('catálogo de transiciones', () => {
         });
     });
 
-    it('la de por defecto cuesta lo mismo en cualquier libro', () => {
-        // Es la propiedad que se perdió con el doblado: aquel montaba una copia
-        // del capítulo, así que iba más rápido o más lento **según el libro**, y
-        // de vez en cuando se quedaba clavado. Deslizar mueve un elemento con una
-        // transformación: cuesta lo mismo en un libro de cuarenta páginas que en
-        // uno de mil.
+    it('la de por defecto es la que nunca falla', () => {
+        // El doblado sigue en el catálogo y se puede elegir, pero hoy tiene un
+        // fallo reproducido: con él activo, arrastrar no pasa página. La de por
+        // defecto no puede ser un efecto roto.
+        //
+        // Deslizar está medido en el libro que fallaba: doce arrastres seguidos
+        // entre 58 y 63 ms, sin una sola variación.
         expect(DEFAULT_TRANSITION).toBe('slide');
-        expect(transitionDuration(DEFAULT_TRANSITION)).toBeGreaterThan(0);
-        expect(transitionDuration(DEFAULT_TRANSITION)).toBeLessThanOrEqual(320);
+        expect(PAGE_TRANSITIONS.curl, 'el doblado no se borra').toBeTruthy();
+    });
+
+
+    it('solo el doblado dibuja pliegue', () => {
+        // `usesCurl` decide si hay que preparar las copias del capítulo, que
+        // cuesta montar dos iframes. Con cualquier otra no se monta nada.
+        expect(usesCurl('curl')).toBe(true);
+        expect(usesCurl('slide')).toBe(false);
+        expect(usesCurl('none')).toBe(false);
+        expect(usesCurl(undefined)).toBe(false);
     });
 });
 
 describe('normalizeTransition', () => {
     it('las que ya no existen caen en la de por defecto', () => {
         // Un libro empezado cuando había siete trae `paper` o `fade` guardado en
-        // sus preferencias, y uno de esta semana trae `curl`. Sin esto, el
-        // selector se abriría sin nada marcado.
-        ['curl', 'paper', 'push', 'fade', 'zoom'].forEach((viejo) => {
+        // sus preferencias. Sin esto, el selector se abriría sin nada marcado.
+        ['paper', 'push', 'fade', 'zoom'].forEach((viejo) => {
             expect(normalizeTransition(viejo), viejo).toBe(DEFAULT_TRANSITION);
         });
     });
 
     it('las que existen se respetan', () => {
+        expect(normalizeTransition('curl')).toBe('curl');
         expect(normalizeTransition('slide')).toBe('slide');
         expect(normalizeTransition('none')).toBe('none');
     });
