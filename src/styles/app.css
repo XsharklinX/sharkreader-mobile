@@ -3064,3 +3064,117 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 }
 .book.elegido { opacity: 0.94; }
 .fila-libro.elegido { background: var(--accent-soft); }
+
+/* ═══ La estantería, vista de canto ═════════════════════════════════════════
+ *
+ * Ver `Spines.jsx`. Lo que convierte una fila de rectángulos de colores en una
+ * estantería son tres cosas, y ninguna es la madera:
+ *
+ *  1. **La línea de apoyo.** Sin tabla, los lomos flotan y vuelve a ser un
+ *     gráfico de barras.
+ *  2. **La sombra bajo cada lomo**, que lo separa del fondo y dice que hay un
+ *     objeto delante de una pared.
+ *  3. **El brillo del canto**, la línea clara del borde izquierdo: es el reflejo
+ *     del lomo curvo, y es el detalle que más hace por que parezca un libro.
+ *
+ * El color de la habitación es el de la app —el slate del escritorio— y no
+ * marrón: el mueble es la estructura, no la paleta.
+ */
+
+.lomos {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-5);
+    padding: var(--sp-2) 0 var(--sp-6);
+}
+
+.balda { padding: 0 var(--sp-4); }
+
+.balda-libros {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    /* Los lomos se apoyan en la tabla, así que el desbordamiento va hacia
+       arriba: un libro más alto que sus vecinos crece, no se recorta. */
+    min-height: 120px;
+}
+
+.lomo {
+    position: relative;
+    flex: 0 0 auto;
+    display: block;
+    padding: 0;
+    border: 0;
+    border-radius: 1px 3px 3px 1px;
+    background: var(--lomo-bg, #3A4152);
+    color: var(--lomo-ink, #EFF3F8);
+    overflow: hidden;
+    cursor: pointer;
+    /* El canto claro a la izquierda y la sombra del grosor a la derecha. Es el
+       mismo truco que hace que un lomo real se vea redondeado. */
+    box-shadow:
+        inset 1.5px 0 0 rgba(255, 255, 255, .22),
+        inset -3px 0 5px rgba(0, 0, 0, .35),
+        0 3px 7px rgba(0, 0, 0, .45);
+    transition: transform .16s var(--ease);
+}
+
+.lomo:active { transform: translateY(2px); }
+
+/* El título, girado y recortado por arriba: un lomo largo cabe entero y uno
+   corto enseña lo que quepa, como en el papel. */
+.lomo-titulo {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-start;
+    writing-mode: vertical-rl;
+    padding: 8px 0;
+    font-family: var(--font-title);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: .01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-align: left;
+    /* Centrado en el grosor del lomo, sea cual sea. */
+    justify-content: center;
+    /* Un titulo que no cabe se desvanece en vez de cortarse a mitad de letra.
+       Cortado en seco parece un fallo de dibujado; desvanecido se lee como lo
+       que es, un lomo demasiado corto para su titulo. */
+    -webkit-mask-image: linear-gradient(to bottom, #000 84%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 84%, transparent 100%);
+}
+
+/* El libro empezado asoma del anaquel, como cuando lo dejas a medio meter para
+   no perderlo. Sustituye a la barra de progreso, que en un lomo no cabe. */
+.lomo.leyendo {
+    transform: translateY(-9px);
+    box-shadow:
+        inset 1.5px 0 0 rgba(255, 255, 255, .3),
+        inset -3px 0 5px rgba(0, 0, 0, .35),
+        0 8px 14px rgba(0, 0, 0, .55),
+        0 0 0 1px var(--accent);
+}
+
+.lomo.leyendo::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    background: var(--accent);
+}
+
+/* La tabla. Dos píxeles de luz arriba —el canto del tablero— y un degradado
+   corto debajo que la separa de la pared. */
+.balda-tabla {
+    height: 5px;
+    margin-top: -1px;
+    border-radius: 0 0 2px 2px;
+    background:
+        linear-gradient(var(--line-strong) 0 2px, var(--sf-1) 2px 100%);
+    box-shadow: 0 6px 10px -6px rgba(0, 0, 0, .7);
+}

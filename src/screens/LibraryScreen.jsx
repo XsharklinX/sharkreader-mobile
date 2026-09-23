@@ -7,6 +7,9 @@ import { selectBooks, FILTERS, SORTS } from '../library/useLibrary.js';
 import { minutesToday } from '../stats/derive.js';
 import ContentResults from '../library/ContentResults.jsx';
 import Bookshelf from '../library/Bookshelf.jsx';
+import Spines from '../library/Spines.jsx';
+import { useCoverColors } from '../library/useCoverColors.js';
+import { usePorts } from '../ports/index.js';
 import BookRow from '../library/BookRow.jsx';
 import { LIBRARY_VIEWS, normalizeView, agrupar } from '../library/views.js';
 import { alternar, alternarTodo, podar, accionesPara, cambiosDe } from '../library/selection.js';
@@ -23,6 +26,8 @@ import { useBackHandler } from '../ui/useBackHandler.js';
 
 export default function LibraryScreen({ library, stats: statsApi, onOpenBook, onGoToSettings, onNavigate }) {
     const { books, status, error, importing, importFiles, importFolder, clearError } = library;
+
+    const ports = usePorts();
 
     const [query, setQuery] = useState('');
     const [searching, setSearching] = useState(false);
@@ -41,6 +46,15 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
     const [view, setView] = useState(
         () => normalizeView(statsApi?.preferences?.libraryView, statsApi?.preferences?.density)
     );
+
+    /**
+     * Los colores de las portadas, solo cuando la estantería está a la vista.
+     *
+     * Sacar el color obliga a pintar cada portada en un lienzo y leer sus
+     * píxeles; hacerlo con la rejilla puesta sería gastar batería por un dato que
+     * nadie está mirando. Ver `useCoverColors`.
+     */
+    const coloresDePortada = useCoverColors(books, ports.storage, view === 'lomos');
 
     const cambiarVista = (id) => {
         setView(id);
@@ -102,6 +116,19 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
     };
 
     const pintarVista = (list) => {
+        if (view === 'lomos') {
+            return (
+                <Spines
+                    books={list}
+                    width={typeof window === 'undefined' ? 0 : window.innerWidth}
+                    colores={coloresDePortada}
+                    onOpen={openBook}
+                    onLongPress={pulsacionLarga}
+                    leyendoId={books.find((b) => b.progress > 0 && !b.isFinished)?.id || null}
+                />
+            );
+        }
+
         if (view === 'shelf') {
             return (
                 <Bookshelf
