@@ -132,6 +132,18 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     // Las dos esperas que se notan al leer —pasar página y abrir el libro— se
     // cronometran cuando se pide. Ver `perf.js`: apagado no guarda nada, y se
     // lee desde el ordenador con `adb logcat` tras llamar a `window.__perf.log()`.
+    /**
+     * Si estamos en la primera o en la última página del libro.
+     *
+     * epub.js lo publica en cada cambio de posición. Sirve para que el arrastre
+     * se **resista** en los bordes en lugar de no hacer nada: la diferencia entre
+     * «se ha roto» y «aquí se acaba». Ver `dragOffset`.
+     */
+    const bordes = useRef({ inicio: false, fin: false });
+
+    /** Temporizador que retira la sombra del canto al asentarse la hoja. */
+    const cantoRef = useRef(0);
+
     const cierreAsentada = useRef(null);
     useEffect(() => {
         exponerPerf();
@@ -193,6 +205,8 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             // toque y el umbral del arrastre eran inalcanzables. Ver
             // `EpubEngine.viewportRect`.
             getWidth: () => viewportRef.current?.clientWidth || window.innerWidth,
+            atStart: () => bordes.current.inicio,
+            atEnd: () => bordes.current.fin,
             getHeight: () => viewportRef.current?.clientHeight || window.innerHeight,
             // La rejilla y el despachador se enchufan más abajo con refs: los
             // manejadores se crean una vez y se registran dentro del iframe
@@ -238,7 +252,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
      *
      * @param {'next'|'prev'} direction
      */
-    const turnPage = (direction) => {
+    const turnPage = (direction, impulso = 0) => {
         const engine = engineRef.current;
         if (!engine) return;
 
@@ -315,6 +329,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             id: flowRef.current === 'scrolled' ? 'none' : transitionRef.current,
             direction,
             reducedMotion: reducedMotionRef.current,
+            impulso,
             commit: () => {
                 const p = direction === 'next' ? engine.next() : engine.prev();
                 // Aquí la página nueva ya está colocada; `perf` espera además dos
@@ -377,6 +392,9 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
 
             node.classList.add('dragging');
             node.classList.remove('releasing');
+            // De qué lado entra la página, para poner ahí la sombra del canto.
+            clearTimeout(cantoRef.current);
+            node.dataset.canto = direction === 'next' ? 'derecha' : 'izquierda';
             node.style.transform = `translate3d(${Math.round(shift)}px,0,0)`;
         };
 
@@ -399,6 +417,22 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             node.classList.remove('dragging');
             node.classList.add('releasing');
             node.style.transform = '';
+
+            /**
+             * La sombra del canto se retira cuando la hoja se ha asentado.
+             *
+             * `.releasing` se queda puesta hasta el siguiente arrastre —es lo que
+             * lleva la transición de vuelta— así que sin esto la sombra quedaría
+             * pintada en el borde para siempre después del primer gesto, y eso se
+             * ve como una raya oscura que no se va.
+             *
+             * El plazo es el de esa transición. Se guarda para poder cancelarlo:
+             * si empieza otro arrastre antes, la sombra tiene que seguir.
+             */
+            clearTimeout(cantoRef.current);
+            cantoRef.current = setTimeout(() => {
+                if (viewportRef.current === node) delete node.dataset.canto;
+            }, 260);
         };
 
         dragRef.current = createPageDrag({
@@ -454,7 +488,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 && !engineRef.current?.selectionText(),
             onMove: setShift,
             onCancel: release,
-            onCommit: (direction) => {
+            onCommit: (direction, impulso) => {
                 const armado = pliegueArmado.current;
                 if (armado && foldRef.current) {
                     // La página ya cambió al empezar el gesto: aquí solo queda
@@ -467,7 +501,9 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 // animación se salta la fase de salida: repetirla daría un salto
                 // hacia atrás antes de completar el gesto.
                 release();
-                turnPage(direction);
+                // El impulso viaja hasta la animación: una página soltada de un
+                // golpe tiene que salir más rápido que una empujada despacio.
+                turnPage(direction, impulso);
             },
         });
 
@@ -616,6 +652,11 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 totalPages: total,
             });
             progressRef.current?.({ cfi, progress });
+
+            bordes.current = {
+                inicio: Boolean(loc?.atStart),
+                fin: Boolean(loc?.atEnd),
+            };
 
             // epub.js ha terminado su papeleo: aquí se cierra el segundo reloj.
             cierreAsentada.current?.();

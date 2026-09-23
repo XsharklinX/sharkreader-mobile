@@ -183,6 +183,35 @@ export const phaseState = (id, direction, phase) => {
 /** Cuánto tarda la animación completa. */
 export const transitionDuration = (id) => PAGE_TRANSITIONS[id]?.in || 0;
 
+/** Lo más corta que puede ser una salida, en ms. Por debajo se lee como un corte. */
+export const SALIDA_MINIMA = 90;
+
+/**
+ * Cuánto dura la salida, según con qué fuerza se haya soltado la página.
+ *
+ * Una hoja soltada de un golpe tiene que salir deprisa, y una empujada despacio,
+ * despacio. Con una duración fija el gesto se siente **desconectado del dedo**:
+ * empujas fuerte y la página se toma su tiempo igual, que es exactamente lo que
+ * delata una animación enlatada.
+ *
+ * El suelo existe porque por debajo de noventa milisegundos el ojo no ve un
+ * movimiento, ve un corte — y entonces da igual la física, se lee como un fallo.
+ *
+ * @param {string} id
+ * @param {number} impulso px/ms al soltar, con signo.
+ */
+export const duracionDeSalida = (id, impulso = 0) => {
+    const base = transitionDuration(id);
+    if (!base) return 0;
+
+    const v = Math.abs(Number(impulso) || 0);
+    if (!v) return base;
+
+    // Inversa a propósito: más velocidad, menos tiempo para recorrer lo mismo.
+    // Un impulso de 1 px/ms deja la duración a la mitad; uno de 3, cerca del suelo.
+    return Math.max(SALIDA_MINIMA, Math.round(base / (1 + v)));
+};
+
 /**
  * Espera al siguiente fotograma.
  *
@@ -228,7 +257,7 @@ const paint = (element, veil, state, duration) => {
  * @returns {{done: Promise<void>, cancel: () => void}}
  */
 export const runTurn = ({
-    element, veil, id, direction, commit, reducedMotion = false,
+    element, veil, id, direction, commit, reducedMotion = false, impulso = 0,
 }) => {
     let cancelled = false;
 
@@ -270,8 +299,8 @@ export const runTurn = ({
         await frame();
         if (cancelled) { settle(); return; }
 
-        // 3. Y se asienta.
-        const duration = transitionDuration(id);
+        // 3. Y se asienta, con la prisa que traía el dedo. Ver `duracionDeSalida`.
+        const duration = duracionDeSalida(id, impulso);
         apply(phaseState(id, direction, 'rest'), duration);
         await wait(duration);
         settle();

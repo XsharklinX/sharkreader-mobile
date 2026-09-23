@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
     PAGE_TRANSITIONS, DEFAULT_TRANSITION, phaseState, transitionDuration,
-    runTurn, normalizeTransition, usesCurl,
+    runTurn, normalizeTransition, duracionDeSalida, SALIDA_MINIMA, usesCurl,
 } from './transitions.js';
 
 describe('catálogo de transiciones', () => {
@@ -230,4 +230,37 @@ describe('runTurn', () => {
         expect(commit).toHaveBeenCalled();
     });
 
+});
+
+describe('duracionDeSalida', () => {
+    it('sin impulso dura lo de siempre', () => {
+        expect(duracionDeSalida('slide', 0)).toBe(transitionDuration('slide'));
+    });
+
+    it('con más impulso, menos tiempo', () => {
+        // Es lo que hace la inercia: más velocidad, menos tiempo para recorrer lo
+        // mismo. Con duración fija, el gesto se siente desconectado del dedo.
+        const suave = duracionDeSalida('slide', 0.3);
+        const fuerte = duracionDeSalida('slide', 2.5);
+        expect(fuerte).toBeLessThan(suave);
+        expect(suave).toBeLessThan(transitionDuration('slide'));
+    });
+
+    it('nunca baja del suelo: por debajo se ve un corte, no un movimiento', () => {
+        expect(duracionDeSalida('slide', 50)).toBeGreaterThanOrEqual(SALIDA_MINIMA);
+    });
+
+    it('el sentido del impulso da igual: lo que cuenta es la fuerza', () => {
+        expect(duracionDeSalida('slide', -1.4)).toBe(duracionDeSalida('slide', 1.4));
+    });
+
+    it('sin animación no hay duración que estirar', () => {
+        expect(duracionDeSalida('none', 2)).toBe(0);
+    });
+
+    it('un impulso absurdo no rompe la cuenta', () => {
+        for (const malo of [NaN, undefined, null, 'rápido']) {
+            expect(duracionDeSalida('slide', malo)).toBe(transitionDuration('slide'));
+        }
+    });
 });

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
     resolveDrag, dragOffset, createPageDrag,
-    COMMIT_THRESHOLD, DRAG_START,
+    COMMIT_THRESHOLD, DRAG_START, IMPULSO_MAX,
 } from './pageDrag.js';
 
 const WIDTH = 400;
@@ -106,11 +106,16 @@ describe('controlador del gesto', () => {
     });
 
     it('completa al soltar pasado el umbral', () => {
+        // Más allá de media pantalla: 240 de 400. La mitad exacta es terreno
+        // neutro a propósito, donde decide el impulso y no la distancia.
         const { drag, onCommit, onCancel } = setup();
         drag.down(at(300));
-        drag.move(at(100));
-        drag.up(at(100));
-        expect(onCommit).toHaveBeenCalledWith('next');
+        drag.move(at(60));
+        drag.up(at(60));
+        // El segundo argumento es el impulso con el que se soltó: quien anima la
+        // salida lo necesita para que la página salga despedida y no a una
+        // velocidad fija.
+        expect(onCommit).toHaveBeenCalledWith('next', expect.any(Number));
         expect(onCancel).not.toHaveBeenCalled();
     });
 
@@ -186,10 +191,10 @@ describe('interrupción del sistema', () => {
         // volver a su sitio después de haberla arrastrado se lee como un fallo.
         const { drag, onCommit, onCancel } = build();
         drag.down({ clientX: 300, clientY: 200 });
-        drag.move({ clientX: 100, clientY: 205 });
+        drag.move({ clientX: 60, clientY: 205 });
         drag.cancel();
 
-        expect(onCommit).toHaveBeenCalledWith('next');
+        expect(onCommit).toHaveBeenCalledWith('next', expect.any(Number));
         expect(onCancel).not.toHaveBeenCalled();
     });
 
@@ -219,5 +224,69 @@ describe('interrupción del sistema', () => {
 
         expect(onCommit).not.toHaveBeenCalled();
         expect(onCancel).not.toHaveBeenCalled();
+    });
+});
+
+describe('el impulso al soltar', () => {
+    it('a media pantalla, un golpe seco completa y soltar despacio vuelve', () => {
+        // **Este es el criterio de la fase.** Misma posición del dedo, distinto
+        // gesto al soltar, distinto resultado. Con la velocidad media del gesto
+        // era imposible distinguirlos: al llegar a media pantalla los dos
+        // completaban.
+        const aMediaPantalla = { dx: -WIDTH / 2, width: WIDTH, elapsed: 800 };
+
+        expect(resolveDrag({ ...aMediaPantalla, impulso: -1.4 }).commit).toBe(true);
+        expect(resolveDrag({ ...aMediaPantalla, impulso: -0.02 }).commit).toBe(false);
+    });
+
+    it('un golpe corto pasa página', () => {
+        // Es el gesto de quien lee rápido: un toque con arrastre de dos dedos de
+        // ancho. Sin esto hay que arrastrar media pantalla cada vez.
+        expect(resolveDrag({ dx: -40, width: WIDTH, elapsed: 60, impulso: -0.9 }).commit).toBe(true);
+    });
+
+    it('soltar yendo hacia atrás cancela aunque se haya recorrido mucho', () => {
+        // El usuario se está echando atrás. Completar ahí es lo que hace que un
+        // gesto se sienta fuera de control.
+        const r = resolveDrag({ dx: -WIDTH * 0.6, width: WIDTH, elapsed: 700, impulso: 1.2 });
+        expect(r.direction).toBe('prev');
+    });
+
+    it('el impulso se acota: un golpe brutal no da un salto', () => {
+        const r = resolveDrag({ dx: -300, width: WIDTH, elapsed: 30, impulso: -40 });
+        expect(Math.abs(r.impulso)).toBeLessThanOrEqual(IMPULSO_MAX);
+    });
+
+    it('sin impulso medido se cae a la media del gesto', () => {
+        // Es lo que pasa cuando el sistema se queda el gesto: no hay últimos
+        // milisegundos que mirar, pero sigue habiendo que decidir.
+        expect(resolveDrag({ dx: -300, width: WIDTH, elapsed: 100 }).commit).toBe(true);
+        expect(resolveDrag({ dx: -20, width: WIDTH, elapsed: 900 }).commit).toBe(false);
+    });
+
+    it('un gesto lento y corto no pasa página', () => {
+        expect(resolveDrag({ dx: -60, width: WIDTH, elapsed: 900, impulso: -0.05 }).commit).toBe(false);
+    });
+});
+
+describe('los bordes del libro', () => {
+    it('en la primera página, tirar hacia atrás se resiste en vez de bloquearse', () => {
+        // La diferencia entre «se ha roto» y «aquí se acaba»: la página cede un
+        // poco y vuelve.
+        const offset = dragOffset({ dx: 200, width: WIDTH, atStart: true });
+        expect(offset).toBeGreaterThan(0);
+        expect(offset).toBeLessThan(200);
+    });
+
+    it('la resistencia crece: cuanto más tiras, menos avanza', () => {
+        const poco = dragOffset({ dx: 60, width: WIDTH, atStart: true });
+        const mucho = dragOffset({ dx: 400, width: WIDTH, atStart: true });
+        expect(mucho).toBeGreaterThan(poco);
+        // Cuatro veces más recorrido no da ni el doble de movimiento.
+        expect(mucho).toBeLessThan(poco * 2.5);
+    });
+
+    it('en el borde, el otro sentido sigue siendo normal', () => {
+        expect(dragOffset({ dx: -120, width: WIDTH, atStart: true })).toBe(-120);
     });
 });

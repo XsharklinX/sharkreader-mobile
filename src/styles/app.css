@@ -2234,6 +2234,31 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 /* Arrastre: el dedo manda, sin transición que lo suavice. */
 .reader-viewport.dragging { transition: none; }
 
+/* La sombra del canto.
+ *
+ * Es lo que separa «se ha movido un rectángulo» de «ha pasado una hoja». Una
+ * página que se desplaza sobre otra proyecta sombra por el borde que va
+ * levantado, y sin ella el movimiento se lee como el de una diapositiva.
+ *
+ * Va como `box-shadow` sobre el elemento que ya se está moviendo: **cero nodos
+ * nuevos y cero trabajo extra**. La capa ya está promovida por el `transform`
+ * del arrastre, así que la sombra viaja con ella sin repintar nada.
+ *
+ * Estrecha —dieciocho píxeles— porque una sombra amplia parece niebla en vez de
+ * dos hojas a un milímetro; es la misma medida que se usaba en el pliegue.
+ *
+ * El lado lo pone `data-canto` desde el gesto: la sombra tiene que estar en el
+ * borde por el que entra la página, y ese cambia según hacia dónde avanzas. */
+.reader-viewport[data-canto="derecha"].dragging,
+.reader-viewport[data-canto="derecha"].releasing {
+    box-shadow: 18px 0 22px -14px rgba(0, 0, 0, 0.55);
+}
+
+.reader-viewport[data-canto="izquierda"].dragging,
+.reader-viewport[data-canto="izquierda"].releasing {
+    box-shadow: -18px 0 22px -14px rgba(0, 0, 0, 0.55);
+}
+
 /* Soltar antes del umbral: la página vuelve a su sitio. Solo transform — no se
    toca la opacidad del texto, por el mismo motivo que en el paso de página. */
 .reader-viewport.releasing { transition: transform 0.24s cubic-bezier(0.2, 0.9, 0.3, 1); }
