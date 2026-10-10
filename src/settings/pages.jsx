@@ -11,12 +11,19 @@ import {
 } from '../library/autoBackupRunner.js';
 import { resumenCopias } from '../core/autoBackup.js';
 import { loadVocabulary, vocabularyToMarkdown } from '../reader/dictionary.js';
+import { vocabularioParaAnki } from '../reader/anki.js';
 import { getMobileAddons } from '../library/workshop.js';
 import { formatBytes, useStorageUsage } from './storage.js';
 import { relativeTime } from './SettingsHome.jsx';
 import { IconBell, IconChevronRight, IconShare, IconFolder, IconTrash } from '../ui/icons.jsx';
 import Switch from '../ui/Switch.jsx';
 import { isLockAvailable, authenticate } from '../ui/AppLock.jsx';
+import OrdenarSheet from '../library/OrdenarSheet.jsx';
+import MigrarScreen from '../library/MigrarScreen.jsx';
+import { resumirDiagnostico } from '../library/ordenar.js';
+import { IDIOMAS_TRADUCCION } from '../adapters/Traduccion.js';
+import { NIVELES_GLOSAS } from '../reader/glosas.js';
+import { DESTINO_POR_DEFECTO } from '../reader/traducir.js';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Piezas compartidas
@@ -64,8 +71,87 @@ const Group = ({ title, children }) => (
    Lectura
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/**
+ * Leer en otro idioma: traducir al tocar y ayudas de vocabulario.
+ *
+ * Las dos usan la traducción del teléfono, que necesita bajar cada idioma una
+ * vez. Por eso el aviso de los 30 MB va aquí, antes de encender nada.
+ */
+const IdiomasGroup = ({ prefs, stats }) => {
+    const traduccion = { activo: false, a: '', soloWifi: true, ...(prefs.traduccion || {}) };
+    const glosas = { activo: false, nivel: 'b2', ...(prefs.glosas || {}) };
+    const destino = traduccion.a || DESTINO_POR_DEFECTO();
+    const guardarTraduccion = (cambio) => stats.savePreferences({ traduccion: { ...traduccion, ...cambio } });
+    const guardarGlosas = (cambio) => stats.savePreferences({ glosas: { ...glosas, ...cambio } });
+
+    return (
+        <Group title="Leer en otro idioma">
+            <Toggle
+                id="translate-tap"
+                label="Traducir al tocar un párrafo"
+                sub="Toca el centro de la página y la traducción aparece debajo; otro toque la quita. Arriba y abajo siguen abriendo los controles"
+                checked={traduccion.activo}
+                onChange={(activo) => guardarTraduccion({ activo })}
+            />
+            <Toggle
+                id="vocab-help"
+                label="Ayudas de vocabulario"
+                sub="Encima de las palabras difíciles para tu nivel, su traducción en pequeño"
+                checked={glosas.activo}
+                onChange={(activo) => guardarGlosas({ activo })}
+            />
+            {glosas.activo && (
+                <div className="row" data-setting="vocab-level">
+                    <span className="row-txt"><span>Tu nivel</span>
+                        <span className="row-sub">{NIVELES_GLOSAS.find((n) => n.id === glosas.nivel)?.hint}</span>
+                    </span>
+                    <div className="pills" style={{ flex: 'none' }}>
+                        {NIVELES_GLOSAS.map((n) => (
+                            <button key={n.id} type="button" className={`pill${glosas.nivel === n.id ? ' on' : ''}`} onClick={() => guardarGlosas({ nivel: n.id })}>
+                                {n.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+            <div className="row" data-setting="translate-target">
+                <span className="row-txt"><span>Traducir al</span></span>
+                <div className="pills">
+                    {IDIOMAS_TRADUCCION.map((idioma) => (
+                        <button key={idioma.id} type="button" className={`pill${destino === idioma.id ? ' on' : ''}`} onClick={() => guardarTraduccion({ a: idioma.id })}>
+                            {idioma.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <Toggle
+                id="translate-wifi"
+                label="Descargar idiomas solo con wifi"
+                sub="La primera vez que traduces desde un idioma se descarga su modelo, unos 30 MB. Después se traduce sin conexión y el texto no sale del teléfono"
+                checked={traduccion.soloWifi !== false}
+                onChange={(soloWifi) => guardarTraduccion({ soloWifi })}
+            />
+        </Group>
+    );
+};
+
 export const ReadingPage = ({ stats, notify }) => {
     const prefs = stats.preferences;
+    const ports = usePorts();
+
+    /**
+     * Encender «No molestar» pide, si falta, el acceso de Android. Se guarda
+     * encendido igualmente: al volver de esa pantalla con el acceso dado, el
+     * lector ya lo usa sin tener que tocar nada más.
+     */
+    const cambiarNoMolestar = async (noMolestar) => {
+        stats.savePreferences({ noMolestar });
+        if (!noMolestar || !ports.noMolestar) return;
+        const { permitido } = await ports.noMolestar.estado();
+        if (permitido) return;
+        notify('Activa SharkReader en la lista que se abre y vuelve');
+        ports.noMolestar.pedirPermiso().catch(() => notify('No se ha podido abrir el ajuste de Android'));
+    };
 
     return (
         <>
@@ -143,6 +229,29 @@ export const ReadingPage = ({ stats, notify }) => {
                     onChange={(keepAwake) => stats.savePreferences({ keepAwake })}
                 />
                 <Toggle
+                    id="hold-to-flip"
+                    label="Mantén el borde para hojear"
+                    sub="Con el dedo quieto en una zona de pasar página, las páginas pasan solas y cada vez más deprisa. Junto al borde no se puede seleccionar texto mientras tanto"
+                    checked={prefs.hojear !== false}
+                    onChange={(hojear) => stats.savePreferences({ hojear })}
+                />
+                <Toggle
+                    id="light-comfort"
+                    label="Adaptar la página a la luz"
+                    sub="Con el sensor de luz: noche cálida a oscuras, tema claro al sol. Lo que corrijas a mano se recuerda para esa luz"
+                    checked={prefs.confortLuz === true}
+                    onChange={(confortLuz) => stats.savePreferences({ confortLuz })}
+                />
+                {ports.noMolestar && (
+                    <Toggle
+                        id="do-not-disturb"
+                        label="No molestar mientras lees"
+                        sub="Con un libro abierto, solo entran alarmas y tus contactos favoritos. Al cerrarlo, todo vuelve a como estaba. Si ya tenías tu propio No molestar, no se toca"
+                        checked={prefs.noMolestar === true}
+                        onChange={cambiarNoMolestar}
+                    />
+                )}
+                <Toggle
                     id="sharky"
                     label="Sharky"
                     sub="Comentarios ocasionales en la biblioteca"
@@ -150,6 +259,8 @@ export const ReadingPage = ({ stats, notify }) => {
                     onChange={(sharky) => stats.savePreferences({ sharky })}
                 />
             </Group>
+
+            <IdiomasGroup prefs={prefs} stats={stats} />
         </>
     );
 };
@@ -251,11 +362,106 @@ export const AppearancePage = ({ stats }) => {
    Sincronización
    ═══════════════════════════════════════════════════════════════════════════ */
 
-export const SyncPage = ({ sync }) => {
+/**
+ * SharkReader de escritorio en la misma wifi.
+ *
+ * Va primero en Sincronización porque es la forma que no pide nada: ni servidor
+ * ni cuenta, solo tener las dos apps abiertas en casa. El WebDAV queda debajo
+ * para quien quiera sincronizar también fuera de casa.
+ */
+const EscritorioSection = ({ escritorio, notify }) => {
+    const [texto, setTexto] = useState('');
+    const [ocupado, setOcupado] = useState(false);
+    const [error, setError] = useState(null);
+
+    if (!escritorio) return null;
+    const { config } = escritorio;
+
+    const emparejar = async () => {
+        setOcupado(true);
+        setError(null);
+        try {
+            const { nombre } = await escritorio.emparejar(texto);
+            setTexto('');
+            notify?.(`Emparejado con ${nombre}.`);
+            escritorio.sincronizar();
+        } catch (fallo) {
+            setError(fallo?.message || 'No se pudo emparejar.');
+        }
+        setOcupado(false);
+    };
+
+    return (
+        <section className="section" data-setting="desktop-pair">
+            <h2 className="bs-heading">SharkReader en el ordenador</h2>
+            {config?.direccion ? (
+                <>
+                    <div className={`sync-status${escritorio.estado === 'sin-conexion' ? ' error' : ''}`}>
+                        <span className="sync-dot" />
+                        <div className="row-txt">
+                            <span>{config.nombre}</span>
+                            <span className="row-sub">
+                                {escritorio.estado === 'sincronizando'
+                                    ? 'Sincronizando…'
+                                    : escritorio.mensaje
+                                        || (config.ultima ? `Última vez ${relativeTime(config.ultima)}` : 'Sin sincronizar todavía')}
+                            </span>
+                        </div>
+                    </div>
+                    <p className="option-desc">
+                        Se ponen al día solos al abrir la app, al volver a ella y al cerrar un libro, siempre que
+                        el ordenador tenga SharkReader abierto en la misma wifi. Al abrir un libro que seguiste
+                        leyendo allí, te propone ir a ese punto.
+                    </p>
+                    <div className="sheet-actions">
+                        <button type="button" className="btn" onClick={escritorio.olvidar}>Olvidar</button>
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={escritorio.sincronizar}
+                            disabled={escritorio.estado === 'sincronizando'}
+                        >
+                            Sincronizar ahora
+                        </button>
+                    </div>
+                </>
+            ) : (
+                <div className="bs-form">
+                    <p className="option-desc">
+                        En el ordenador, abre SharkReader y ve a Ajustes → Móvil en la red de casa. Escribe aquí la
+                        dirección que aparece. Sin cuenta y sin nube: los datos van de uno a otro por tu wifi.
+                    </p>
+                    <label className="bs-field">
+                        <span className="option-desc">Dirección del ordenador</span>
+                        <div className="search">
+                            <input
+                                type="text"
+                                value={texto}
+                                onChange={(event) => setTexto(event.target.value)}
+                                placeholder="192.168.1.20:47321/clave"
+                                aria-label="Dirección del ordenador"
+                                autoCapitalize="none"
+                                autoCorrect="off"
+                                spellCheck={false}
+                            />
+                        </div>
+                    </label>
+                    {error && <p className="banner banner-error" role="alert">{error}</p>}
+                    <button type="button" className="btn btn-primary btn-block" onClick={emparejar} disabled={ocupado || !texto.trim()}>
+                        {ocupado ? 'Buscando el ordenador…' : 'Emparejar'}
+                    </button>
+                </div>
+            )}
+        </section>
+    );
+};
+
+export const SyncPage = ({ sync, escritorio, notify }) => {
     const [showPassword, setShowPassword] = useState(false);
 
     return (
         <>
+            <EscritorioSection escritorio={escritorio} notify={notify} />
             {sync.configured && (
                 <div className={`sync-status${sync.state === 'error' ? ' error' : ''}`}>
                     <span className="sync-dot" />
@@ -369,11 +575,14 @@ export const SyncPage = ({ sync }) => {
    Biblioteca y datos
    ═══════════════════════════════════════════════════════════════════════════ */
 
-export const DataPage = ({ library, notify }) => {
+export const DataPage = ({ library, stats, notify }) => {
     const ports = usePorts();
     const usage = useStorageUsage();
     const [busy, setBusy] = useState(null);
     const [vocabulary, setVocabulary] = useState([]);
+    const [ordenando, setOrdenando] = useState(false);
+    const [migrando, setMigrando] = useState(false);
+    const pendientes = resumirDiagnostico(library.books);
 
     useEffect(() => {
         loadVocabulary(ports.storage).then(setVocabulary).catch(() => {});
@@ -496,6 +705,55 @@ export const DataPage = ({ library, notify }) => {
     return (
         <>
             {busy && <div className="banner" role="status">{busy}</div>}
+
+            <Group title="Orden">
+                <button
+                    type="button"
+                    className="row"
+                    onClick={() => setOrdenando(true)}
+                    disabled={!library.books.length}
+                    data-setting="library-tidy"
+                >
+                    <span className="row-icon"><IconFolder size={19} /></span>
+                    <span className="row-txt">
+                        <span>Ordenar la biblioteca</span>
+                        <span className="row-sub">
+                            {pendientes.libros || pendientes.series
+                                ? `${pendientes.libros} libros con título, autor o portada mejorables`
+                                : 'Títulos, autores, portadas y series en orden'}
+                        </span>
+                    </span>
+                    <IconChevronRight size={18} />
+                </button>
+                <button
+                    type="button"
+                    className="row"
+                    onClick={() => setMigrando(true)}
+                    disabled={!library.books.length}
+                    data-setting="import-other-app"
+                >
+                    <span className="row-icon"><IconShare size={19} /></span>
+                    <span className="row-txt">
+                        <span>Traer de otra app</span>
+                        <span className="row-sub">Subrayados, notas y progreso de Kindle o KOReader</span>
+                    </span>
+                    <IconChevronRight size={18} />
+                </button>
+            </Group>
+
+            {migrando && (
+                <div className="overlay-screen">
+                    <MigrarScreen library={library} onClose={() => setMigrando(false)} />
+                </div>
+            )}
+
+            {ordenando && (
+                <OrdenarSheet
+                    books={library.books}
+                    onUpdate={library.updateBook}
+                    onClose={() => setOrdenando(false)}
+                />
+            )}
 
             <Group title="Copias automáticas">
                 <button
@@ -623,6 +881,33 @@ export const DataPage = ({ library, notify }) => {
                     </span>
                     <IconChevronRight size={18} />
                 </button>
+                <button
+                    type="button"
+                    className="row"
+                    data-setting="export-anki"
+                    disabled={vocabulary.length === 0 || busy === 'anki'}
+                    onClick={async () => {
+                        setBusy('anki');
+                        try {
+                            const tarjetas = await traducirVocabulario(ports, vocabulary, stats?.preferences?.traduccion?.a || DESTINO_POR_DEFECTO());
+                            const date = new Date().toISOString().slice(0, 10);
+                            await shareTextFile(`sharkreader-anki-${date}.tsv`, vocabularioParaAnki(tarjetas), 'Tarjetas para Anki');
+                            notify(`${tarjetas.length} tarjetas listas para Anki`);
+                        } catch (fallo) {
+                            notify(fallo?.message || 'No se han podido crear las tarjetas.');
+                        }
+                        setBusy(null);
+                    }}
+                >
+                    <span className="row-icon"><IconShare size={19} /></span>
+                    <span className="row-txt">
+                        <span>Tarjetas para Anki</span>
+                        <span className="row-sub">
+                            {busy === 'anki' ? 'Preparando…' : 'Cada palabra con su frase del libro. Ábrelo con AnkiDroid o Anki.'}
+                        </span>
+                    </span>
+                    <IconChevronRight size={18} />
+                </button>
             </Group>
 
             <section className="section" data-setting="storage">
@@ -694,11 +979,35 @@ const PERMISSIONS = [
 const CONNECTIONS = [
     {
         host: 'openlibrary.org',
-        what: 'Se envía el título y el autor de un libro, solo al pulsar «Buscar información online».',
+        what: 'Se envía el título y el autor de un libro, solo al pulsar «Buscar información online» o «Ordenar la biblioteca». En ese segundo caso, uno por cada libro con datos que arreglar.',
     },
     {
         host: 'dictionaryapi.dev',
         what: 'Se envía únicamente la palabra consultada. Ni el libro, ni el contexto, ni identificadores.',
+    },
+    {
+        host: 'Google (modelos de idioma)',
+        what: 'Solo al usar por primera vez la traducción, las ayudas de vocabulario o el reconocimiento de un escaneado con un idioma: se descarga su modelo, una vez. Lo que se traduce o reconoce no sale del teléfono.',
+    },
+    {
+        host: 'Google (diagnóstico de ML Kit)',
+        what: 'Al traducir, reconocer texto o resumir, las bibliotecas de Google envían datos técnicos: modelo del teléfono, versión de la app, rendimiento y errores. Nunca el texto de tus libros ni tus notas.',
+    },
+    {
+        host: 'Google (IA del teléfono)',
+        what: 'Solo si activas los resúmenes con la IA del teléfono: Android descarga su modelo. Lo que se resume no sale del teléfono.',
+    },
+    {
+        host: 'Reconocimiento de voz de Android',
+        what: 'Al dictar una nota. Se pide sin conexión; si el idioma no está descargado en el teléfono, el servicio de voz del sistema puede procesarla en sus servidores.',
+    },
+    {
+        host: 'github.com (voces)',
+        what: 'Solo al descargar una voz natural sin conexión. No se envía nada tuyo.',
+    },
+    {
+        host: 'Tu ordenador, en tu wifi',
+        what: 'Solo si emparejas SharkReader de escritorio: posición, subrayados y notas van de uno a otro por tu red, sin pasar por internet.',
     },
     {
         host: 'Tu servidor WebDAV',
@@ -1019,6 +1328,31 @@ export const AboutPage = () => {
             )}
         </>
     );
+};
+
+/**
+ * Añade la traducción a las palabras que no la tienen, **solo con los idiomas
+ * ya descargados**: exportar no debe ponerse a bajar modelos por la red sin
+ * avisar. Sin modelo, la tarjeta lleva la definición, que ya es útil.
+ */
+const traducirVocabulario = async (ports, palabras, destino) => {
+    const descargados = new Set(await ports.traduccion?.descargados?.().catch(() => []) || []);
+    if (!ports.traduccion || !descargados.has(destino)) return palabras;
+    const salida = palabras.map((p) => ({ ...p }));
+    const porIdioma = {};
+    salida.forEach((p) => {
+        if (p.traduccion || !p.lang || p.lang === destino || !descargados.has(p.lang)) return;
+        (porIdioma[p.lang] = porIdioma[p.lang] || []).push(p);
+    });
+    for (const [idioma, lista] of Object.entries(porIdioma)) {
+        try {
+            const traducidas = await ports.traduccion.traducir(idioma, destino, lista.map((p) => p.word));
+            lista.forEach((p, i) => { if (traducidas[i] && traducidas[i].toLowerCase() !== p.word) p.traduccion = traducidas[i]; });
+        } catch {
+            // Sin traducción, la tarjeta sigue valiendo con la definición.
+        }
+    }
+    return salida;
 };
 
 export const PAGES = {

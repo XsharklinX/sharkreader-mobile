@@ -38,12 +38,14 @@ export const parseResult = (doc) => ({
  *
  * @returns {Promise<{results: Object[], offline: boolean}>}
  */
-export const searchMetadata = async ({ title, author = '' }) => {
-    const query = cleanTitle(title);
-    if (!query) return { results: [], offline: false };
+export const searchMetadata = async ({ title, author = '', isbn = '' }) => {
+    // Un ISBN identifica la edición exacta: se busca por él y no por el título,
+    // que en un fichero llamado «9788497592208.pdf» no existe.
+    const query = isbn ? '' : cleanTitle(title);
+    if (!query && !isbn) return { results: [], offline: false };
 
-    const params = new URLSearchParams({ title: query, limit: '8' });
-    if (author && author !== 'Autor desconocido') params.set('author', author);
+    const params = new URLSearchParams(isbn ? { q: `isbn:${isbn}`, limit: '3' } : { title: query, limit: '8' });
+    if (!isbn && author && author !== 'Autor desconocido') params.set('author', author);
 
     try {
         const response = await fetch(`${SEARCH}?${params}`);

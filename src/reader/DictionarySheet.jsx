@@ -10,7 +10,7 @@ import { IconClose, IconPlus, IconCheck } from '../ui/icons.jsx';
  * el vocabulario está a un toque porque es lo que convierte el diccionario en
  * una herramienta de estudio en lugar de una consulta suelta.
  */
-export default function DictionarySheet({ word, book, onClose }) {
+export default function DictionarySheet({ word, frase = '', book, onClose }) {
     const ports = usePorts();
     const [lang, setLang] = useState('es');
     const [state, setState] = useState('loading');
@@ -40,6 +40,7 @@ export default function DictionarySheet({ word, book, onClose }) {
             definition: entry?.meanings?.[0]?.definitions?.[0]?.text || '',
             bookId: book?.id || '',
             bookName: book?.name || '',
+            frase,
         });
         setSaved(true);
     };

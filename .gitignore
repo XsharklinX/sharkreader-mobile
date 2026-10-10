@@ -18,3 +18,9 @@ android/app/debug/
 *.keystore
 *.jks
 keystore.properties
+
+# Capturas de la ficha: los libros de muestra se descargan (ver
+# scripts/capturas/libros/LEEME.md) y las fotos sin componer se regeneran.
+scripts/capturas/libros/*
+!scripts/capturas/libros/LEEME.md
+scripts/capturas/salida/

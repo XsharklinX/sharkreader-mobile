@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createEpubEngine } from './EpubEngine.js';
+import { createEpubEngine, textoPropio } from './EpubEngine.js';
 import { createGestureHandlers } from './useGestures.js';
 import { buildReaderStyles, DEFAULT_TYPOGRAPHY, READER_THEMES, EINK_OVERRIDES, migrarComposicion } from './typography.js';
 import { mapStatus, progressLabel } from './locationMap.js';
@@ -11,6 +11,19 @@ import DisplaySheet from './DisplaySheet.jsx';
 import BookInfoSheet from './BookInfoSheet.jsx';
 import { runTurn, DEFAULT_TRANSITION, normalizeTransition, usesCurl } from './transitions.js';
 import { atenuacionDe, brilloVisible } from './brilloGesto.js';
+import { cuerpoPorPellizco, escalaVisual } from './pellizco.js';
+import { createHojaReal } from './hojaReal.js';
+import { paginaSintetica, paginaImpresa, localizacionDePagina } from './paginasLibro.js';
+import { grabadorGestos, exponerGrabador } from './grabadorGestos.js';
+import { crearDibujoPliegue, createPliegue } from './pliegueGL.js';
+import { createConfortLuz, ajustesPara, describir } from './confortLuz.js';
+import PosicionRemotaSheet from './PosicionRemotaSheet.jsx';
+import PersonajesSheet from './PersonajesSheet.jsx';
+import TraduccionSheet from './TraduccionSheet.jsx';
+import ResumenSheet from './ResumenSheet.jsx';
+import { idiomaDe, traducirParrafo, mensajeDeError, DESTINO_POR_DEFECTO } from './traducir.js';
+import { cargarConocidas, palabrasDificiles } from './glosas.js';
+import { rangosDe, pintarCapa, quitarCapa, glosaCorta, CSS_GLOSAS, CLASE_ACTIVA } from './glosasCapa.js';
 import PageFold from './PageFold.jsx';
 import { iniciar as cronometrar, exponer as exponerPerf, medir as medirPerf } from './perf.js';
 import { buildFontFaceCss } from './fontLoader.js';
@@ -27,6 +40,7 @@ import { useSpeech } from './useSpeech.js';
 import { useAutoScroll } from './useAutoScroll.js';
 import { useReadingStatus } from './useReadingStatus.js';
 import DictionarySheet from './DictionarySheet.jsx';
+import { fraseConPalabra } from './anki.js';
 import { renderQuoteImage } from './quoteImage.js';
 import { shareImage } from '../library/backup.js';
 import {
@@ -34,7 +48,7 @@ import {
     updateHighlight, findAnnotation, highlightStyle, DEFAULT_HIGHLIGHT_STYLE,
 } from './annotations.js';
 import { columnsFor, spreadValue, marginForColumns, SPREAD_MIN_WIDTH } from './spread.js';
-import { DEFAULT_GESTURE_GRID, normalizeGrid } from './gestureGrid.js';
+import { DEFAULT_GESTURE_GRID, normalizeGrid, PRESETS_GRID, presetDe, sugerirUnaMano } from './gestureGrid.js';
 import GestureGridSheet from './GestureGridSheet.jsx';
 import GoToSheet from './GoToSheet.jsx';
 import CitationSheet from './CitationSheet.jsx';
@@ -44,18 +58,38 @@ import { UNKNOWN_AUTHOR_FALLBACK } from '../core/bookModel.js';
 import { readBookBlob } from '../adapters/SafPicker.js';
 import { usePorts } from '../ports/index.js';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { useBackHandler } from '../ui/useBackHandler.js';
 import {
     IconArrowLeft, IconTextSize, IconList, IconBookmark, IconHighlight, IconSearch,
-    IconVolume, IconClock, IconSun, IconGoTo,
+    IconVolume, IconClock, IconSun, IconGoTo, IconPeople,
 } from '../ui/icons.jsx';
 
 const LOCATIONS_KEY = (bookId) => `locations:${bookId}`;
 
-export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsChange, onExportAnnotations, preferences = {}, onPreferencesChange }) {
+export default function ReaderScreen({
+    book, onClose, onProgress, onAnnotationsChange, onExportAnnotations, preferences = {}, onPreferencesChange,
+    posicionRemota, onPosicionRemotaVista,
+}) {
     const ports = usePorts();
     const viewportRef = useRef(null);
     const engineRef = useRef(null);
+    // Las páginas sombra y quien pasa página con ellas. Ver `hojaReal.js`.
+    const sombraSigRef = useRef(null);
+    const sombraAntRef = useRef(null);
+    const sombrasRef = useRef({ next: null, prev: null });
+    const hojaRef = useRef(null);
+    /** Cuánto se ha movido la hoja con el dedo, para seguir desde ahí al soltar. */
+    const desplazamientoRef = useRef(0);
+    /** Sube con cada apertura del motor: las sombras se rehacen con él. */
+    const [motor, setMotor] = useState(0);
+    // El pliegue en la GPU. Ver `pliegueGL.js`. Sin WebGL queda `PageFold`.
+    const lienzoRef = useRef(null);
+    const dibujoRef = useRef(null);
+    const pliegueRef = useRef(null);
+    /** Para qué posición está subida la foto de la página a la textura. */
+    const fotoParaRef = useRef(null);
+    const [sinWebGL, setSinWebGL] = useState(false);
 
     const [state, setState] = useState('loading');
     const [error, setError] = useState(null);
@@ -162,8 +196,14 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     const cantoRef = useRef(0);
 
     const cierreAsentada = useRef(null);
+    /** Recolocar las glosas de vocabulario; se enchufa más abajo. */
+    const repintarGlosasRef = useRef(null);
+    /** Recolocar las páginas sombra; se enchufa más abajo. */
+    const colocarSombrasRef = useRef(null);
     useEffect(() => {
         exponerPerf();
+        // `__gestos` en la consola del WebView: grabar gestos reales. Ver `grabadorGestos.js`.
+        exponerGrabador();
         // Encenderlo desde la URL es lo que permite medir en el teléfono sin
         // recompilar. El acceso va con cautela: no todo entorno tiene `location`.
         if (globalThis.location?.search?.includes?.('perf')) medirPerf(true);
@@ -195,6 +235,9 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         [typography, effectiveTheme]
     );
     const palette = READER_THEMES[effectiveTheme] || READER_THEMES.dark;
+    // El color del papel, para el dorso del pliegue, que se dibuja fuera de React.
+    const paletteRef = useRef(palette);
+    paletteRef.current = palette;
 
     // Hora y batería para la línea de estado. Solo se calculan con el chrome
     // oculto, que es cuando esa línea existe: con la barra puesta la hora ya la
@@ -229,6 +272,8 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             // manejadores se crean una vez y se registran dentro del iframe
             // durante la carga, así que no pueden capturar estado de React.
         });
+        // Apagado no hace nada; encendido graba cada gesto tal como llega.
+        grabadorGestos.envolver(gesturesRef.current);
     }
 
     /**
@@ -288,6 +333,46 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
          */
         if (pliegueArmado.current && foldRef.current?.armed?.() === false) {
             pliegueArmado.current = null;
+        }
+
+        // El pliegue en la GPU: avanzando con un toque, la hoja se dobla sola
+        // desde la esquina tocada. Retrocediendo se desliza (abajo).
+        if (usesCurl(transitionRef.current) && !reducedMotionRef.current && flowRef.current !== 'scrolled') {
+            if (direction === 'next' && !pliegueRef.current?.activo() && pliegueListoRef.current?.()) {
+                const finVuelta = cronometrar('pasar-pagina');
+                elevarSombra('next');
+                pliegueRef.current.toque(ultimoToque.current).then(finVuelta, finVuelta);
+                return;
+            }
+            if (direction === 'prev' && pliegueRef.current && sombraListaRef.current?.('prev')) {
+                hojaRef.current.pasar('prev', { desde: desplazamientoRef.current, impulso, animar: true });
+                desplazamientoRef.current = 0;
+                return;
+            }
+        }
+
+        /**
+         * Con la página sombra lista, se pasa descubriéndola.
+         *
+         * Vale para deslizar y para «ninguna»: con «ninguna» la hoja se aparta
+         * de golpe en vez de deslizarse, pero se sigue ganando lo importante —
+         * cruzar de capítulo sin espera, porque lo que se ve mientras tanto es
+         * la sombra—. El doblado tiene su propio camino.
+         */
+        if (!usesCurl(transitionRef.current) && flowRef.current !== 'scrolled' && sombraListaRef.current?.(direction)) {
+            turnRef.current?.cancel();
+            const finVuelta = cronometrar('pasar-pagina');
+            hojaRef.current.pasar(direction, {
+                desde: desplazamientoRef.current,
+                impulso,
+                animar: transitionRef.current === 'slide' && !reducedMotionRef.current,
+            }).then(finVuelta, finVuelta).then(() => {
+                if (einkRef.current && refreshRef.current.pageTurned()) {
+                    flashScreen(viewportRef.current?.parentElement);
+                }
+            });
+            desplazamientoRef.current = 0;
+            return;
         }
 
         // Pasar página más rápido de lo que dura la animación cancela la
@@ -392,6 +477,19 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             if (!node) return;
 
             /**
+             * El pliegue en la GPU, avanzando: la esquina sigue al dedo y debajo
+             * está la página siguiente de verdad. Retrocediendo se desliza
+             * descubriendo la anterior, que también está pintada.
+             */
+            const pliegue = pliegueRef.current;
+            if (usesCurl(transitionRef.current) && direction === 'next'
+                && (pliegue?.activo() || pliegueListoRef.current?.())) {
+                elevarSombra('next');
+                pliegue.seguir(puntoEnHoja(punto));
+                return;
+            }
+
+            /**
              * Con el doblado, la página de debajo **no se mueve**.
              *
              * Lo que se dobla es una copia de la página que se va, encima. Es la
@@ -413,9 +511,17 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             clearTimeout(cantoRef.current);
             node.dataset.canto = direction === 'next' ? 'derecha' : 'izquierda';
             node.style.transform = `translate3d(${Math.round(shift)}px,0,0)`;
+            // Debajo, la sombra del lado hacia el que se va: es la página que
+            // el dedo está descubriendo.
+            desplazamientoRef.current = Math.round(shift);
+            elevarSombra(direction);
         };
 
         const release = () => {
+            if (pliegueRef.current?.activo()) {
+                pliegueRef.current.cancelar();
+                return;
+            }
             const armado = pliegueArmado.current;
             if (armado && foldRef.current) {
                 // La hoja vuelve a su sitio y, ya tapada del todo, se deshace el
@@ -430,6 +536,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             }
 
             const node = viewportRef.current;
+            desplazamientoRef.current = 0;
             if (!node) return;
             node.classList.remove('dragging');
             node.classList.add('releasing');
@@ -506,11 +613,23 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             onMove: setShift,
             onCancel: release,
             onCommit: (direction, impulso) => {
+                grabadorGestos.decision(`arrastre:${direction}`);
+                if (pliegueRef.current?.activo()) {
+                    pliegueRef.current.confirmar();
+                    return;
+                }
                 const armado = pliegueArmado.current;
                 if (armado && foldRef.current) {
                     // La página ya cambió al empezar el gesto: aquí solo queda
                     // terminar de doblar la hoja vieja y retirarla.
                     foldRef.current.finish(armado, soltarPliegue);
+                    return;
+                }
+
+                // Con la sombra lista, la hoja sigue desde donde la dejó el dedo
+                // hasta salir: no vuelve a su sitio para luego saltar.
+                if (sombraListaRef.current?.(direction)) {
+                    turnPage(direction, impulso);
                     return;
                 }
 
@@ -626,6 +745,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 engine.registerDropCapDetection();
 
                 setState('ready');
+                setMotor((n) => n + 1);
                 cierreApertura();
             } catch (loadError) {
                 if (cancelled) return;
@@ -644,6 +764,146 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         // contenido, que solo se puede registrar antes de montar los capítulos.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [book.id, typography.flow, typography.hyphenLang, typography.hangingPunctuation]);
+
+    // ── Números de página de la edición impresa ──────────────────────────────
+    //
+    // Se calculan una vez por libro, cuando el lector ya está abierto, y se
+    // guardan. Un libro sin paginación impresa guarda una lista vacía y usa las
+    // páginas sintéticas.
+    const [paginasImpresas, setPaginasImpresas] = useState([]);
+    const paginasImpresasRef = useRef([]);
+    paginasImpresasRef.current = paginasImpresas;
+    useEffect(() => {
+        if (state !== 'ready' || !engineRef.current) return undefined;
+        let vivo = true;
+        const clave = `paginas-impresas:${book.id}`;
+        ports.storage.getSetting(clave).then(async (guardadas) => {
+            if (Array.isArray(guardadas)) {
+                if (vivo) setPaginasImpresas(guardadas);
+                return;
+            }
+            const lista = await engineRef.current?.paginacionImpresa?.() || [];
+            if (!vivo) return;
+            setPaginasImpresas(lista);
+            ports.storage.setSetting(clave, lista).catch(() => {});
+        }).catch(() => {});
+        return () => { vivo = false; };
+        // Solo al abrir el libro.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [motor]);
+
+    // ── Páginas sombra ───────────────────────────────────────────────────────
+    //
+    // Se crean con cada apertura del motor y solo paginando: desplazando no hay
+    // páginas que descubrir. En móviles con poca memoria, solo la siguiente,
+    // que es la que se usa nueve de cada diez veces.
+    const colocarSombras = useCallback(() => {
+        const engine = engineRef.current;
+        const cfi = engine?.posicionActual?.();
+        if (!cfi) return;
+        const { next, prev } = sombrasRef.current;
+        const colocar = () => {
+            next?.colocar(cfi, 1);
+            prev?.colocar(cfi, -1);
+        };
+        // En tiempo muerto: colocar una sombra cuesta lo mismo que pasar una
+        // página, y no debe competir con el pintado de la real.
+        if (typeof requestIdleCallback === 'function') requestIdleCallback(colocar, { timeout: 600 });
+        else setTimeout(colocar, 120);
+    }, []);
+
+    const elevarSombra = useCallback((direccion) => {
+        const arriba = direccion === 'next' ? sombraSigRef.current : sombraAntRef.current;
+        const abajo = direccion === 'next' ? sombraAntRef.current : sombraSigRef.current;
+        if (arriba) arriba.style.zIndex = '1';
+        if (abajo) abajo.style.zIndex = '0';
+    }, []);
+
+    useEffect(() => {
+        const engine = engineRef.current;
+        if (state !== 'ready' || !engine || typography.flow === 'scrolled') return undefined;
+
+        const pocaMemoria = (globalThis.navigator?.deviceMemory || 4) <= 2;
+        const sombras = {
+            next: engine.crearSombra?.(sombraSigRef.current) || null,
+            prev: pocaMemoria ? null : (engine.crearSombra?.(sombraAntRef.current) || null),
+        };
+        sombrasRef.current = sombras;
+
+        // Los subrayados también, o aparecerían de golpe al soltar.
+        (book.bookmarks || [])
+            .filter((marca) => normalizeAnnotationKind(marca) === 'highlight')
+            .forEach((marca) => {
+                const color = HIGHLIGHT_SWATCHES[marca.color] || HIGHLIGHT_SWATCHES.yellow;
+                sombras.next?.marcar(marca.cfi, color, highlightStyle(marca));
+                sombras.prev?.marcar(marca.cfi, color, highlightStyle(marca));
+            });
+
+        // Se espera al `relocated` de la real: hasta entonces la página nueva no
+        // está pintada y volver la hoja enseñaría la vieja.
+        const avanzarReal = (direccion) => new Promise((listo) => {
+            const quitar = engineRef.current?.onRelocated(() => { quitar?.(); listo(); });
+            Promise.resolve(direccion === 'next' ? engineRef.current?.next() : engineRef.current?.prev())
+                .catch(() => { quitar?.(); listo(); });
+        });
+
+        // El pliegue en la GPU, si el teléfono tiene WebGL.
+        const dibujo = lienzoRef.current ? crearDibujoPliegue(lienzoRef.current) : null;
+        dibujoRef.current = dibujo;
+        setSinWebGL(!dibujo);
+        pliegueRef.current = dibujo ? createPliegue({
+            dibujo,
+            lienzo: lienzoRef.current,
+            hoja: () => viewportRef.current,
+            avanzar: () => avanzarReal('next'),
+            papel: () => paletteRef.current?.bg,
+        }) : null;
+
+        hojaRef.current = createHojaReal({
+            hoja: () => viewportRef.current,
+            avanzar: avanzarReal,
+            lista: (direccion) => Boolean(sombrasRef.current[direccion]?.listaPara(engineRef.current?.posicionActual?.())),
+            elevar: elevarSombra,
+            alTerminar: () => {
+                const nodo = viewportRef.current;
+                nodo?.classList.remove('dragging', 'releasing');
+                if (nodo) delete nodo.dataset.canto;
+            },
+        });
+
+        colocarSombras();
+        return () => {
+            sombras.next?.destroy();
+            sombras.prev?.destroy();
+            sombrasRef.current = { next: null, prev: null };
+            hojaRef.current = null;
+            dibujo?.destruir();
+            dibujoRef.current = null;
+            pliegueRef.current = null;
+            fotoParaRef.current = null;
+        };
+        // Las sombras siguen al motor, no al libro: se rehacen cuando él se rehace.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [motor, typography.flow]);
+
+    colocarSombrasRef.current = colocarSombras;
+
+    /** ¿Se puede doblar la hoja en la GPU ahora mismo? Foto y sombra listas para esta página. */
+    const pliegueListoRef = useRef(null);
+    pliegueListoRef.current = () => {
+        const cfi = engineRef.current?.posicionActual?.();
+        return Boolean(pliegueRef.current && cfi && fotoParaRef.current === cfi
+            && sombrasRef.current.next?.listaPara(cfi));
+    };
+    // `turnPage` y el arrastre se crean una vez; leen esto por referencia.
+    const sombraListaRef = useRef(null);
+    sombraListaRef.current = (direccion) => sombraLista(direccion);
+
+    /** ¿Se puede pasar página descubriendo la sombra? */
+    const sombraLista = (direccion) => Boolean(
+        hojaRef.current
+        && (hojaRef.current.ocupada() || sombrasRef.current[direccion]?.listaPara(engineRef.current?.posicionActual?.()))
+    );
 
     // ── Posición ─────────────────────────────────────────────────────────────
     useEffect(() => {
@@ -683,6 +943,13 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             // momento en que pasar página no es instantáneo, y ocurre siempre
             // en el mismo sitio previsible —el final del capítulo—.
             engine.prefetchNext(cfi);
+
+            // La página ha podido cambiar de forma (otra letra, otro margen):
+            // las glosas se recolocan sobre sus palabras.
+            repintarGlosasRef.current?.();
+
+            // Y las sombras, una página por delante y otra por detrás de esta.
+            colocarSombrasRef.current?.();
 
             /**
              * Las copias de la página se preparan **ahora**, no al empezar el gesto.
@@ -752,6 +1019,12 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         const engine = engineRef.current;
         if (!engine) return;
 
+        // Las sombras con los mismos estilos: se recolocan solas con el
+        // `relocated` que provoca el cambio.
+        const { next, prev } = sombrasRef.current;
+        next?.estilos(styles);
+        prev?.estilos(styles);
+
         if (!stylesMontado.current) {
             stylesMontado.current = true;
             engine.applyStyles(styles);
@@ -772,6 +1045,8 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     useEffect(() => {
         if (state !== 'ready') return;
         const engine = engineRef.current;
+        sombrasRef.current.next?.resize();
+        sombrasRef.current.prev?.resize();
         engine?.reanchor(() => engine.resize());
     }, [typography.margin, typography.marginTop, typography.marginBottom, state]);
 
@@ -827,6 +1102,8 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             if (columnsRef.current === next) return;
             columnsRef.current = next;
             engineRef.current?.setSpread(spreadValue(spread), SPREAD_MIN_WIDTH);
+            sombrasRef.current.next?.spread(spreadValue(spread), SPREAD_MIN_WIDTH);
+            sombrasRef.current.prev?.spread(spreadValue(spread), SPREAD_MIN_WIDTH);
             setColumns(next);
         };
 
@@ -885,6 +1162,21 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         const entry = history.pop();
         if (entry?.cfi) engineRef.current?.display(entry.cfi);
     }, [history]);
+
+    /**
+     * Por dónde ibas en otra app (KOReader guarda el porcentaje).
+     *
+     * Un porcentaje solo se puede convertir en posición con el mapa del libro,
+     * así que se espera a tenerlo. Se lee una vez al abrir: el guardado de
+     * preferencias del lector lo quita, así que no vuelve a saltar.
+     */
+    const irAPorcentaje = useRef(book.readerPreferences?.irAPorcentaje || null);
+    useEffect(() => {
+        if (state !== 'ready' || !locationsReady || !irAPorcentaje.current) return;
+        const cfi = engineRef.current?.cfiAtPercent(irAPorcentaje.current);
+        irAPorcentaje.current = null;
+        if (cfi) jumpTo(cfi);
+    }, [state, locationsReady, jumpTo]);
 
     // ── Barra de progreso arrastrable ────────────────────────────────────────
     const [scrubAt, setScrubAt] = useState(null);
@@ -957,6 +1249,139 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             // El número se queda un momento y se va solo: mientras el dedo está
             // puesto tapa el texto, y en cuanto se levanta ya no informa de nada.
             setTimeout(() => setAjustandoBrillo(null), 450);
+            // Con la adaptación a la luz puesta, el brillo elegido con el dedo
+            // es lo que se quiere para esta luz.
+            aprenderLuzRef.current?.({ dim: dimRef.current });
+        };
+    }, []);
+
+    // ── La página se adapta a la luz ─────────────────────────────────────────
+    //
+    // Ver `confortLuz.js`. Aquí solo se aplica lo que decide: tema, atenuación y
+    // filtro cálido, con un aviso que deja deshacerlo. Deshacer y corregir a mano
+    // enseñan: lo elegido se guarda para esa situación de luz.
+    const [avisoLuz, setAvisoLuz] = useState(null);
+    const luzRef = useRef({ nivel: null, base: null, aprendidos: {}, temporizador: 0 });
+    const themeRef = useRef(theme);
+    themeRef.current = theme;
+    const warmRef = useRef(warm);
+    warmRef.current = warm;
+    const confortActivo = state === 'ready' && preferences.confortLuz === true && !eink && Boolean(ports.luz);
+
+    useEffect(() => {
+        if (!confortActivo) return undefined;
+        const ctx = luzRef.current;
+        ctx.base = { theme: themeRef.current, dim: dimRef.current, warm: warmRef.current };
+        ctx.nivel = null;
+        ports.storage.getSetting('confort-luz').then((guardado) => {
+            ctx.aprendidos = guardado && typeof guardado === 'object' ? guardado : {};
+        }).catch(() => {});
+
+        const confort = createConfortLuz({
+            alCambiar: (nivel) => {
+                ctx.nivel = nivel;
+                const previo = { theme: themeRef.current, dim: dimRef.current, warm: warmRef.current };
+                const ajustes = ajustesPara(nivel, { base: ctx.base, aprendidos: ctx.aprendidos });
+                const igual = ajustes.theme === previo.theme
+                    && Math.abs((ajustes.dim ?? 0) - previo.dim) < 0.01
+                    && Math.abs((ajustes.warm ?? 0) - previo.warm) < 0.01;
+                if (igual) return;
+
+                if (ajustes.theme) setTheme(ajustes.theme);
+                setDim(ajustes.dim ?? 0);
+                setWarm(ajustes.warm ?? 0);
+
+                clearTimeout(ctx.temporizador);
+                setAvisoLuz({
+                    texto: describir(nivel, ajustes, (id) => READER_THEMES[id]?.label || id),
+                    previo,
+                    nivel,
+                });
+                ctx.temporizador = setTimeout(() => setAvisoLuz(null), 6000);
+            },
+        });
+
+        let cortar = null;
+        let vivo = true;
+        ports.luz.escuchar((lux) => confort.leer(lux)).then((fin) => {
+            if (vivo) cortar = fin;
+            else fin?.();
+        });
+        return () => {
+            vivo = false;
+            cortar?.();
+            clearTimeout(ctx.temporizador);
+        };
+        // `ports` no cambia mientras el libro está abierto.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [confortActivo]);
+
+    /** Guarda lo elegido a mano para la situación de luz actual. */
+    const aprenderLuz = useCallback((cambio) => {
+        const ctx = luzRef.current;
+        if (!confortActivo || !ctx.nivel) return;
+        const actual = { theme: themeRef.current, dim: dimRef.current, warm: warmRef.current, ...cambio };
+        ctx.aprendidos = { ...ctx.aprendidos, [ctx.nivel]: actual };
+        if (ctx.nivel === 'interior') ctx.base = actual;
+        ports.storage.setSetting('confort-luz', ctx.aprendidos).catch(() => {});
+    }, [confortActivo, ports]);
+
+    const aprenderLuzRef = useRef(aprenderLuz);
+    aprenderLuzRef.current = aprenderLuz;
+
+    const deshacerLuz = useCallback(() => {
+        const aviso = avisoLuz;
+        if (!aviso) return;
+        setTheme(aviso.previo.theme);
+        setDim(aviso.previo.dim);
+        setWarm(aviso.previo.warm);
+        aprenderLuz(aviso.previo);
+        setAvisoLuz(null);
+    }, [avisoLuz, aprenderLuz]);
+
+    /**
+     * Pellizcar el texto cambia la letra.
+     *
+     * Mientras los dedos se mueven, la hoja solo se escala; el cuerpo nuevo se
+     * aplica al soltar, una vez, por el mismo `setTypography` que usa la hoja de
+     * Texto, que ya conserva la frase de arriba al repaginar. Ver `pellizco.js`.
+     */
+    const [pellizco, setPellizco] = useState(null);
+    const typographyRef = useRef(typography);
+    typographyRef.current = typography;
+
+    useEffect(() => {
+        let base = 18;
+        const escalar = (escala) => {
+            const node = viewportRef.current;
+            if (!node) return;
+            node.style.transformOrigin = '50% 40%';
+            node.style.transform = escala === 1 ? '' : `scale(${escala})`;
+        };
+
+        gesturesRef.current.onPinchStart = () => {
+            // Con un pliegue a medias, la hoja que se ve es una copia: escalar
+            // debajo de ella no se vería y al soltar cambiaría la letra a ciegas.
+            if (pliegueArmado.current) return;
+            base = typographyRef.current.fontSize || 18;
+            setPellizco({ base, cuerpo: base });
+        };
+
+        gesturesRef.current.onPinchMove = (escala) => {
+            const cuerpo = cuerpoPorPellizco(base, escala);
+            escalar(escalaVisual(base, cuerpo));
+            setPellizco((actual) => (actual && actual.cuerpo === cuerpo ? actual : { base, cuerpo }));
+        };
+
+        gesturesRef.current.onPinchEnd = (escala) => {
+            const cuerpo = cuerpoPorPellizco(base, escala);
+            escalar(1);
+            if (cuerpo !== base) {
+                setTypography((actual) => ({ ...actual, fontSize: cuerpo }));
+            }
+            // La cifra se queda un instante: es la confirmación de lo que se ha
+            // aplicado, y desaparecer a la vez que los dedos no da tiempo a leerla.
+            setTimeout(() => setPellizco(null), 600);
         };
     }, []);
 
@@ -994,6 +1419,8 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         });
         onAnnotationsChange?.(addAnnotation(annotationsRef.current, annotation));
         engineRef.current?.addHighlight(selection.cfiRange, HIGHLIGHT_SWATCHES[color], setEditing, estiloMarca);
+        sombrasRef.current.next?.marcar(selection.cfiRange, HIGHLIGHT_SWATCHES[color], estiloMarca);
+        sombrasRef.current.prev?.marcar(selection.cfiRange, HIGHLIGHT_SWATCHES[color], estiloMarca);
         engineRef.current?.clearSelection();
         setSelection(null);
     }, [selection, onAnnotationsChange, estiloMarca]);
@@ -1019,12 +1446,20 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             setEditing,
             highlightStyle(findAnnotation(annotationsRef.current, cfi))
         );
+        for (const sombra of [sombrasRef.current.next, sombrasRef.current.prev]) {
+            sombra?.desmarcar(cfi);
+            sombra?.marcar(cfi, HIGHLIGHT_SWATCHES[color], highlightStyle(findAnnotation(annotationsRef.current, cfi)));
+        }
         setEditing(null);
     }, [editing, onAnnotationsChange]);
 
     const deleteAnnotation = useCallback((cfi, kind) => {
         onAnnotationsChange?.(removeAnnotation(annotationsRef.current, cfi, kind));
-        if (kind === 'highlight') engineRef.current?.removeHighlight(cfi);
+        if (kind === 'highlight') {
+            engineRef.current?.removeHighlight(cfi);
+            sombrasRef.current.next?.desmarcar(cfi);
+            sombrasRef.current.prev?.desmarcar(cfi);
+        }
     }, [onAnnotationsChange]);
 
     const isBookmarked = annotationsRef.current.some(
@@ -1080,9 +1515,19 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     const goToTarget = useCallback((target) => {
         const engine = engineRef.current;
         if (!engine) return;
-        const cfi = target.kind === 'percent'
-            ? engine.cfiAtPercent(target.value)
-            : engine.cfiAtLocation(target.value);
+        let cfi;
+        if (target.kind === 'pagina') {
+            // La página impresa, si el libro la trae; si no, la sintética, que
+            // es una cada 1.500 caracteres del mapa de posiciones.
+            const impresa = paginasImpresasRef.current.find((p) => String(p.pagina).toLowerCase() === target.value);
+            cfi = impresa?.cfi || (/^\d+$/.test(target.value)
+                ? engine.cfiAtLocation(localizacionDePagina(Number(target.value)))
+                : null);
+        } else {
+            cfi = target.kind === 'percent'
+                ? engine.cfiAtPercent(target.value)
+                : engine.cfiAtLocation(target.value);
+        }
         // Sin CFI no se salta: mejor quedarse donde estabas que aterrizar en un
         // sitio arbitrario del libro.
         if (cfi) jumpTo(cfi);
@@ -1110,14 +1555,163 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             && speech.state === 'idle',
     });
 
-    // ── Diccionario e imagen de cita ─────────────────────────────────────────
-    const [lookup, setLookup] = useState(null);
-
-    const openDictionary = useCallback((text) => {
-        setLookup(text);
+    // ── Personajes y lugares ─────────────────────────────────────────────────
+    // `buscado` es el nombre seleccionado con «¿Quién es?»: abre su ficha
+    // directamente en vez de la lista.
+    const [buscado, setBuscado] = useState(null);
+    const preguntarQuien = useCallback((texto) => {
+        setBuscado(texto);
+        setPanel('personajes');
         engineRef.current?.clearSelection();
         setSelection(null);
     }, []);
+
+    // ── Leer a dos idiomas ───────────────────────────────────────────────────
+    //
+    // Con «Traducir al tocar» puesto, un toque en el centro de la página pone la
+    // traducción del párrafo justo debajo, y otro la quita. Las franjas de
+    // arriba y abajo del centro siguen abriendo los controles. La traducción se
+    // hace en el teléfono (ver `traducir.js`).
+    const ajustesTraduccion = useRef(preferences.traduccion || {});
+    ajustesTraduccion.current = preferences.traduccion || {};
+    const [traduciendo, setTraduciendo] = useState(null);
+
+    const traducirAqui = useCallback(async (texto) => {
+        const engine = engineRef.current;
+        const de = idiomaDe(engine?.visibleText() || texto, engine?.bookLanguage());
+        return traducirParrafo({ traduccion: ports.traduccion, texto, de, ajustes: ajustesTraduccion.current });
+    }, [ports]);
+
+    useEffect(() => {
+        gesturesRef.current.onTapTexto = (punto, accion, alto) => {
+            if (!ajustesTraduccion.current.activo || accion !== 'chrome' || !alto) return false;
+            const fila = punto.y / alto;
+            if (fila < 0.18 || fila > 0.82) return false;
+            return Boolean(engineRef.current?.alternarTraduccion(punto.x, punto.y, traducirAqui));
+        };
+    }, [traducirAqui]);
+
+    // ── Ayudas de vocabulario ────────────────────────────────────────────────
+    //
+    // Encima de las palabras difíciles para el nivel elegido, su traducción. Se
+    // calcula por capítulo al montarse, se traduce en el teléfono por tandas y
+    // se pinta en una capa que no toca el texto (ver `glosasCapa.js`). La capa
+    // se recoloca en cada cambio de página o de letra.
+    const ajustesGlosas = useRef(preferences.glosas || {});
+    ajustesGlosas.current = preferences.glosas || {};
+    const glosasPorDoc = useRef(new Map());
+    const [avisoGlosas, setAvisoGlosas] = useState(null);
+
+    const repintarGlosas = useCallback(() => {
+        for (const [doc, estado] of glosasPorDoc.current) {
+            if (!doc.defaultView) { glosasPorDoc.current.delete(doc); continue; }
+            if (estado?.entradas) pintarCapa(doc, estado.entradas, estado.glosas, estado.idioma);
+        }
+    }, []);
+
+    const procesarGlosas = useCallback(async (doc) => {
+        const ajustes = ajustesGlosas.current;
+        if (!ajustes.activo || !doc?.body || glosasPorDoc.current.has(doc) || !ports.traduccion) return;
+        glosasPorDoc.current.set(doc, null);
+
+        const engine = engineRef.current;
+        const de = idiomaDe(textoPropio(doc.body).slice(0, 6000), engine?.bookLanguage());
+        const destino = ajustesTraduccion.current.a || DESTINO_POR_DEFECTO();
+        if (!de || de === destino) return;
+        const conocidas = await cargarConocidas(de, ajustes.nivel || 'b2');
+        if (!conocidas) return;
+
+        const elegidas = new Map();
+        const yaGlosadas = new Set();
+        doc.querySelectorAll('p, li, blockquote').forEach((parrafo) => {
+            const palabras = palabrasDificiles(textoPropio(parrafo), conocidas, yaGlosadas, de);
+            if (palabras.length) elegidas.set(parrafo, palabras);
+        });
+        const unicas = [...yaGlosadas];
+        if (!unicas.length) return;
+
+        if (!doc.getElementById('sr-glosas-css')) {
+            const estilo = doc.createElement('style');
+            estilo.id = 'sr-glosas-css';
+            estilo.textContent = CSS_GLOSAS;
+            doc.head?.appendChild(estilo);
+        }
+
+        const estado = { entradas: rangosDe(doc, elegidas), glosas: new Map(), idioma: de };
+        glosasPorDoc.current.set(doc, estado);
+
+        // El interlineado extra repagina: se hace conservando la frase de arriba.
+        await engine?.reanchor(() => {
+            doc.documentElement.classList.add(CLASE_ACTIVA);
+            engine.resize();
+        });
+
+        // Por tandas: las primeras glosas salen enseguida y no al final de
+        // traducir el capítulo entero.
+        for (let i = 0; i < unicas.length; i += 40) {
+            if (!ajustesGlosas.current.activo || !doc.defaultView) return;
+            const tanda = unicas.slice(i, i + 40);
+            try {
+                const traducidas = await ports.traduccion.traducir(de, destino, tanda, {
+                    soloWifi: ajustesTraduccion.current.soloWifi !== false,
+                });
+                tanda.forEach((palabra, j) => estado.glosas.set(palabra, glosaCorta(traducidas[j])));
+            } catch (error) {
+                setAvisoGlosas(mensajeDeError(error, de));
+                setTimeout(() => setAvisoGlosas(null), 6000);
+                return;
+            }
+            pintarCapa(doc, estado.entradas, estado.glosas, de);
+        }
+    }, [ports]);
+
+    repintarGlosasRef.current = repintarGlosas;
+    const procesarGlosasRef = useRef(procesarGlosas);
+    procesarGlosasRef.current = procesarGlosas;
+    const glosasRegistradas = useRef(false);
+    const nivelPintado = useRef(preferences.glosas?.nivel);
+
+    useEffect(() => {
+        if (state !== 'ready' || !engineRef.current) return;
+        // Otro nivel: lo pintado ya no vale y se vuelve a calcular.
+        if (nivelPintado.current !== preferences.glosas?.nivel) {
+            nivelPintado.current = preferences.glosas?.nivel;
+            glosasPorDoc.current.forEach((_, doc) => quitarCapa(doc));
+            glosasPorDoc.current.clear();
+        }
+        if (preferences.glosas?.activo) {
+            if (!glosasRegistradas.current) {
+                glosasRegistradas.current = true;
+                engineRef.current.procesarCapitulos((doc) => procesarGlosasRef.current(doc));
+            } else {
+                engineRef.current.documentos().forEach((doc) => procesarGlosasRef.current(doc));
+            }
+            return;
+        }
+        // Apagadas: se quitan de lo que está montado y se recupera el interlineado.
+        if (glosasPorDoc.current.size) {
+            const docs = [...glosasPorDoc.current.keys()];
+            glosasPorDoc.current.clear();
+            engineRef.current.reanchor(() => {
+                docs.forEach((doc) => quitarCapa(doc));
+                engineRef.current?.resize();
+            });
+        }
+    }, [state, preferences.glosas?.activo, preferences.glosas?.nivel]);
+
+    // ── Diccionario e imagen de cita ─────────────────────────────────────────
+    const [lookup, setLookup] = useState(null);
+    const [lookupFrase, setLookupFrase] = useState('');
+
+    const openDictionary = useCallback((text) => {
+        // La frase se toma ahora, mientras la selección aún dice dónde está la
+        // palabra: es lo que acompaña a la palabra si se guarda en el vocabulario.
+        const cfiRange = selection?.cfiRange;
+        setLookupFrase(cfiRange ? fraseConPalabra(engineRef.current?.parrafoDeRango?.(cfiRange), text) : '');
+        setLookup(text);
+        engineRef.current?.clearSelection();
+        setSelection(null);
+    }, [selection]);
 
     const shareQuote = useCallback(async (text) => {
         setSelection(null);
@@ -1140,9 +1734,82 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
      * — la rejilla no se podría cambiar con el libro abierto y `toggleBookmark`
      * marcaría siempre la posición de apertura.
      */
+    // ── Hojear: el dedo quieto en el borde pasa páginas solo ─────────────────
+    //
+    // Cada vez más deprisa —de tres a diez páginas por segundo—, sin animación
+    // y con un contador. Al soltar, el salto entra en el historial: «Volver a…»
+    // devuelve a donde se empezó. Ver `HOJEAR_MS` en `useGestures.js`.
+    const [hojeo, setHojeo] = useState(null);
+    const hojeoRef = useRef(null);
+
+    useEffect(() => {
+        if (preferences.hojear === false) {
+            gesturesRef.current.onHojear = null;
+            return undefined;
+        }
+        gesturesRef.current.onHojear = (fase, direccion) => {
+            const engine = engineRef.current;
+            if (!engine) return;
+
+            if (fase === 'empieza') {
+                const inicio = { cfi: locationRef.current?.cfi, capitulo: locationRef.current?.chapter };
+                // Mientras se hojea no se selecciona texto: el dedo quieto
+                // encima de un párrafo es lo que el WebView entiende como
+                // «seleccionar».
+                engine.clearSelection();
+                engine.documentos?.().forEach((doc) => { if (doc.body) doc.body.style.userSelect = 'none'; });
+                const estado = { direccion, paginas: 0, inicio, capitulo: inicio.capitulo, vivo: true };
+                hojeoRef.current = estado;
+                setHojeo({ paginas: 0, direccion });
+
+                const paso = async () => {
+                    if (!estado.vivo) return;
+                    await (direccion === 'next' ? engine.next() : engine.prev());
+                    estado.paginas += 1;
+                    const capitulo = locationRef.current?.chapter;
+                    if (capitulo && capitulo !== estado.capitulo) {
+                        estado.capitulo = capitulo;
+                        Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
+                    }
+                    setHojeo({ paginas: estado.paginas, direccion });
+                    // De 330 ms a 100 ms: se acelera durante el primer segundo y medio.
+                    const espera = Math.max(100, 330 - estado.paginas * 18);
+                    estado.temporizador = setTimeout(paso, espera);
+                };
+                paso();
+                return;
+            }
+
+            const estado = hojeoRef.current;
+            if (!estado) return;
+            estado.vivo = false;
+            clearTimeout(estado.temporizador);
+            hojeoRef.current = null;
+            engine.documentos?.().forEach((doc) => { if (doc.body) doc.body.style.userSelect = ''; });
+            // El salto se puede deshacer, como cualquier otro.
+            if (estado.paginas > 0 && estado.inicio.cfi) {
+                history.push({ cfi: estado.inicio.cfi, label: estado.inicio.capitulo || 'donde estabas' });
+            }
+            setTimeout(() => setHojeo(null), 500);
+        };
+        return undefined;
+    }, [preferences.hojear, history]);
+
+    // ── Modo una mano: se ofrece si casi todos los toques caen en un lado ──────
+    const ladosRef = useRef({ izquierda: 0, derecha: 0 });
+    const [sugerenciaMano, setSugerenciaMano] = useState(null);
+
     useEffect(() => {
         gesturesRef.current.grid = grid;
         gesturesRef.current.onAction = (action) => {
+            if ((action === 'next' || action === 'prev') && !preferences.unaManoSugerida
+                && presetDe(grid) === 'normal' && ultimoToque.current) {
+                const ancho = viewportRef.current?.clientWidth || 1;
+                ladosRef.current[ultimoToque.current.x < ancho / 2 ? 'izquierda' : 'derecha'] += 1;
+                const propuesta = sugerirUnaMano(ladosRef.current);
+                if (propuesta) setSugerenciaMano(propuesta);
+            }
+            grabadorGestos.decision(action);
             switch (action) {
                 case 'next': turnPage('next'); break;
                 case 'prev': turnPage('prev'); break;
@@ -1157,7 +1824,7 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 default: break;
             }
         };
-    }, [grid, toggleBookmark, speech, history.canGoBack, goBack]);
+    }, [grid, toggleBookmark, speech, history.canGoBack, goBack, preferences.unaManoSugerida]);
 
     /**
      * Pasa un punto de la ventana a coordenadas de la hoja.
@@ -1208,6 +1875,11 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
 
     const prepararTrasGesto = useRef(null);
 
+    // Los puertos, por referencia: `prepareFold` se crea una sola vez y no debe
+    // volver a crearse porque cambie el objeto de puertos.
+    const portsRef = useRef(ports);
+    portsRef.current = ports;
+
     /**
      * Prepara las copias del capítulo con las que se dobla la página.
      *
@@ -1223,8 +1895,61 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
         // cambiaría de contenido en la mano.
         if (pliegueArmado.current) return;
 
-        const run = () => {
+        const run = async () => {
             const sheet = engine.chapterSheet?.();
+
+            /**
+             * La foto de la página, si el teléfono sabe hacerla.
+             *
+             * Se pide **aquí**, en tiempo muerto y con la página ya asentada, no
+             * al empezar el gesto: dibujar la vista y comprimirla cuesta decenas
+             * de milisegundos y dentro del arrastre eso es un tirón que se ve.
+             *
+             * Con foto, la hoja que se dobla lleva sus ilustraciones. Sin ella
+             * —en el navegador, o si la captura falla— se sigue usando la copia
+             * de HTML, que es la que perdía las imágenes. Ver `PageCapture.js`.
+             */
+            const foto = await Promise.resolve(portsRef.current?.capture?.take?.())
+                .catch(() => null);
+
+            // Entre pedir la foto y recibirla puede haberse empezado un gesto: la
+            // hoja levantada lleva la página anterior y cambiarla ahora la haría
+            // mudar de contenido en la mano.
+            if (pliegueArmado.current) return;
+
+            if (foto?.image) {
+                const caja = viewportRef.current?.getBoundingClientRect?.();
+
+                // El pliegue en la GPU usa la misma foto como textura. Se apunta
+                // para qué página es: con la foto de otra página, mejor no doblar.
+                const dibujo = dibujoRef.current;
+                const cfi = engine.posicionActual?.();
+                if (dibujo && caja && foto.width && foto.height) {
+                    const ratio = window.devicePixelRatio || 1;
+                    const recorte = [
+                        (caja.left * ratio) / foto.width,
+                        (caja.top * ratio) / foto.height,
+                        (caja.width * ratio) / foto.width,
+                        (caja.height * ratio) / foto.height,
+                    ];
+                    dibujo.cargar(foto.image, recorte)
+                        .then(() => { fotoParaRef.current = cfi; })
+                        .catch(() => { fotoParaRef.current = null; });
+                }
+
+                setFoldSheet({
+                    ...(sheet || {}),
+                    image: foto.image,
+                    imageWidth: foto.width,
+                    imageHeight: foto.height,
+                    // La foto es de la pantalla entera; la hoja es un trozo de
+                    // ella. Esto es dónde empieza ese trozo.
+                    imageOffsetX: Math.round(caja?.left || 0),
+                    imageOffsetY: Math.round(caja?.top || 0),
+                });
+                return;
+            }
+
             if (sheet?.html) setFoldSheet(sheet);
         };
 
@@ -1290,6 +2015,14 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
     const totalLocations = engineRef.current?.totalLocations() || 0;
     const currentLocationIndex = engineRef.current?.currentLocation(location.cfi) || 0;
 
+    /**
+     * El número de página estable: el de la edición impresa si el libro lo
+     * trae, o uno sintético por texto. Ver `paginasLibro.js`.
+     */
+    const paginaEstable = paginasImpresas.length
+        ? paginaImpresa(paginasImpresas, location.cfi, (a, b) => engineRef.current?.compararPosiciones?.(a, b) ?? 0)
+        : (locationsReady ? paginaSintetica(currentLocationIndex, totalLocations) : null);
+
     const mapStatusView = mapStatus({ ...(mapProgress || {}), ready: locationsReady });
     // Sin mapa no se sabe por dónde vas en el libro, solo en el capítulo.
     // Enseñar «0 %» durante diez segundos sería mentir sobre justo el dato que
@@ -1331,6 +2064,24 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 <Loading kind="reader" label={`Abriendo ${book.name}`} />
             )}
 
+            {/* Las páginas sombra: la siguiente y la anterior, ya pintadas,
+                detrás de la real. Ver `hojaReal.js`. Van antes en el DOM y con
+                la misma geometría, así que la real las tapa hasta que se mueve. */}
+            {typography.flow !== 'scrolled' && (
+                <>
+                    <div
+                        className={`reader-viewport sombra${columns === 2 ? ' two-columns' : ''}`}
+                        ref={sombraSigRef}
+                        aria-hidden="true"
+                    />
+                    <div
+                        className={`reader-viewport sombra${columns === 2 ? ' two-columns' : ''}`}
+                        ref={sombraAntRef}
+                        aria-hidden="true"
+                    />
+                </>
+            )}
+
             {/* Los gestos van dentro del iframe (registerContentHooks), no en una
                 capa por encima: así el toque navega y la pulsación larga puede
                 seleccionar texto para subrayar. */}
@@ -1352,7 +2103,14 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 Va **después** del contenedor del libro en el DOM: el iframe se
                 pinta en su propia capa compuesta y, estando antes, el pliegue
                 quedaba debajo por mucho z-index que llevara. */}
-            {foldSheet && (
+            {/* El pliegue en la GPU: encima de la página real y de las sombras,
+                debajo del grano del papel. Oculto hasta que se dobla. */}
+            {typography.flow !== 'scrolled' && (
+                <canvas className="pliegue-gl" ref={lienzoRef} hidden aria-hidden="true" />
+            )}
+
+            {/* El pliegue anterior, solo donde no hay WebGL. */}
+            {foldSheet && sinWebGL && (
                 <PageFold
                     sheet={foldSheet}
                     width={viewportRef.current?.clientWidth || 0}
@@ -1389,6 +2147,68 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 </div>
             )}
             {!eink && warm > 0 && <div className="reader-warm" style={{ opacity: warm }} aria-hidden="true" />}
+
+            {hojeo && (
+                <div className="hojeo-aviso" role="status">
+                    <b>{hojeo.direccion === 'next' ? '+' : '−'}{hojeo.paginas}</b>
+                    <span>{location.chapter || ' '}</span>
+                    <small>suelta para quedarte</small>
+                </div>
+            )}
+
+            {sugerenciaMano && (
+                <div className="mano-aviso" role="dialog" aria-label="Modo una mano">
+                    <span className="mano-texto">
+                        Pasas página casi siempre por la {sugerenciaMano === 'diestro' ? 'derecha' : 'izquierda'}.
+                        ¿Probar el modo una mano? Volver atrás quedará en la esquina del pulgar.
+                    </span>
+                    <span className="mano-botones">
+                        <button
+                            type="button"
+                            className="btn"
+                            onClick={() => {
+                                setSugerenciaMano(null);
+                                onPreferencesChange?.({ unaManoSugerida: true });
+                            }}
+                        >
+                            No, gracias
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => {
+                                const nueva = [...PRESETS_GRID[sugerenciaMano]];
+                                setGrid(nueva);
+                                setSugerenciaMano(null);
+                                onPreferencesChange?.({ gestureGrid: nueva, unaManoSugerida: true });
+                            }}
+                        >
+                            Probar
+                        </button>
+                    </span>
+                </div>
+            )}
+
+            {avisoGlosas && (
+                <div className="luz-aviso" role="status">
+                    <span className="luz-texto">{avisoGlosas}</span>
+                </div>
+            )}
+
+            {avisoLuz && (
+                <div className="luz-aviso" role="status">
+                    <span className="luz-punto" aria-hidden="true" />
+                    <span className="luz-texto">{avisoLuz.texto}</span>
+                    <button type="button" className="luz-deshacer" onClick={deshacerLuz}>Deshacer</button>
+                </div>
+            )}
+
+            {pellizco && (
+                <div className="pellizco-aviso" role="status">
+                    <b>{pellizco.cuerpo}</b>
+                    {pellizco.cuerpo !== pellizco.base && <span>antes {pellizco.base}</span>}
+                </div>
+            )}
 
 
             {ruler !== 'off' && state === 'ready' && (
@@ -1438,7 +2258,9 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     <span className="re-centro">{location.chapter || ''}</span>
 
                     <span className="re-der">
-                        {location.page > 0 && (
+                        {paginaEstable ? (
+                            <span>pág. {paginaEstable.pagina}</span>
+                        ) : location.page > 0 && (
                             <span>{location.page} / {location.totalPages}</span>
                         )}
                         <b>{percent} %</b>
@@ -1497,6 +2319,16 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     aria-label="Índice"
                 >
                     <IconList size={21} />
+                </button>
+                {/* Quién es quién, sin destripes. Va con lo que sitúa en el
+                    libro: es la pregunta de «¿dónde estoy?» aplicada a la gente. */}
+                <button
+                    type="button"
+                    className="icon-btn"
+                    onClick={() => { setBuscado(null); setPanel('personajes'); }}
+                    aria-label="Personajes y lugares"
+                >
+                    <IconPeople size={21} />
                 </button>
                 <button
                     type="button"
@@ -1571,9 +2403,11 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     <button type="button" className="prog-goto" onClick={() => setPanel('goto')}>
                         <IconGoTo size={13} />
                         <span>
-                            {totalLocations > 0
-                                ? `${currentLocationIndex + 1} de ${totalLocations}`
-                                : `${percent} % del libro`}
+                            {paginaEstable
+                                ? `Página ${paginaEstable.pagina} de ${paginaEstable.total}${paginasImpresas.length ? ' · edición impresa' : ''}`
+                                : totalLocations > 0
+                                    ? `${currentLocationIndex + 1} de ${totalLocations}`
+                                    : `${percent} % del libro`}
                         </span>
                     </button>
                 </div>
@@ -1650,6 +2484,18 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 />
             )}
 
+            {panel === 'personajes' && (
+                <PersonajesSheet
+                    book={book}
+                    engine={engineRef.current}
+                    location={location}
+                    toc={toc}
+                    buscado={buscado}
+                    onJump={(destino) => { setBuscado(null); jumpTo(destino); }}
+                    onClose={() => { setBuscado(null); setPanel(null); }}
+                />
+            )}
+
             {panel === 'gestures' && (
                 <GestureGridSheet
                     grid={grid}
@@ -1674,6 +2520,18 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 <BookInfoSheet
                     book={book}
                     location={location}
+                    onResumen={() => setPanel('resumen')}
+                    onClose={() => setPanel(null)}
+                />
+            )}
+
+            {panel === 'resumen' && (
+                <ResumenSheet
+                    book={book}
+                    engine={engineRef.current}
+                    location={location}
+                    toc={toc}
+                    preferencias={preferences}
                     onClose={() => setPanel(null)}
                 />
             )}
@@ -1681,11 +2539,11 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
             {panel === 'display' && (
                 <DisplaySheet
                     theme={theme}
-                    onChangeTheme={setTheme}
+                    onChangeTheme={(valor) => { setTheme(valor); aprenderLuz({ theme: valor }); }}
                     dim={dim}
-                    onChangeDim={setDim}
+                    onChangeDim={(valor) => { setDim(valor); aprenderLuz({ dim: valor }); }}
                     warm={warm}
-                    onChangeWarm={setWarm}
+                    onChangeWarm={(valor) => { setWarm(valor); aprenderLuz({ warm: valor }); }}
                     flow={typography.flow}
                     onChangeFlow={(flow) => setTypography({ ...typography, flow })}
                     transition={transition}
@@ -1734,8 +2592,12 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                 />
             )}
 
+            {traduciendo && (
+                <TraduccionSheet texto={traduciendo} traducir={traducirAqui} onClose={() => setTraduciendo(null)} />
+            )}
+
             {lookup && (
-                <DictionarySheet word={lookup} book={book} onClose={() => setLookup(null)} />
+                <DictionarySheet word={lookup} frase={lookupFrase} book={book} onClose={() => setLookup(null)} />
             )}
 
             {footnote && (
@@ -1758,6 +2620,12 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     onCopy={copySelection}
                     onCancel={cancelSelection}
                     onLookup={openDictionary}
+                    onWho={preguntarQuien}
+                    onTranslate={ports.traduccion ? (texto) => {
+                        setTraduciendo(texto);
+                        engineRef.current?.clearSelection();
+                        setSelection(null);
+                    } : undefined}
                     onQuote={shareQuote}
                     onCite={openCitation}
                     estilo={estiloMarca}
@@ -1771,6 +2639,20 @@ export default function ReaderScreen({ book, onClose, onProgress, onAnnotationsC
                     initialFormat={citationFormat}
                     onCopy={copyCitation}
                     onClose={() => setCiting(null)}
+                />
+            )}
+
+            {posicionRemota && state === 'ready' && (
+                <PosicionRemotaSheet
+                    posicion={posicionRemota}
+                    donde={engineRef.current?.chapterLabel(posicionRemota.cfi, toc) || ''}
+                    onIr={() => {
+                        // Es un salto deliberado: entra en el historial y se
+                        // puede deshacer con «Volver a…».
+                        jumpTo(posicionRemota.cfi);
+                        onPosicionRemotaVista?.();
+                    }}
+                    onQuedarse={() => onPosicionRemotaVista?.()}
                 />
             )}
 

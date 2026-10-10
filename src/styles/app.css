@@ -714,6 +714,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
  * autores por una única línea de base, que es lo que hace que la rejilla se lea
  * ordenada. */
 .book-title {
+    flex-shrink: 0;
     font-size: var(--t-small);
     font-weight: 600;
     line-height: 1.3;
@@ -731,6 +732,10 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    /* Con `overflow: hidden`, en una columna flex la línea podía encogerse por
+       debajo de su altura y cortaba las letras con rabo: «Miguel» se leía
+       «Miquel». */
+    flex-shrink: 0;
 }
 
 .bar { display: block; height: 4px; border-radius: var(--r-full); background: var(--sf-3); overflow: hidden; }
@@ -1321,8 +1326,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .reader-bottom.hidden { transform: translateY(100%); opacity: 0; pointer-events: none; }
 
 /* Progreso del PDF y del cómic, que siguen siendo por página y no por CFI.
-   `.progress-pair`, `.bar.chapter` y `.bar.bookwide` se han quitado: eran de
-   un diseño anterior de la barra del EPUB y no las usaba ya ningún fichero. */
+   X   un diseño anterior de la barra del EPUB y no las usaba ya ningún fichero. */
 .progress-line { display: flex; flex-direction: column; gap: 4px; }
 .progress-label { display: flex; justify-content: space-between; font-size: var(--t-micro); color: var(--text-3); font-family: var(--font-mono); }
 .progress-label b { color: var(--chrome-text, var(--text)); font-weight: 600; }
@@ -3097,3 +3101,59 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 }
 .book.elegido { opacity: 0.94; }
 .fila-libro.elegido { background: var(--accent-soft); }
+
+/* ── Clases que se usaban sin tener estilo ─────────────────────────────────
+ *
+ * Todas estas aparecían en el JSX y no tenían ninguna regla. Las encontró la
+ * prueba de `clasesUsadas.test.js`, escrita después de que la barra del lector
+ * de PDF llevara semanas rota por exactamente esto.
+ */
+
+/* Cabecera de las pantallas que no son la biblioteca —el catálogo, por ahora—.
+   Misma altura y mismo aire que la barra superior para que cambiar de pantalla
+   no mueva el contenido bajo el pulgar. */
+.screen-head {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: calc(var(--safe-top) + var(--sp-2)) var(--sp-4) var(--sp-2);
+}
+
+.screen-title {
+    font-family: var(--font-title);
+    font-size: var(--t-title);
+    font-weight: 700;
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Aviso pasajero. Se toca para descartarlo, así que tiene que parecer tocable
+   sin llegar a parecer un botón: es información, no una acción. */
+.notice {
+    margin: 0 var(--sp-4) var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: var(--r-md);
+    background: var(--sf-2);
+    border: 1px solid var(--line);
+    color: var(--text-2);
+    font-size: var(--t-small);
+    cursor: pointer;
+}
+
+/* La cubierta dentro de una tarjeta de libro: la tarjeta manda el tamaño y esto
+   solo asegura que la imagen lo llene sin deformarse. */
+.book-cover { width: 100%; height: 100%; }
+
+/* El lector de PDF y el de cómic comparten el armazón del de EPUB; lo suyo es
+   que el fondo lo pone el documento, no el tema de la app. */
+.reader-pdf .pdf-viewport { background: transparent; }
+
+.reader.comic { background: #000; }
+
+/* Sharky en versión discreta: el mismo botón sin fondo ni borde, para cuando
+   aparece dentro de otra cosa y no debe competir con ella. */
+.icon-btn.ghost { color: var(--text-3); }
+.icon-btn.ghost:active { background: transparent; opacity: .6; }

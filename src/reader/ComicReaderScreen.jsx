@@ -3,7 +3,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createGestureHandlers } from './useGestures.js';
 import { listComicPages, readComicPage } from '../library/formats.js';
 import { readBookBlob } from '../adapters/SafPicker.js';
-import { IconArrowLeft, IconBookmark, IconSun, IconGrid } from '../ui/icons.jsx';
+import { IconArrowLeft, IconBookmark, IconGrid, IconView } from '../ui/icons.jsx';
+import { detectarVinetas, encuadre } from './vinetas.js';
+import PosicionRemotaSheet from './PosicionRemotaSheet.jsx';
 
 /**
  * Visor de cómic para CBZ.
@@ -20,7 +22,9 @@ import { IconArrowLeft, IconBookmark, IconSun, IconGrid } from '../ui/icons.jsx'
 
 const PRELOAD = 1;
 
-export default function ComicReaderScreen({ book, onClose, onProgress, onAnnotationsChange }) {
+export default function ComicReaderScreen({
+    book, onClose, onProgress, onAnnotationsChange, posicionRemota, onPosicionRemotaVista,
+}) {
     const blobRef = useRef(null);
     const cacheRef = useRef(new Map());
 
@@ -32,6 +36,22 @@ export default function ComicReaderScreen({ book, onClose, onProgress, onAnnotat
     const [chrome, setChrome] = useState(false);
     const [rtl, setRtl] = useState(book.readerPreferences?.rtl ?? false);
     const [fit, setFit] = useState(book.readerPreferences?.fit || 'contain');
+
+    /**
+     * Viñeta a viñeta.
+     *
+     * Con esto puesto, pasar página pasa de viñeta: cada una se enseña ampliada
+     * y centrada, y al acabar las de una página se entra en la siguiente. Es la
+     * forma de leer un cómic en seis pulgadas sin pellizcar en cada bocadillo.
+     * Ver `vinetas.js`.
+     */
+    const [guiado, setGuiado] = useState(book.readerPreferences?.vinetas ?? false);
+    const [vineta, setVineta] = useState(0);
+    const [cajas, setCajas] = useState({});
+    const [natural, setNatural] = useState(null);
+    const viewportRef = useRef(null);
+    /** Al retroceder de página se entra por la última viñeta, no por la primera. */
+    const entrarPorFinal = useRef(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -104,12 +124,87 @@ export default function ComicReaderScreen({ book, onClose, onProgress, onAnnotat
         progressRef.current?.({
             cfi: String(page),
             progress: page / pages.length,
-            readerPreferences: { rtl, fit },
+            readerPreferences: { rtl, fit, vinetas: guiado },
         });
-    }, [page, pages.length, state, rtl, fit]);
+    }, [page, pages.length, state, rtl, fit, guiado]);
 
-    const goNext = useCallback(() => setPage((p) => Math.min(p + 1, pages.length || p)), [pages.length]);
-    const goPrev = useCallback(() => setPage((p) => Math.max(1, p - 1)), []);
+    // ── Viñetas de la página actual ──────────────────────────────────────────
+    //
+    // Se buscan sobre una miniatura de 360 px: para encontrar canalones sobra
+    // resolución, y la página entera son millones de píxeles que leer.
+    const clave = `${page}:${rtl ? 'r' : 'l'}`;
+
+    useEffect(() => {
+        if (!guiado || !images[page] || cajas[clave]) return undefined;
+
+        let cancelado = false;
+        const imagen = new Image();
+        imagen.onload = () => {
+            if (cancelado) return;
+            const escala = Math.min(1, 360 / imagen.naturalWidth);
+            const lienzo = document.createElement('canvas');
+            lienzo.width = Math.max(1, Math.round(imagen.naturalWidth * escala));
+            lienzo.height = Math.max(1, Math.round(imagen.naturalHeight * escala));
+            const ctx = lienzo.getContext('2d', { willReadFrequently: true });
+            let encontradas = [];
+            try {
+                ctx.drawImage(imagen, 0, 0, lienzo.width, lienzo.height);
+                encontradas = detectarVinetas(ctx.getImageData(0, 0, lienzo.width, lienzo.height), { rtl });
+            } catch {
+                // Una página que no se deja leer se enseña entera.
+                encontradas = [];
+            }
+            setCajas((actual) => ({ ...actual, [clave]: encontradas }));
+        };
+        imagen.src = images[page];
+        return () => { cancelado = true; };
+    }, [guiado, images, page, rtl, cajas, clave]);
+
+    const cajasPagina = guiado ? (cajas[clave] || null) : null;
+
+    // Recién detectadas al volver atrás: se entra por la última.
+    useEffect(() => {
+        if (!cajasPagina || !entrarPorFinal.current) return;
+        entrarPorFinal.current = false;
+        setVineta(Math.max(0, cajasPagina.length - 1));
+    }, [cajasPagina]);
+
+    const estado = useRef({});
+    estado.current = { page, vineta, cajasPagina, total: pages.length };
+
+    const goNext = useCallback(() => {
+        const s = estado.current;
+        if (s.cajasPagina?.length && s.vineta < s.cajasPagina.length - 1) {
+            setVineta(s.vineta + 1);
+            return;
+        }
+        if (s.page < s.total) {
+            entrarPorFinal.current = false;
+            setVineta(0);
+            setPage(s.page + 1);
+        }
+    }, []);
+
+    const goPrev = useCallback(() => {
+        const s = estado.current;
+        if (s.cajasPagina?.length && s.vineta > 0) {
+            setVineta(s.vineta - 1);
+            return;
+        }
+        if (s.page > 1) {
+            entrarPorFinal.current = true;
+            setVineta(0);
+            setPage(s.page - 1);
+        }
+    }, []);
+
+    /** Cómo se coloca la página para enseñar la viñeta actual. */
+    const colocacion = useMemo(() => {
+        const caja = cajasPagina?.[vineta];
+        const marco = viewportRef.current;
+        if (!caja || !natural?.ancho || !marco?.clientWidth) return null;
+        return encuadre(caja, natural, { ancho: marco.clientWidth, alto: marco.clientHeight });
+    }, [cajasPagina, vineta, natural]);
 
     // En lectura de derecha a izquierda el gesto se invierte: deslizar a la
     // izquierda retrocede, que es lo que espera quien lee manga.
@@ -143,19 +238,30 @@ export default function ComicReaderScreen({ book, onClose, onProgress, onAnnotat
                 </div>
             )}
 
-            <div className="comic-viewport" {...gestures}>
+            <div className="comic-viewport" ref={viewportRef} {...gestures}>
                 {images[page] && (
                     <img
                         src={images[page]}
                         alt={`Página ${page}`}
-                        className={`comic-page fit-${fit}`}
+                        className={colocacion ? 'comic-page comic-vineta' : `comic-page fit-${fit}`}
                         draggable={false}
+                        onLoad={(event) => setNatural({
+                            ancho: event.currentTarget.naturalWidth,
+                            alto: event.currentTarget.naturalHeight,
+                        })}
+                        style={colocacion ? {
+                            width: `${Math.round(natural.ancho * colocacion.escala)}px`,
+                            transform: `translate3d(${colocacion.x}px, ${colocacion.y}px, 0)`,
+                        } : undefined}
                     />
                 )}
             </div>
 
             {!chrome && pages.length > 0 && (
-                <span className="page-chip">{page} / {pages.length}</span>
+                <span className="page-chip">
+                    {page} / {pages.length}
+                    {cajasPagina?.length > 0 && ` · viñeta ${vineta + 1} de ${cajasPagina.length}`}
+                </span>
             )}
 
             <header className={`reader-top${chrome ? '' : ' hidden'}`}>
@@ -177,13 +283,26 @@ export default function ComicReaderScreen({ book, onClose, onProgress, onAnnotat
                 </button>
             </header>
 
+            {posicionRemota && state === 'ready' && Number(posicionRemota.cfi) > 0 && (
+                <PosicionRemotaSheet
+                    posicion={posicionRemota}
+                    donde={`la página ${posicionRemota.cfi}`}
+                    onIr={() => {
+                        setVineta(0);
+                        setPage(Math.min(Number(posicionRemota.cfi), pages.length || 1));
+                        onPosicionRemotaVista?.();
+                    }}
+                    onQuedarse={() => onPosicionRemotaVista?.()}
+                />
+            )}
+
             <footer className={`reader-bottom${chrome ? '' : ' hidden'}`}>
                 <div className="progress-line">
                     <div className="progress-label">
                         <b>Página {page}</b>
                         <span>de {pages.length}</span>
                     </div>
-                    <span className="bar thin chapter">
+                    <span className="bar thin">
                         <i style={{ width: `${pages.length ? (page / pages.length) * 100 : 0}%` }} />
                     </span>
                 </div>
@@ -194,11 +313,20 @@ export default function ComicReaderScreen({ book, onClose, onProgress, onAnnotat
                     min={1}
                     max={pages.length || 1}
                     value={page}
-                    onChange={(event) => setPage(Number(event.target.value))}
+                    onChange={(event) => { setVineta(0); setPage(Number(event.target.value)); }}
                     aria-label="Ir a página"
                 />
 
                 <div className="reader-tools">
+                    <button
+                        type="button"
+                        className={`icon-btn${guiado ? ' on' : ''}`}
+                        onClick={() => { setVineta(0); setGuiado((valor) => !valor); }}
+                        aria-label={guiado ? 'Ver la página entera' : 'Leer viñeta a viñeta'}
+                        aria-pressed={guiado}
+                    >
+                        <IconView size={21} />
+                    </button>
                     <button
                         type="button"
                         className="icon-btn"

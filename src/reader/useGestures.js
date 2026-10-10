@@ -27,6 +27,8 @@
 
 import { actionAt, tapZoneWidth, TAP_ZONE, TAP_ZONE_MAX_PX } from './gestureGrid.js';
 import { enLaFranja, esVertical } from './brilloGesto.js';
+import { distanciaEntreDedos } from './pellizco.js';
+import { esPalma, esAgarre, FRANJA_AGARRE } from './palma.js';
 
 // Reexportado: las zonas son ahora de `gestureGrid`, que es quien las
 // configura, pero media app las pide por aquí.
@@ -36,6 +38,14 @@ const SWIPE_MIN_DISTANCE = 48; // px que hay que recorrer para que cuente
 const SWIPE_MAX_DURATION = 700;// ms: más lento que esto no es un deslizamiento
 const TAP_MAX_MOVEMENT = 12;   // px de tolerancia para considerar que fue un toque
 const LONG_PRESS_MS = 480;
+
+/**
+ * Mantener el dedo en una zona de pasar página empieza a hojear.
+ *
+ * Antes de los ~500 ms con los que el WebView empieza a seleccionar texto: si
+ * llegara después, las dos cosas pasarían a la vez.
+ */
+export const HOJEAR_MS = 420;
 
 /**
  * Píxeles horizontales tras los que el gesto se declara nuestro.
@@ -76,15 +86,68 @@ export const createGestureHandlers = (handlers) => {
     const { onNext, onPrev, onLongPress, shouldIgnore, getWidth } = handlers;
     let start = null;
     let longPressTimer = null;
+    let hojearTimer = null;
 
     const clearLongPress = () => {
         if (longPressTimer) {
             clearTimeout(longPressTimer);
             longPressTimer = null;
         }
+        if (hojearTimer) {
+            clearTimeout(hojearTimer);
+            hojearTimer = null;
+        }
+    };
+
+    /**
+     * Pellizco en curso: distancia inicial entre los dedos y última escala.
+     *
+     * Mientras vale algo, **ningún otro gesto existe**. Los eventos de puntero
+     * siguen llegando —uno por dedo— y sin esto el segundo dedo pasaría página o
+     * movería la hoja con el arrastre. Se mantiene hasta que se levantan todos
+     * los dedos: el que queda apoyado al soltar el otro no es un toque.
+     */
+    let pellizco = null;
+
+    const onTouchStart = (event) => {
+        if (event.touches?.length !== 2 || !handlers.onPinchStart) return;
+        const inicial = distanciaEntreDedos(event.touches);
+        if (!inicial) return;
+
+        clearLongPress();
+        start = null;
+        handlers.onDragCancel?.();
+        handlers.clearSelection?.();
+        pellizco = { inicial, escala: 1 };
+        handlers.pinching = true;
+        handlers.onPinchStart();
+    };
+
+    const onTouchEnd = (event) => {
+        if (!pellizco) return;
+        const quedan = event.touches?.length || 0;
+
+        if (pellizco.inicial && quedan < 2) {
+            handlers.onPinchEnd?.(pellizco.escala);
+            // El gesto ya se ha resuelto; lo que queda es esperar a que se
+            // levante el último dedo sin hacerle caso.
+            pellizco.inicial = 0;
+        }
+        if (quedan === 0) {
+            pellizco = null;
+            handlers.pinching = false;
+        }
     };
 
     const onPointerDown = (event) => {
+        if (pellizco) return;
+        // La palma o la base del pulgar que sujeta el móvil: no es un gesto.
+        // Ver `palma.js`. Se descarta entero, también el arrastre.
+        if (esPalma(event)) {
+            start = null;
+            clearLongPress();
+            return;
+        }
         start = {
             x: event.clientX,
             y: event.clientY,
@@ -115,6 +178,30 @@ export const createGestureHandlers = (handlers) => {
 
         handlers.onDragDown?.(event);
         clearLongPress();
+
+        /**
+         * Hojear: el dedo quieto en una zona de pasar página.
+         *
+         * Fuera de la franja del borde, que es donde se apoya la mano que
+         * sujeta el móvil (`palma.js`): ahí un apoyo largo no es nada.
+         */
+        if (handlers.onHojear && !start.hadSelection) {
+            const ancho = handlers.getWidth?.() || 0;
+            const alto = handlers.getHeight?.() || 0;
+            const accion = actionAt(handlers.grid, event.clientX, event.clientY, ancho, alto);
+            const enFranja = event.clientX < FRANJA_AGARRE || event.clientX > ancho - FRANJA_AGARRE;
+            if ((accion === 'next' || accion === 'prev') && !enFranja) {
+                const inicio = start;
+                hojearTimer = setTimeout(() => {
+                    hojearTimer = null;
+                    if (start !== inicio || shouldIgnore?.()) return;
+                    inicio.hojeando = accion;
+                    handlers.onDragCancel?.();
+                    handlers.onHojear('empieza', accion);
+                }, HOJEAR_MS);
+            }
+        }
+
         if (onLongPress) {
             longPressTimer = setTimeout(() => {
                 longPressTimer = null;
@@ -125,6 +212,17 @@ export const createGestureHandlers = (handlers) => {
     };
 
     const onPointerMove = (event) => {
+        if (pellizco) return;
+        // Hojeando, el dedo puede temblar o deslizarse un poco: no es otro gesto.
+        if (start?.hojeando) {
+            if (event.cancelable) event.preventDefault?.();
+            return;
+        }
+        // Si el dedo se va antes de tiempo, no era hojear.
+        if (hojearTimer && start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > TAP_MAX_MOVEMENT) {
+            clearTimeout(hojearTimer);
+            hojearTimer = null;
+        }
         /**
          * Si esto es el brillo, no es ninguna otra cosa.
          *
@@ -190,6 +288,19 @@ export const createGestureHandlers = (handlers) => {
      * verdad se puede cancelar.
      */
     const onTouchMove = (event, toLocal) => {
+        if (pellizco) {
+            // El WebView haría su propio zoom o desplazamiento con dos dedos.
+            if (event.cancelable) event.preventDefault();
+            if (pellizco.inicial && event.touches?.length >= 2) {
+                const ahora = distanciaEntreDedos(event.touches);
+                if (ahora) {
+                    pellizco.escala = ahora / pellizco.inicial;
+                    handlers.onPinchMove?.(pellizco.escala);
+                }
+            }
+            return;
+        }
+
         const touch = event.touches?.[0];
         if (!touch || !start) return;
 
@@ -210,6 +321,13 @@ export const createGestureHandlers = (handlers) => {
 
     const onPointerUp = (event) => {
         clearLongPress();
+        if (pellizco) { start = null; return; }
+        // Soltar después de hojear solo para el hojeo: no es además un toque.
+        if (start?.hojeando) {
+            start = null;
+            handlers.onHojear?.('termina');
+            return;
+        }
 
         // El arrastre se resuelve primero. Si ha consumido el gesto, no se
         // interpreta además como toque ni como deslizamiento: pasarían dos
@@ -253,6 +371,10 @@ export const createGestureHandlers = (handlers) => {
         // pasar página al intentar seleccionar texto.
         if (movement > TAP_MAX_MOVEMENT) return;
 
+        // Un apoyo largo y quieto pegado al borde es la mano que sujeta el
+        // móvil, no un toque para pasar página.
+        if (esAgarre({ x: event.clientX, ancho: width, duracion: elapsed, movimiento: movement })) return;
+
         // Mientras se lee en voz alta, un toque salta a ese párrafo en lugar de
         // pasar página: es el gesto que se espera de un lector con voz, y sin él
         // habría que parar, buscar y volver a empezar.
@@ -263,6 +385,10 @@ export const createGestureHandlers = (handlers) => {
         // centro enseña los controles.
         const height = handlers.getHeight?.() || 0;
         const action = actionAt(handlers.grid, event.clientX, event.clientY, width, height);
+
+        // Un toque sobre el texto puede tener otro uso —traducir el párrafo— y
+        // quien lo atiende decide si lo consume. Ver `ReaderScreen`.
+        if (handlers.onTapTexto?.({ x: event.clientX, y: event.clientY }, action, height)) return;
 
         // Dónde se tocó. El doblado de esquina levanta la esquina que toca —si
         // tocas arriba, la de arriba— y sin el punto siempre levantaría la misma,
@@ -282,6 +408,7 @@ export const createGestureHandlers = (handlers) => {
 
     const onPointerCancel = () => {
         clearLongPress();
+        if (start?.hojeando) handlers.onHojear?.('termina');
         handlers.onDragCancel?.();
         start = null;
     };
@@ -291,6 +418,7 @@ export const createGestureHandlers = (handlers) => {
     // vuelven a crear.
     Object.assign(handlers, {
         onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onTouchMove,
+        onTouchStart, onTouchEnd,
         onPointerLeave: onPointerCancel,
     });
     return handlers;

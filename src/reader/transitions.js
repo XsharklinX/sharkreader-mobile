@@ -101,25 +101,23 @@ export const PAGE_TRANSITIONS = {
 };
 
 /**
- * Sin animación, por defecto.
+ * La de por defecto: el doblado de hoja.
  *
- * Es la única que no puede fallar: no hay capa que promover, ni textura que
- * esperar, ni fotograma intermedio donde algo pueda salir mal. Hasta que el
- * doblado de hoja vuelva hecho sobre un mapa de bits, esta es la buena.
+ * Es el motivo por el que existe esta app, así que vuelve a serlo en cuanto deja
+ * de estar roto. Lo que lo bloqueaba tenía nombre y sitio: el rescate del propio
+ * pliegue llamaba a `paint` con la firma vieja y producía una geometría en
+ * `NaN`. Un `clip-path` inválido no da error — el navegador lo descarta y deja
+ * la copia **sin recortar, tapando la pantalla entera**. Eso era el libro
+ * congelado que no había forma de reproducir.
+ *
+ * El peso, que era el otro motivo para desconfiar, también está resuelto: el CSS
+ * pasó de 583 KB a 11 con presupuesto, las imágenes salen de la copia, y lo que
+ * se copia es la página visible y no el capítulo entero.
+ *
+ * Quien prefiera algo más sobrio tiene deslizar, y quien lea en tinta
+ * electrónica, ninguna. Pero la de por defecto es esta.
  */
-/**
- * La de por defecto: deslizar, hasta que el pliegue esté arreglado.
- *
- * El doblado de hoja **sigue aquí** y se puede elegir: la geometría por la
- * esquina funciona y el peso de la copia ya está resuelto —el CSS pasó de 583 KB
- * a 11 con el presupuesto—. Lo que no funciona hoy es el gesto: con el pliegue
- * activo, arrastrar no pasa página. Reproducido en el dispositivo.
- *
- * Mientras eso siga así, la de por defecto no puede ser un efecto roto. Deslizar
- * está medido en el mismo libro que fallaba: doce arrastres seguidos entre 58 y
- * 63 ms, sin una sola variación.
- */
-export const DEFAULT_TRANSITION = 'slide';
+export const DEFAULT_TRANSITION = 'curl';
 
 /**
  * Devuelve una transición válida.

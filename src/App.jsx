@@ -17,6 +17,7 @@ import { useLibrary } from './library/useLibrary.js';
 import { useReadingClock } from './library/useReadingClock.js';
 import { useStats } from './stats/useStats.js';
 import { useSync } from './library/useSync.js';
+import { useEscritorio } from './library/useEscritorio.js';
 import { exportAnnotations } from './library/backup.js';
 import { publishShortcuts, publishWidget, bookIdFromUrl, isImportUrl } from './adapters/Shortcuts.js';
 import { readDynamicColors, applyDynamicColors, clearDynamicColors } from './adapters/SystemTheme.js';
@@ -42,7 +43,32 @@ export default function App() {
     const library = useLibrary();
     const stats = useStats(library.books);
     const sync = useSync(library);
+    const escritorio = useEscritorio(library);
     const reading = library.books.find((book) => book.id === readingId) || null;
+
+    /**
+     * ¿Se siguió leyendo este libro en el ordenador?
+     *
+     * Se pregunta al abrirlo, sin esperar: el libro se abre en su sitio y, si
+     * llega la respuesta y allí se leyó después, el lector propone ir a ese
+     * punto. Ver `useEscritorio.consultarLibro`.
+     */
+    const [posicionRemota, setPosicionRemota] = useState(null);
+    const consultarRef = useRef(escritorio.consultarLibro);
+    consultarRef.current = escritorio.consultarLibro;
+
+    useEffect(() => {
+        setPosicionRemota(null);
+        if (!readingId) return undefined;
+        let vigente = true;
+        const libro = library.books.find((book) => book.id === readingId);
+        consultarRef.current(libro).then((propuesta) => {
+            if (vigente && propuesta) setPosicionRemota(propuesta);
+        });
+        return () => { vigente = false; };
+        // Solo al abrir un libro, no en cada cambio de página.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [readingId]);
 
     useReadingClock(reading, library.updateBook);
 
@@ -89,7 +115,13 @@ export default function App() {
         // datos, así que al salir del lector hay que releerlas para que el
         // progreso y los logros reflejen la sesión que acaba de terminar.
         stats.refresh();
+        // Cerrar un libro es cuando se cambia de dispositivo: se manda la
+        // posición al ordenador si está emparejado y a mano. Un poco después,
+        // para que el último guardado de progreso ya esté en la biblioteca.
+        setTimeout(() => escritorioSyncRef.current?.(), 800);
     }, [stats]);
+    const escritorioSyncRef = useRef(null);
+    escritorioSyncRef.current = escritorio.sincronizar;
 
     // «Abrir con SharkReader» desde otra app. Se comprueba al arrancar y cada
     // vez que la app vuelve al primer plano, porque un segundo intent llega a
@@ -171,6 +203,34 @@ export default function App() {
 
         return () => { listener?.remove(); };
     }, [library.status, ports]);
+
+    /**
+     * No molestar mientras lees.
+     *
+     * Se pone al abrir un libro y se quita al cerrarlo **o al salir de la app**:
+     * quien deja el libro a medias para mirar otra cosa no debe quedarse sin
+     * avisos sin saberlo. Al volver al libro, se pone otra vez.
+     */
+    const leyendo = Boolean(reading);
+    const quiereSilencio = stats.preferences.noMolestar === true;
+    useEffect(() => {
+        const silencio = ports.noMolestar;
+        if (!silencio) return undefined;
+        if (!leyendo || !quiereSilencio) {
+            silencio.desactivar();
+            return undefined;
+        }
+        silencio.activar();
+        let listener = null;
+        CapApp.addListener('appStateChange', ({ isActive }) => {
+            if (isActive) silencio.activar();
+            else silencio.desactivar();
+        }).then((handle) => { listener = handle; });
+        return () => {
+            listener?.remove();
+            silencio.desactivar();
+        };
+    }, [leyendo, quiereSilencio, ports]);
 
     // Accesos directos del icono y widget de continuar leyendo.
     //
@@ -307,6 +367,8 @@ export default function App() {
             onExportAnnotations={handleExportAnnotations}
             preferences={stats.preferences}
             onPreferencesChange={stats.savePreferences}
+            posicionRemota={posicionRemota}
+            onPosicionRemotaVista={() => setPosicionRemota(null)}
         />
     ) : null;
 
@@ -329,6 +391,7 @@ export default function App() {
                     library={library}
                     stats={stats}
                     sync={sync}
+                    escritorio={escritorio}
                     layout={layout}
                     initialTab={subTab}
                     onOpenBook={(book) => setReadingId(book.id)}

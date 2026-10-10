@@ -336,3 +336,138 @@ describe('deslizar sobre texto', () => {
         expect(preventDefault).not.toHaveBeenCalled();
     });
 });
+
+describe('pellizco', () => {
+    const dosDedos = (separacion) => ({
+        touches: [{ clientX: 200 - separacion / 2, clientY: 300 }, { clientX: 200 + separacion / 2, clientY: 300 }],
+        cancelable: true,
+        preventDefault: vi.fn(),
+    });
+
+    const montar = () => {
+        const onNext = vi.fn();
+        const onPrev = vi.fn();
+        const onToggleChrome = vi.fn();
+        const onPinchStart = vi.fn();
+        const onPinchMove = vi.fn();
+        const onPinchEnd = vi.fn();
+        const handlers = createGestureHandlers({
+            onNext, onPrev, onToggleChrome, onPinchStart, onPinchMove, onPinchEnd,
+            getWidth: () => WIDTH,
+        });
+        return { handlers, onNext, onPrev, onToggleChrome, onPinchStart, onPinchMove, onPinchEnd };
+    };
+
+    it('separar dos dedos informa de la escala y no pasa página', () => {
+        const g = montar();
+        g.handlers.onPointerDown(event(370));
+        g.handlers.onTouchStart(dosDedos(100));
+        g.handlers.onTouchMove(dosDedos(150));
+        g.handlers.onPointerUp(event(370));
+        g.handlers.onTouchEnd({ touches: [] });
+
+        expect(g.onPinchStart).toHaveBeenCalledTimes(1);
+        expect(g.onPinchMove).toHaveBeenLastCalledWith(1.5);
+        expect(g.onPinchEnd).toHaveBeenCalledWith(1.5);
+        expect(g.onNext).not.toHaveBeenCalled();
+        expect(g.onToggleChrome).not.toHaveBeenCalled();
+    });
+
+    it('el dedo que queda apoyado al soltar el otro no es un toque', () => {
+        const g = montar();
+        g.handlers.onTouchStart(dosDedos(100));
+        g.handlers.onTouchEnd({ touches: [{ clientX: 370, clientY: 300 }] });
+        g.handlers.onPointerDown(event(370));
+        g.handlers.onPointerUp(event(370));
+        g.handlers.onTouchEnd({ touches: [] });
+
+        expect(g.onPinchEnd).toHaveBeenCalledTimes(1);
+        expect(g.onNext).not.toHaveBeenCalled();
+    });
+
+    it('acabado el pellizco, los toques vuelven a funcionar', () => {
+        const g = montar();
+        g.handlers.onTouchStart(dosDedos(100));
+        g.handlers.onTouchEnd({ touches: [] });
+        g.handlers.onPointerDown(event(370));
+        g.handlers.onPointerUp(event(370));
+        expect(g.onNext).toHaveBeenCalledTimes(1);
+    });
+
+    it('sin quien lo atienda, dos dedos no hacen nada especial', () => {
+        const { handlers } = setup();
+        expect(() => handlers.onTouchStart(dosDedos(100))).not.toThrow();
+        expect(handlers.pinching).toBeFalsy();
+    });
+});
+
+describe('sujetar el móvil', () => {
+    it('un contacto ancho —la palma— no pasa página', () => {
+        const { handlers, onNext } = setup();
+        handlers.onPointerDown({ ...event(380), width: 55, height: 70 });
+        handlers.onPointerUp(event(380));
+        expect(onNext).not.toHaveBeenCalled();
+    });
+
+    it('un apoyo largo y quieto pegado al borde tampoco', () => {
+        vi.useFakeTimers();
+        const { handlers, onNext } = setup();
+        handlers.onPointerDown(event(396));
+        vi.advanceTimersByTime(900);
+        handlers.onPointerUp(event(396));
+        vi.useRealTimers();
+        expect(onNext).not.toHaveBeenCalled();
+    });
+
+    it('un toque normal con la yema sí', () => {
+        const { handlers, onNext } = setup();
+        handlers.onPointerDown({ ...event(380), width: 14, height: 16 });
+        handlers.onPointerUp(event(380));
+        expect(onNext).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('hojear', () => {
+    const montar = () => {
+        const onNext = vi.fn();
+        const onHojear = vi.fn();
+        const handlers = createGestureHandlers({
+            onNext, onPrev: vi.fn(), onToggleChrome: vi.fn(), onHojear,
+            getWidth: () => WIDTH, getHeight: () => 800,
+        });
+        return { handlers, onNext, onHojear };
+    };
+
+    it('mantener el dedo en la zona de avanzar empieza a hojear y al soltar para', () => {
+        vi.useFakeTimers();
+        const { handlers, onNext, onHojear } = montar();
+        handlers.onPointerDown(event(360));
+        vi.advanceTimersByTime(500);
+        handlers.onPointerUp(event(360));
+        vi.useRealTimers();
+        expect(onHojear.mock.calls).toEqual([['empieza', 'next'], ['termina']]);
+        expect(onNext).not.toHaveBeenCalled();
+    });
+
+    it('un toque normal no hojea', () => {
+        vi.useFakeTimers();
+        const { handlers, onNext, onHojear } = montar();
+        handlers.onPointerDown(event(360));
+        vi.advanceTimersByTime(100);
+        handlers.onPointerUp(event(360));
+        vi.advanceTimersByTime(600);
+        vi.useRealTimers();
+        expect(onHojear).not.toHaveBeenCalled();
+        expect(onNext).toHaveBeenCalledTimes(1);
+    });
+
+    it('pegado al borde es la mano que sujeta: no hojea', () => {
+        vi.useFakeTimers();
+        const { handlers, onHojear } = montar();
+        handlers.onPointerDown(event(396));
+        vi.advanceTimersByTime(900);
+        handlers.onPointerUp(event(396));
+        vi.useRealTimers();
+        expect(onHojear).not.toHaveBeenCalled();
+    });
+});

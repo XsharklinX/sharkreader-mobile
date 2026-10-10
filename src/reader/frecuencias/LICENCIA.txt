@@ -1,0 +1,14 @@
+Listas de frecuencia de palabras (en, es, fr, de, it, pt)
+
+Origen: FrequencyWords, de Hermit Dave
+        https://github.com/hermitdave/FrequencyWords
+        Listas content/2018/<idioma>/<idioma>_50k.txt, derivadas de los
+        subtítulos de OpenSubtitles.
+
+Licencia del contenido: Creative Commons Atribución-CompartirIgual 4.0
+        https://creativecommons.org/licenses/by-sa/4.0/
+
+Cambios: se conservan las 25.000 primeras palabras de cada lista, en
+minúsculas, sin números, sin palabras de una letra y sin las que llevan
+signos. Ver scripts/generar-frecuencias.mjs. Estos ficheros .json se
+distribuyen con la misma licencia CC BY-SA 4.0.

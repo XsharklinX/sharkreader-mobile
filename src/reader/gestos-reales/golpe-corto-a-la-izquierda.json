@@ -1,0 +1,222 @@
+{
+ "nombre": "golpe-corto-a-la-izquierda",
+ "origen": "fabricada con valores típicos de Android (temblor, eventos intercalados); sustituir por una grabada en el teléfono",
+ "ancho": 400,
+ "alto": 800,
+ "esperado": [
+  "next"
+ ],
+ "eventos": [
+  {
+   "t": 0,
+   "tipo": "onPointerDown",
+   "x": 300,
+   "y": 420,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 8,
+   "tipo": "onPointerMove",
+   "x": 299,
+   "y": 418,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 8,
+   "tipo": "onTouchMove",
+   "x": 299,
+   "y": 418,
+   "dedos": 1,
+   "toques": [
+    [
+     299,
+     418
+    ]
+   ]
+  },
+  {
+   "t": 16,
+   "tipo": "onPointerMove",
+   "x": 296,
+   "y": 419,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 16,
+   "tipo": "onTouchMove",
+   "x": 296,
+   "y": 419,
+   "dedos": 1,
+   "toques": [
+    [
+     296,
+     419
+    ]
+   ]
+  },
+  {
+   "t": 24,
+   "tipo": "onPointerMove",
+   "x": 292,
+   "y": 420,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 24,
+   "tipo": "onTouchMove",
+   "x": 292,
+   "y": 420,
+   "dedos": 1,
+   "toques": [
+    [
+     292,
+     420
+    ]
+   ]
+  },
+  {
+   "t": 32,
+   "tipo": "onPointerMove",
+   "x": 283,
+   "y": 421,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 32,
+   "tipo": "onTouchMove",
+   "x": 283,
+   "y": 421,
+   "dedos": 1,
+   "toques": [
+    [
+     283,
+     421
+    ]
+   ]
+  },
+  {
+   "t": 40,
+   "tipo": "onPointerMove",
+   "x": 273,
+   "y": 420,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 40,
+   "tipo": "onTouchMove",
+   "x": 273,
+   "y": 420,
+   "dedos": 1,
+   "toques": [
+    [
+     273,
+     420
+    ]
+   ]
+  },
+  {
+   "t": 48,
+   "tipo": "onPointerMove",
+   "x": 263,
+   "y": 425,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 48,
+   "tipo": "onTouchMove",
+   "x": 263,
+   "y": 425,
+   "dedos": 1,
+   "toques": [
+    [
+     263,
+     425
+    ]
+   ]
+  },
+  {
+   "t": 56,
+   "tipo": "onPointerMove",
+   "x": 248,
+   "y": 424,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 56,
+   "tipo": "onTouchMove",
+   "x": 248,
+   "y": 424,
+   "dedos": 1,
+   "toques": [
+    [
+     248,
+     424
+    ]
+   ]
+  },
+  {
+   "t": 64,
+   "tipo": "onPointerMove",
+   "x": 234,
+   "y": 424,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 64,
+   "tipo": "onTouchMove",
+   "x": 234,
+   "y": 424,
+   "dedos": 1,
+   "toques": [
+    [
+     234,
+     424
+    ]
+   ]
+  },
+  {
+   "t": 72,
+   "tipo": "onPointerMove",
+   "x": 215,
+   "y": 426,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 72,
+   "tipo": "onTouchMove",
+   "x": 215,
+   "y": 426,
+   "dedos": 1,
+   "toques": [
+    [
+     215,
+     426
+    ]
+   ]
+  },
+  {
+   "t": 76,
+   "tipo": "onPointerUp",
+   "x": 215,
+   "y": 426
+  },
+  {
+   "t": 77,
+   "tipo": "onTouchEnd",
+   "x": 215,
+   "y": 426,
+   "dedos": 0,
+   "toques": []
+  }
+ ]
+}

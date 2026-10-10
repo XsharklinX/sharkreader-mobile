@@ -1,0 +1,2383 @@
+{
+ "nombre": "arrastre-lento-que-vuelve",
+ "origen": "fabricada con valores típicos de Android (temblor, eventos intercalados); sustituir por una grabada en el teléfono",
+ "ancho": 400,
+ "alto": 800,
+ "esperado": [],
+ "eventos": [
+  {
+   "t": 0,
+   "tipo": "onPointerDown",
+   "x": 330,
+   "y": 400,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 8,
+   "tipo": "onPointerMove",
+   "x": 329,
+   "y": 399,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 8,
+   "tipo": "onTouchMove",
+   "x": 329,
+   "y": 399,
+   "dedos": 1,
+   "toques": [
+    [
+     329,
+     399
+    ]
+   ]
+  },
+  {
+   "t": 16,
+   "tipo": "onPointerMove",
+   "x": 325,
+   "y": 402,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 16,
+   "tipo": "onTouchMove",
+   "x": 325,
+   "y": 402,
+   "dedos": 1,
+   "toques": [
+    [
+     325,
+     402
+    ]
+   ]
+  },
+  {
+   "t": 24,
+   "tipo": "onPointerMove",
+   "x": 325,
+   "y": 399,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 24,
+   "tipo": "onTouchMove",
+   "x": 325,
+   "y": 399,
+   "dedos": 1,
+   "toques": [
+    [
+     325,
+     399
+    ]
+   ]
+  },
+  {
+   "t": 32,
+   "tipo": "onPointerMove",
+   "x": 323,
+   "y": 399,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 32,
+   "tipo": "onTouchMove",
+   "x": 323,
+   "y": 399,
+   "dedos": 1,
+   "toques": [
+    [
+     323,
+     399
+    ]
+   ]
+  },
+  {
+   "t": 40,
+   "tipo": "onPointerMove",
+   "x": 320,
+   "y": 402,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 40,
+   "tipo": "onTouchMove",
+   "x": 320,
+   "y": 402,
+   "dedos": 1,
+   "toques": [
+    [
+     320,
+     402
+    ]
+   ]
+  },
+  {
+   "t": 48,
+   "tipo": "onPointerMove",
+   "x": 319,
+   "y": 400,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 48,
+   "tipo": "onTouchMove",
+   "x": 319,
+   "y": 400,
+   "dedos": 1,
+   "toques": [
+    [
+     319,
+     400
+    ]
+   ]
+  },
+  {
+   "t": 56,
+   "tipo": "onPointerMove",
+   "x": 317,
+   "y": 403,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 56,
+   "tipo": "onTouchMove",
+   "x": 317,
+   "y": 403,
+   "dedos": 1,
+   "toques": [
+    [
+     317,
+     403
+    ]
+   ]
+  },
+  {
+   "t": 64,
+   "tipo": "onPointerMove",
+   "x": 315,
+   "y": 403,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 64,
+   "tipo": "onTouchMove",
+   "x": 315,
+   "y": 403,
+   "dedos": 1,
+   "toques": [
+    [
+     315,
+     403
+    ]
+   ]
+  },
+  {
+   "t": 72,
+   "tipo": "onPointerMove",
+   "x": 314,
+   "y": 400,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 72,
+   "tipo": "onTouchMove",
+   "x": 314,
+   "y": 400,
+   "dedos": 1,
+   "toques": [
+    [
+     314,
+     400
+    ]
+   ]
+  },
+  {
+   "t": 80,
+   "tipo": "onPointerMove",
+   "x": 312,
+   "y": 401,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 80,
+   "tipo": "onTouchMove",
+   "x": 312,
+   "y": 401,
+   "dedos": 1,
+   "toques": [
+    [
+     312,
+     401
+    ]
+   ]
+  },
+  {
+   "t": 88,
+   "tipo": "onPointerMove",
+   "x": 311,
+   "y": 402,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 88,
+   "tipo": "onTouchMove",
+   "x": 311,
+   "y": 402,
+   "dedos": 1,
+   "toques": [
+    [
+     311,
+     402
+    ]
+   ]
+  },
+  {
+   "t": 96,
+   "tipo": "onPointerMove",
+   "x": 308,
+   "y": 400,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 96,
+   "tipo": "onTouchMove",
+   "x": 308,
+   "y": 400,
+   "dedos": 1,
+   "toques": [
+    [
+     308,
+     400
+    ]
+   ]
+  },
+  {
+   "t": 104,
+   "tipo": "onPointerMove",
+   "x": 307,
+   "y": 399,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 104,
+   "tipo": "onTouchMove",
+   "x": 307,
+   "y": 399,
+   "dedos": 1,
+   "toques": [
+    [
+     307,
+     399
+    ]
+   ]
+  },
+  {
+   "t": 112,
+   "tipo": "onPointerMove",
+   "x": 304,
+   "y": 402,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 112,
+   "tipo": "onTouchMove",
+   "x": 304,
+   "y": 402,
+   "dedos": 1,
+   "toques": [
+    [
+     304,
+     402
+    ]
+   ]
+  },
+  {
+   "t": 120,
+   "tipo": "onPointerMove",
+   "x": 304,
+   "y": 403,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 120,
+   "tipo": "onTouchMove",
+   "x": 304,
+   "y": 403,
+   "dedos": 1,
+   "toques": [
+    [
+     304,
+     403
+    ]
+   ]
+  },
+  {
+   "t": 128,
+   "tipo": "onPointerMove",
+   "x": 303,
+   "y": 401,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 128,
+   "tipo": "onTouchMove",
+   "x": 303,
+   "y": 401,
+   "dedos": 1,
+   "toques": [
+    [
+     303,
+     401
+    ]
+   ]
+  },
+  {
+   "t": 136,
+   "tipo": "onPointerMove",
+   "x": 300,
+   "y": 402,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 136,
+   "tipo": "onTouchMove",
+   "x": 300,
+   "y": 402,
+   "dedos": 1,
+   "toques": [
+    [
+     300,
+     402
+    ]
+   ]
+  },
+  {
+   "t": 144,
+   "tipo": "onPointerMove",
+   "x": 298,
+   "y": 403,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 144,
+   "tipo": "onTouchMove",
+   "x": 298,
+   "y": 403,
+   "dedos": 1,
+   "toques": [
+    [
+     298,
+     403
+    ]
+   ]
+  },
+  {
+   "t": 152,
+   "tipo": "onPointerMove",
+   "x": 296,
+   "y": 402,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 152,
+   "tipo": "onTouchMove",
+   "x": 296,
+   "y": 402,
+   "dedos": 1,
+   "toques": [
+    [
+     296,
+     402
+    ]
+   ]
+  },
+  {
+   "t": 160,
+   "tipo": "onPointerMove",
+   "x": 293,
+   "y": 401,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 160,
+   "tipo": "onTouchMove",
+   "x": 293,
+   "y": 401,
+   "dedos": 1,
+   "toques": [
+    [
+     293,
+     401
+    ]
+   ]
+  },
+  {
+   "t": 168,
+   "tipo": "onPointerMove",
+   "x": 294,
+   "y": 401,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 168,
+   "tipo": "onTouchMove",
+   "x": 294,
+   "y": 401,
+   "dedos": 1,
+   "toques": [
+    [
+     294,
+     401
+    ]
+   ]
+  },
+  {
+   "t": 176,
+   "tipo": "onPointerMove",
+   "x": 290,
+   "y": 403,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 176,
+   "tipo": "onTouchMove",
+   "x": 290,
+   "y": 403,
+   "dedos": 1,
+   "toques": [
+    [
+     290,
+     403
+    ]
+   ]
+  },
+  {
+   "t": 184,
+   "tipo": "onPointerMove",
+   "x": 290,
+   "y": 405,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 184,
+   "tipo": "onTouchMove",
+   "x": 290,
+   "y": 405,
+   "dedos": 1,
+   "toques": [
+    [
+     290,
+     405
+    ]
+   ]
+  },
+  {
+   "t": 192,
+   "tipo": "onPointerMove",
+   "x": 288,
+   "y": 404,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 192,
+   "tipo": "onTouchMove",
+   "x": 288,
+   "y": 404,
+   "dedos": 1,
+   "toques": [
+    [
+     288,
+     404
+    ]
+   ]
+  },
+  {
+   "t": 200,
+   "tipo": "onPointerMove",
+   "x": 287,
+   "y": 404,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 200,
+   "tipo": "onTouchMove",
+   "x": 287,
+   "y": 404,
+   "dedos": 1,
+   "toques": [
+    [
+     287,
+     404
+    ]
+   ]
+  },
+  {
+   "t": 208,
+   "tipo": "onPointerMove",
+   "x": 284,
+   "y": 401,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 208,
+   "tipo": "onTouchMove",
+   "x": 284,
+   "y": 401,
+   "dedos": 1,
+   "toques": [
+    [
+     284,
+     401
+    ]
+   ]
+  },
+  {
+   "t": 216,
+   "tipo": "onPointerMove",
+   "x": 281,
+   "y": 402,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 216,
+   "tipo": "onTouchMove",
+   "x": 281,
+   "y": 402,
+   "dedos": 1,
+   "toques": [
+    [
+     281,
+     402
+    ]
+   ]
+  },
+  {
+   "t": 224,
+   "tipo": "onPointerMove",
+   "x": 279,
+   "y": 403,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 224,
+   "tipo": "onTouchMove",
+   "x": 279,
+   "y": 403,
+   "dedos": 1,
+   "toques": [
+    [
+     279,
+     403
+    ]
+   ]
+  },
+  {
+   "t": 232,
+   "tipo": "onPointerMove",
+   "x": 279,
+   "y": 404,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 232,
+   "tipo": "onTouchMove",
+   "x": 279,
+   "y": 404,
+   "dedos": 1,
+   "toques": [
+    [
+     279,
+     404
+    ]
+   ]
+  },
+  {
+   "t": 240,
+   "tipo": "onPointerMove",
+   "x": 276,
+   "y": 405,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 240,
+   "tipo": "onTouchMove",
+   "x": 276,
+   "y": 405,
+   "dedos": 1,
+   "toques": [
+    [
+     276,
+     405
+    ]
+   ]
+  },
+  {
+   "t": 248,
+   "tipo": "onPointerMove",
+   "x": 274,
+   "y": 402,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 248,
+   "tipo": "onTouchMove",
+   "x": 274,
+   "y": 402,
+   "dedos": 1,
+   "toques": [
+    [
+     274,
+     402
+    ]
+   ]
+  },
+  {
+   "t": 256,
+   "tipo": "onPointerMove",
+   "x": 273,
+   "y": 404,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 256,
+   "tipo": "onTouchMove",
+   "x": 273,
+   "y": 404,
+   "dedos": 1,
+   "toques": [
+    [
+     273,
+     404
+    ]
+   ]
+  },
+  {
+   "t": 264,
+   "tipo": "onPointerMove",
+   "x": 270,
+   "y": 406,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 264,
+   "tipo": "onTouchMove",
+   "x": 270,
+   "y": 406,
+   "dedos": 1,
+   "toques": [
+    [
+     270,
+     406
+    ]
+   ]
+  },
+  {
+   "t": 272,
+   "tipo": "onPointerMove",
+   "x": 270,
+   "y": 405,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 272,
+   "tipo": "onTouchMove",
+   "x": 270,
+   "y": 405,
+   "dedos": 1,
+   "toques": [
+    [
+     270,
+     405
+    ]
+   ]
+  },
+  {
+   "t": 280,
+   "tipo": "onPointerMove",
+   "x": 268,
+   "y": 404,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 280,
+   "tipo": "onTouchMove",
+   "x": 268,
+   "y": 404,
+   "dedos": 1,
+   "toques": [
+    [
+     268,
+     404
+    ]
+   ]
+  },
+  {
+   "t": 288,
+   "tipo": "onPointerMove",
+   "x": 265,
+   "y": 405,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 288,
+   "tipo": "onTouchMove",
+   "x": 265,
+   "y": 405,
+   "dedos": 1,
+   "toques": [
+    [
+     265,
+     405
+    ]
+   ]
+  },
+  {
+   "t": 296,
+   "tipo": "onPointerMove",
+   "x": 265,
+   "y": 403,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 296,
+   "tipo": "onTouchMove",
+   "x": 265,
+   "y": 403,
+   "dedos": 1,
+   "toques": [
+    [
+     265,
+     403
+    ]
+   ]
+  },
+  {
+   "t": 304,
+   "tipo": "onPointerMove",
+   "x": 261,
+   "y": 403,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 304,
+   "tipo": "onTouchMove",
+   "x": 261,
+   "y": 403,
+   "dedos": 1,
+   "toques": [
+    [
+     261,
+     403
+    ]
+   ]
+  },
+  {
+   "t": 312,
+   "tipo": "onPointerMove",
+   "x": 262,
+   "y": 405,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 312,
+   "tipo": "onTouchMove",
+   "x": 262,
+   "y": 405,
+   "dedos": 1,
+   "toques": [
+    [
+     262,
+     405
+    ]
+   ]
+  },
+  {
+   "t": 320,
+   "tipo": "onPointerMove",
+   "x": 259,
+   "y": 405,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 320,
+   "tipo": "onTouchMove",
+   "x": 259,
+   "y": 405,
+   "dedos": 1,
+   "toques": [
+    [
+     259,
+     405
+    ]
+   ]
+  },
+  {
+   "t": 328,
+   "tipo": "onPointerMove",
+   "x": 256,
+   "y": 406,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 328,
+   "tipo": "onTouchMove",
+   "x": 256,
+   "y": 406,
+   "dedos": 1,
+   "toques": [
+    [
+     256,
+     406
+    ]
+   ]
+  },
+  {
+   "t": 336,
+   "tipo": "onPointerMove",
+   "x": 254,
+   "y": 403,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 336,
+   "tipo": "onTouchMove",
+   "x": 254,
+   "y": 403,
+   "dedos": 1,
+   "toques": [
+    [
+     254,
+     403
+    ]
+   ]
+  },
+  {
+   "t": 344,
+   "tipo": "onPointerMove",
+   "x": 253,
+   "y": 403,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 344,
+   "tipo": "onTouchMove",
+   "x": 253,
+   "y": 403,
+   "dedos": 1,
+   "toques": [
+    [
+     253,
+     403
+    ]
+   ]
+  },
+  {
+   "t": 352,
+   "tipo": "onPointerMove",
+   "x": 252,
+   "y": 406,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 352,
+   "tipo": "onTouchMove",
+   "x": 252,
+   "y": 406,
+   "dedos": 1,
+   "toques": [
+    [
+     252,
+     406
+    ]
+   ]
+  },
+  {
+   "t": 360,
+   "tipo": "onPointerMove",
+   "x": 251,
+   "y": 404,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 360,
+   "tipo": "onTouchMove",
+   "x": 251,
+   "y": 404,
+   "dedos": 1,
+   "toques": [
+    [
+     251,
+     404
+    ]
+   ]
+  },
+  {
+   "t": 368,
+   "tipo": "onPointerMove",
+   "x": 248,
+   "y": 403,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 368,
+   "tipo": "onTouchMove",
+   "x": 248,
+   "y": 403,
+   "dedos": 1,
+   "toques": [
+    [
+     248,
+     403
+    ]
+   ]
+  },
+  {
+   "t": 376,
+   "tipo": "onPointerMove",
+   "x": 245,
+   "y": 405,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 376,
+   "tipo": "onTouchMove",
+   "x": 245,
+   "y": 405,
+   "dedos": 1,
+   "toques": [
+    [
+     245,
+     405
+    ]
+   ]
+  },
+  {
+   "t": 384,
+   "tipo": "onPointerMove",
+   "x": 244,
+   "y": 404,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 384,
+   "tipo": "onTouchMove",
+   "x": 244,
+   "y": 404,
+   "dedos": 1,
+   "toques": [
+    [
+     244,
+     404
+    ]
+   ]
+  },
+  {
+   "t": 392,
+   "tipo": "onPointerMove",
+   "x": 242,
+   "y": 404,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 392,
+   "tipo": "onTouchMove",
+   "x": 242,
+   "y": 404,
+   "dedos": 1,
+   "toques": [
+    [
+     242,
+     404
+    ]
+   ]
+  },
+  {
+   "t": 400,
+   "tipo": "onPointerMove",
+   "x": 242,
+   "y": 405,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 400,
+   "tipo": "onTouchMove",
+   "x": 242,
+   "y": 405,
+   "dedos": 1,
+   "toques": [
+    [
+     242,
+     405
+    ]
+   ]
+  },
+  {
+   "t": 408,
+   "tipo": "onPointerMove",
+   "x": 238,
+   "y": 404,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 408,
+   "tipo": "onTouchMove",
+   "x": 238,
+   "y": 404,
+   "dedos": 1,
+   "toques": [
+    [
+     238,
+     404
+    ]
+   ]
+  },
+  {
+   "t": 416,
+   "tipo": "onPointerMove",
+   "x": 238,
+   "y": 404,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 416,
+   "tipo": "onTouchMove",
+   "x": 238,
+   "y": 404,
+   "dedos": 1,
+   "toques": [
+    [
+     238,
+     404
+    ]
+   ]
+  },
+  {
+   "t": 424,
+   "tipo": "onPointerMove",
+   "x": 236,
+   "y": 404,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 424,
+   "tipo": "onTouchMove",
+   "x": 236,
+   "y": 404,
+   "dedos": 1,
+   "toques": [
+    [
+     236,
+     404
+    ]
+   ]
+  },
+  {
+   "t": 432,
+   "tipo": "onPointerMove",
+   "x": 234,
+   "y": 406,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 432,
+   "tipo": "onTouchMove",
+   "x": 234,
+   "y": 406,
+   "dedos": 1,
+   "toques": [
+    [
+     234,
+     406
+    ]
+   ]
+  },
+  {
+   "t": 440,
+   "tipo": "onPointerMove",
+   "x": 231,
+   "y": 407,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 440,
+   "tipo": "onTouchMove",
+   "x": 231,
+   "y": 407,
+   "dedos": 1,
+   "toques": [
+    [
+     231,
+     407
+    ]
+   ]
+  },
+  {
+   "t": 448,
+   "tipo": "onPointerMove",
+   "x": 230,
+   "y": 407,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 448,
+   "tipo": "onTouchMove",
+   "x": 230,
+   "y": 407,
+   "dedos": 1,
+   "toques": [
+    [
+     230,
+     407
+    ]
+   ]
+  },
+  {
+   "t": 456,
+   "tipo": "onPointerMove",
+   "x": 229,
+   "y": 408,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 456,
+   "tipo": "onTouchMove",
+   "x": 229,
+   "y": 408,
+   "dedos": 1,
+   "toques": [
+    [
+     229,
+     408
+    ]
+   ]
+  },
+  {
+   "t": 464,
+   "tipo": "onPointerMove",
+   "x": 228,
+   "y": 407,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 464,
+   "tipo": "onTouchMove",
+   "x": 228,
+   "y": 407,
+   "dedos": 1,
+   "toques": [
+    [
+     228,
+     407
+    ]
+   ]
+  },
+  {
+   "t": 472,
+   "tipo": "onPointerMove",
+   "x": 224,
+   "y": 406,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 472,
+   "tipo": "onTouchMove",
+   "x": 224,
+   "y": 406,
+   "dedos": 1,
+   "toques": [
+    [
+     224,
+     406
+    ]
+   ]
+  },
+  {
+   "t": 480,
+   "tipo": "onPointerMove",
+   "x": 222,
+   "y": 409,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 480,
+   "tipo": "onTouchMove",
+   "x": 222,
+   "y": 409,
+   "dedos": 1,
+   "toques": [
+    [
+     222,
+     409
+    ]
+   ]
+  },
+  {
+   "t": 488,
+   "tipo": "onPointerMove",
+   "x": 221,
+   "y": 405,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 488,
+   "tipo": "onTouchMove",
+   "x": 221,
+   "y": 405,
+   "dedos": 1,
+   "toques": [
+    [
+     221,
+     405
+    ]
+   ]
+  },
+  {
+   "t": 496,
+   "tipo": "onPointerMove",
+   "x": 219,
+   "y": 406,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 496,
+   "tipo": "onTouchMove",
+   "x": 219,
+   "y": 406,
+   "dedos": 1,
+   "toques": [
+    [
+     219,
+     406
+    ]
+   ]
+  },
+  {
+   "t": 504,
+   "tipo": "onPointerMove",
+   "x": 217,
+   "y": 407,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 504,
+   "tipo": "onTouchMove",
+   "x": 217,
+   "y": 407,
+   "dedos": 1,
+   "toques": [
+    [
+     217,
+     407
+    ]
+   ]
+  },
+  {
+   "t": 512,
+   "tipo": "onPointerMove",
+   "x": 216,
+   "y": 407,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 512,
+   "tipo": "onTouchMove",
+   "x": 216,
+   "y": 407,
+   "dedos": 1,
+   "toques": [
+    [
+     216,
+     407
+    ]
+   ]
+  },
+  {
+   "t": 520,
+   "tipo": "onPointerMove",
+   "x": 214,
+   "y": 409,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 520,
+   "tipo": "onTouchMove",
+   "x": 214,
+   "y": 409,
+   "dedos": 1,
+   "toques": [
+    [
+     214,
+     409
+    ]
+   ]
+  },
+  {
+   "t": 528,
+   "tipo": "onPointerMove",
+   "x": 213,
+   "y": 407,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 528,
+   "tipo": "onTouchMove",
+   "x": 213,
+   "y": 407,
+   "dedos": 1,
+   "toques": [
+    [
+     213,
+     407
+    ]
+   ]
+  },
+  {
+   "t": 536,
+   "tipo": "onPointerMove",
+   "x": 210,
+   "y": 409,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 536,
+   "tipo": "onTouchMove",
+   "x": 210,
+   "y": 409,
+   "dedos": 1,
+   "toques": [
+    [
+     210,
+     409
+    ]
+   ]
+  },
+  {
+   "t": 544,
+   "tipo": "onPointerMove",
+   "x": 209,
+   "y": 408,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 544,
+   "tipo": "onTouchMove",
+   "x": 209,
+   "y": 408,
+   "dedos": 1,
+   "toques": [
+    [
+     209,
+     408
+    ]
+   ]
+  },
+  {
+   "t": 552,
+   "tipo": "onPointerMove",
+   "x": 208,
+   "y": 409,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 552,
+   "tipo": "onTouchMove",
+   "x": 208,
+   "y": 409,
+   "dedos": 1,
+   "toques": [
+    [
+     208,
+     409
+    ]
+   ]
+  },
+  {
+   "t": 560,
+   "tipo": "onPointerMove",
+   "x": 206,
+   "y": 410,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 560,
+   "tipo": "onTouchMove",
+   "x": 206,
+   "y": 410,
+   "dedos": 1,
+   "toques": [
+    [
+     206,
+     410
+    ]
+   ]
+  },
+  {
+   "t": 568,
+   "tipo": "onPointerMove",
+   "x": 205,
+   "y": 408,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 568,
+   "tipo": "onTouchMove",
+   "x": 205,
+   "y": 408,
+   "dedos": 1,
+   "toques": [
+    [
+     205,
+     408
+    ]
+   ]
+  },
+  {
+   "t": 576,
+   "tipo": "onPointerMove",
+   "x": 202,
+   "y": 409,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 576,
+   "tipo": "onTouchMove",
+   "x": 202,
+   "y": 409,
+   "dedos": 1,
+   "toques": [
+    [
+     202,
+     409
+    ]
+   ]
+  },
+  {
+   "t": 584,
+   "tipo": "onPointerMove",
+   "x": 201,
+   "y": 410,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 584,
+   "tipo": "onTouchMove",
+   "x": 201,
+   "y": 410,
+   "dedos": 1,
+   "toques": [
+    [
+     201,
+     410
+    ]
+   ]
+  },
+  {
+   "t": 592,
+   "tipo": "onPointerMove",
+   "x": 198,
+   "y": 410,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 592,
+   "tipo": "onTouchMove",
+   "x": 198,
+   "y": 410,
+   "dedos": 1,
+   "toques": [
+    [
+     198,
+     410
+    ]
+   ]
+  },
+  {
+   "t": 600,
+   "tipo": "onPointerMove",
+   "x": 197,
+   "y": 409,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 600,
+   "tipo": "onTouchMove",
+   "x": 197,
+   "y": 409,
+   "dedos": 1,
+   "toques": [
+    [
+     197,
+     409
+    ]
+   ]
+  },
+  {
+   "t": 608,
+   "tipo": "onPointerMove",
+   "x": 195,
+   "y": 406,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 608,
+   "tipo": "onTouchMove",
+   "x": 195,
+   "y": 406,
+   "dedos": 1,
+   "toques": [
+    [
+     195,
+     406
+    ]
+   ]
+  },
+  {
+   "t": 616,
+   "tipo": "onPointerMove",
+   "x": 194,
+   "y": 409,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 616,
+   "tipo": "onTouchMove",
+   "x": 194,
+   "y": 409,
+   "dedos": 1,
+   "toques": [
+    [
+     194,
+     409
+    ]
+   ]
+  },
+  {
+   "t": 624,
+   "tipo": "onPointerMove",
+   "x": 191,
+   "y": 409,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 624,
+   "tipo": "onTouchMove",
+   "x": 191,
+   "y": 409,
+   "dedos": 1,
+   "toques": [
+    [
+     191,
+     409
+    ]
+   ]
+  },
+  {
+   "t": 632,
+   "tipo": "onPointerMove",
+   "x": 191,
+   "y": 410,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 632,
+   "tipo": "onTouchMove",
+   "x": 191,
+   "y": 410,
+   "dedos": 1,
+   "toques": [
+    [
+     191,
+     410
+    ]
+   ]
+  },
+  {
+   "t": 640,
+   "tipo": "onPointerMove",
+   "x": 188,
+   "y": 409,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 640,
+   "tipo": "onTouchMove",
+   "x": 188,
+   "y": 409,
+   "dedos": 1,
+   "toques": [
+    [
+     188,
+     409
+    ]
+   ]
+  },
+  {
+   "t": 648,
+   "tipo": "onPointerMove",
+   "x": 187,
+   "y": 410,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 648,
+   "tipo": "onTouchMove",
+   "x": 187,
+   "y": 410,
+   "dedos": 1,
+   "toques": [
+    [
+     187,
+     410
+    ]
+   ]
+  },
+  {
+   "t": 656,
+   "tipo": "onPointerMove",
+   "x": 183,
+   "y": 408,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 656,
+   "tipo": "onTouchMove",
+   "x": 183,
+   "y": 408,
+   "dedos": 1,
+   "toques": [
+    [
+     183,
+     408
+    ]
+   ]
+  },
+  {
+   "t": 664,
+   "tipo": "onPointerMove",
+   "x": 182,
+   "y": 411,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 664,
+   "tipo": "onTouchMove",
+   "x": 182,
+   "y": 411,
+   "dedos": 1,
+   "toques": [
+    [
+     182,
+     411
+    ]
+   ]
+  },
+  {
+   "t": 672,
+   "tipo": "onPointerMove",
+   "x": 181,
+   "y": 408,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 672,
+   "tipo": "onTouchMove",
+   "x": 181,
+   "y": 408,
+   "dedos": 1,
+   "toques": [
+    [
+     181,
+     408
+    ]
+   ]
+  },
+  {
+   "t": 680,
+   "tipo": "onPointerMove",
+   "x": 180,
+   "y": 408,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 680,
+   "tipo": "onTouchMove",
+   "x": 180,
+   "y": 408,
+   "dedos": 1,
+   "toques": [
+    [
+     180,
+     408
+    ]
+   ]
+  },
+  {
+   "t": 688,
+   "tipo": "onPointerMove",
+   "x": 176,
+   "y": 410,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 688,
+   "tipo": "onTouchMove",
+   "x": 176,
+   "y": 410,
+   "dedos": 1,
+   "toques": [
+    [
+     176,
+     410
+    ]
+   ]
+  },
+  {
+   "t": 696,
+   "tipo": "onPointerMove",
+   "x": 174,
+   "y": 408,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 696,
+   "tipo": "onTouchMove",
+   "x": 174,
+   "y": 408,
+   "dedos": 1,
+   "toques": [
+    [
+     174,
+     408
+    ]
+   ]
+  },
+  {
+   "t": 704,
+   "tipo": "onPointerMove",
+   "x": 175,
+   "y": 410,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 704,
+   "tipo": "onTouchMove",
+   "x": 175,
+   "y": 410,
+   "dedos": 1,
+   "toques": [
+    [
+     175,
+     410
+    ]
+   ]
+  },
+  {
+   "t": 712,
+   "tipo": "onPointerMove",
+   "x": 171,
+   "y": 410,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 712,
+   "tipo": "onTouchMove",
+   "x": 171,
+   "y": 410,
+   "dedos": 1,
+   "toques": [
+    [
+     171,
+     410
+    ]
+   ]
+  },
+  {
+   "t": 720,
+   "tipo": "onPointerMove",
+   "x": 169,
+   "y": 411,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 720,
+   "tipo": "onTouchMove",
+   "x": 169,
+   "y": 411,
+   "dedos": 1,
+   "toques": [
+    [
+     169,
+     411
+    ]
+   ]
+  },
+  {
+   "t": 728,
+   "tipo": "onPointerMove",
+   "x": 169,
+   "y": 411,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 728,
+   "tipo": "onTouchMove",
+   "x": 169,
+   "y": 411,
+   "dedos": 1,
+   "toques": [
+    [
+     169,
+     411
+    ]
+   ]
+  },
+  {
+   "t": 736,
+   "tipo": "onPointerMove",
+   "x": 169,
+   "y": 412,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 736,
+   "tipo": "onTouchMove",
+   "x": 169,
+   "y": 412,
+   "dedos": 1,
+   "toques": [
+    [
+     169,
+     412
+    ]
+   ]
+  },
+  {
+   "t": 744,
+   "tipo": "onPointerMove",
+   "x": 170,
+   "y": 410,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 744,
+   "tipo": "onTouchMove",
+   "x": 170,
+   "y": 410,
+   "dedos": 1,
+   "toques": [
+    [
+     170,
+     410
+    ]
+   ]
+  },
+  {
+   "t": 752,
+   "tipo": "onPointerMove",
+   "x": 171,
+   "y": 409,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 752,
+   "tipo": "onTouchMove",
+   "x": 171,
+   "y": 409,
+   "dedos": 1,
+   "toques": [
+    [
+     171,
+     409
+    ]
+   ]
+  },
+  {
+   "t": 760,
+   "tipo": "onPointerMove",
+   "x": 170,
+   "y": 410,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 760,
+   "tipo": "onTouchMove",
+   "x": 170,
+   "y": 410,
+   "dedos": 1,
+   "toques": [
+    [
+     170,
+     410
+    ]
+   ]
+  },
+  {
+   "t": 768,
+   "tipo": "onPointerMove",
+   "x": 171,
+   "y": 410,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 768,
+   "tipo": "onTouchMove",
+   "x": 171,
+   "y": 410,
+   "dedos": 1,
+   "toques": [
+    [
+     171,
+     410
+    ]
+   ]
+  },
+  {
+   "t": 776,
+   "tipo": "onPointerMove",
+   "x": 169,
+   "y": 409,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 776,
+   "tipo": "onTouchMove",
+   "x": 169,
+   "y": 409,
+   "dedos": 1,
+   "toques": [
+    [
+     169,
+     409
+    ]
+   ]
+  },
+  {
+   "t": 784,
+   "tipo": "onPointerMove",
+   "x": 170,
+   "y": 409,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 784,
+   "tipo": "onTouchMove",
+   "x": 170,
+   "y": 409,
+   "dedos": 1,
+   "toques": [
+    [
+     170,
+     409
+    ]
+   ]
+  },
+  {
+   "t": 792,
+   "tipo": "onPointerMove",
+   "x": 170,
+   "y": 410,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 792,
+   "tipo": "onTouchMove",
+   "x": 170,
+   "y": 410,
+   "dedos": 1,
+   "toques": [
+    [
+     170,
+     410
+    ]
+   ]
+  },
+  {
+   "t": 800,
+   "tipo": "onPointerMove",
+   "x": 169,
+   "y": 408,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 800,
+   "tipo": "onTouchMove",
+   "x": 169,
+   "y": 408,
+   "dedos": 1,
+   "toques": [
+    [
+     169,
+     408
+    ]
+   ]
+  },
+  {
+   "t": 808,
+   "tipo": "onPointerMove",
+   "x": 169,
+   "y": 411,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 808,
+   "tipo": "onTouchMove",
+   "x": 169,
+   "y": 411,
+   "dedos": 1,
+   "toques": [
+    [
+     169,
+     411
+    ]
+   ]
+  },
+  {
+   "t": 816,
+   "tipo": "onPointerMove",
+   "x": 170,
+   "y": 410,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 816,
+   "tipo": "onTouchMove",
+   "x": 170,
+   "y": 410,
+   "dedos": 1,
+   "toques": [
+    [
+     170,
+     410
+    ]
+   ]
+  },
+  {
+   "t": 824,
+   "tipo": "onPointerMove",
+   "x": 171,
+   "y": 408,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 824,
+   "tipo": "onTouchMove",
+   "x": 171,
+   "y": 408,
+   "dedos": 1,
+   "toques": [
+    [
+     171,
+     408
+    ]
+   ]
+  },
+  {
+   "t": 832,
+   "tipo": "onPointerMove",
+   "x": 170,
+   "y": 409,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 832,
+   "tipo": "onTouchMove",
+   "x": 170,
+   "y": 409,
+   "dedos": 1,
+   "toques": [
+    [
+     170,
+     409
+    ]
+   ]
+  },
+  {
+   "t": 840,
+   "tipo": "onPointerMove",
+   "x": 170,
+   "y": 408,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 840,
+   "tipo": "onTouchMove",
+   "x": 170,
+   "y": 408,
+   "dedos": 1,
+   "toques": [
+    [
+     170,
+     408
+    ]
+   ]
+  },
+  {
+   "t": 848,
+   "tipo": "onPointerMove",
+   "x": 169,
+   "y": 411,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 848,
+   "tipo": "onTouchMove",
+   "x": 169,
+   "y": 411,
+   "dedos": 1,
+   "toques": [
+    [
+     169,
+     411
+    ]
+   ]
+  },
+  {
+   "t": 856,
+   "tipo": "onPointerMove",
+   "x": 171,
+   "y": 408,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 856,
+   "tipo": "onTouchMove",
+   "x": 171,
+   "y": 408,
+   "dedos": 1,
+   "toques": [
+    [
+     171,
+     408
+    ]
+   ]
+  },
+  {
+   "t": 864,
+   "tipo": "onPointerMove",
+   "x": 170,
+   "y": 409,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 864,
+   "tipo": "onTouchMove",
+   "x": 170,
+   "y": 409,
+   "dedos": 1,
+   "toques": [
+    [
+     170,
+     409
+    ]
+   ]
+  },
+  {
+   "t": 872,
+   "tipo": "onPointerMove",
+   "x": 170,
+   "y": 409,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 872,
+   "tipo": "onTouchMove",
+   "x": 170,
+   "y": 409,
+   "dedos": 1,
+   "toques": [
+    [
+     170,
+     409
+    ]
+   ]
+  },
+  {
+   "t": 880,
+   "tipo": "onPointerMove",
+   "x": 171,
+   "y": 410,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 880,
+   "tipo": "onTouchMove",
+   "x": 171,
+   "y": 410,
+   "dedos": 1,
+   "toques": [
+    [
+     171,
+     410
+    ]
+   ]
+  },
+  {
+   "t": 888,
+   "tipo": "onPointerMove",
+   "x": 169,
+   "y": 411,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 888,
+   "tipo": "onTouchMove",
+   "x": 169,
+   "y": 411,
+   "dedos": 1,
+   "toques": [
+    [
+     169,
+     411
+    ]
+   ]
+  },
+  {
+   "t": 896,
+   "tipo": "onPointerMove",
+   "x": 171,
+   "y": 412,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 896,
+   "tipo": "onTouchMove",
+   "x": 171,
+   "y": 412,
+   "dedos": 1,
+   "toques": [
+    [
+     171,
+     412
+    ]
+   ]
+  },
+  {
+   "t": 904,
+   "tipo": "onPointerUp",
+   "x": 170,
+   "y": 410
+  },
+  {
+   "t": 905,
+   "tipo": "onTouchEnd",
+   "x": 170,
+   "y": 410,
+   "dedos": 0,
+   "toques": []
+  }
+ ]
+}

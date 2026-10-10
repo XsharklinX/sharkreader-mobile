@@ -13,9 +13,22 @@ import { normalizeAnnotationKind } from '../core/annotationExport.js';
 import { readBookBlob } from '../adapters/SafPicker.js';
 import { cajaDeContenido, unirCajas, recorteRelativo } from './pdfCrop.js';
 import PdfScroll from './PdfScroll.jsx';
+import PdfLectura from './PdfLectura.jsx';
+import { crearFuentePdf } from './pdfFuente.js';
+import { crearOcrDePdf } from '../adapters/Ocr.js';
+import { usePorts } from '../ports/index.js';
+import PosicionRemotaSheet from './PosicionRemotaSheet.jsx';
+import CapaTinta from './CapaTinta.jsx';
+import { COLORES_TINTA, borrarEn, hayTinta } from './tinta.js';
+import { shareImage } from '../library/backup.js';
+import { FONT_SIZE_MIN, FONT_SIZE_MAX } from './typography.js';
 import {
-    IconArrowLeft, IconBookmark, IconList, IconHighlight, IconSun, IconClose, IconBook,
+    IconArrowLeft, IconBookmark, IconList, IconHighlight, IconSun, IconClose, IconBook, IconTextSize,
+    IconPen, IconEraser, IconUndo, IconShare,
 } from '../ui/icons.jsx';
+
+/** Letra del modo lectura cuando el PDF no tiene una guardada. */
+const LETRA_PDF = { fontFamily: 'literata', fontSize: 18, lineHeight: 1.45, justify: true };
 
 /**
  * Lector PDF sobre pdf.js.
@@ -49,7 +62,10 @@ export default function PdfReaderScreen({
     onProgress,
     onAnnotationsChange,
     onExportAnnotations,
+    posicionRemota,
+    onPosicionRemotaVista,
 }) {
+    const ports = usePorts();
     const canvasRef = useRef(null);
     const docRef = useRef(null);
     const renderTaskRef = useRef(null);
@@ -87,6 +103,126 @@ export default function PdfReaderScreen({
      */
     const [flujo, setFlujo] = useState(book.readerPreferences?.pdfFlow || 'paginated');
 
+    /**
+     * Folio o libro.
+     *
+     * En «lectura» el texto del PDF se convierte en párrafos y se compone con la
+     * letra del lector: se lee a tamaño de móvil sin pellizcar. Es el modo que
+     * convierte un PDF en algo que se puede leer en seis pulgadas. Ver
+     * `PdfLectura.jsx`.
+     */
+    const [modo, setModo] = useState(book.readerPreferences?.pdfModo || 'pagina');
+    const [letra, setLetra] = useState(() => ({ ...LETRA_PDF, ...(book.readerPreferences?.pdfLetra || {}) }));
+    const [fuente, setFuente] = useState(null);
+    /** Saltos pedidos desde la barra, el índice o las notas, para el modo lectura. */
+    const [salto, setSalto] = useState(null);
+    const [aviso, setAviso] = useState(null);
+    /** El documento no tiene texto: es un escaneado. Se mira en la primera página. */
+    const [escaneado, setEscaneado] = useState(false);
+    const avisoRef = useRef(0);
+
+    const avisar = useCallback((texto, duracion = 5000) => {
+        clearTimeout(avisoRef.current);
+        setAviso(texto);
+        if (duracion) avisoRef.current = setTimeout(() => setAviso(null), duracion);
+    }, []);
+
+    /**
+     * Lo escrito a mano, por página. Ver `tinta.js` y `CapaTinta.jsx`.
+     *
+     * Va aparte del libro, en sus propios ajustes: un PDF de apuntes puede
+     * acumular miles de trazos, y guardarlos con el progreso los reescribiría
+     * en cada pase de página.
+     */
+    const [tinta, setTinta] = useState({});
+    const [lapiz, setLapiz] = useState(false);
+    const [herramienta, setHerramienta] = useState('boligrafo');
+    const [colores, setColores] = useState({ boligrafo: COLORES_TINTA.boligrafo[0], marcador: COLORES_TINTA.marcador[0] });
+    const [conDedo, setConDedo] = useState(false);
+    const [exportando, setExportando] = useState(false);
+    const deshacerRef = useRef([]);
+    const tintaCargada = useRef(false);
+
+    useEffect(() => {
+        let vivo = true;
+        Promise.all([
+            ports.storage?.getSetting(`tinta:${book.id}`).catch(() => null),
+            ports.storage?.getSetting('tinta-dedo').catch(() => null),
+        ]).then(([guardada, dedo]) => {
+            if (!vivo) return;
+            if (guardada && typeof guardada === 'object') setTinta(guardada);
+            setConDedo(Boolean(dedo));
+            tintaCargada.current = true;
+        });
+        return () => { vivo = false; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [book.id]);
+
+    useEffect(() => {
+        if (!tintaCargada.current) return undefined;
+        // Medio segundo de calma antes de guardar: escribiendo deprisa, guardar
+        // cada trazo sería reescribir todo lo anotado a cada palabra.
+        const espera = setTimeout(() => ports.storage?.setSetting(`tinta:${book.id}`, tinta).catch(() => {}), 500);
+        return () => clearTimeout(espera);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tinta]);
+
+    const cambiarTinta = useCallback((pagina, cambio) => {
+        setTinta((antes) => {
+            const previa = antes[pagina] || [];
+            const nueva = cambio(previa);
+            if (nueva === previa) return antes;
+            deshacerRef.current = [...deshacerRef.current.slice(-49), { pagina, trazos: previa }];
+            const siguiente = { ...antes, [pagina]: nueva };
+            if (!nueva.length) delete siguiente[pagina];
+            return siguiente;
+        });
+    }, []);
+
+    const deshacer = () => {
+        const ultimo = deshacerRef.current.pop();
+        if (!ultimo) return;
+        setTinta((antes) => {
+            const siguiente = { ...antes, [ultimo.pagina]: ultimo.trazos };
+            if (!ultimo.trazos.length) delete siguiente[ultimo.pagina];
+            return siguiente;
+        });
+    };
+
+    const exportarConTinta = async () => {
+        setExportando(true);
+        try {
+            const { pdfConTinta } = await import('./exportarTinta.js');
+            const bytes = new Uint8Array(await (await readBookBlob(book.sourcePath)).arrayBuffer());
+            const salida = await pdfConTinta(bytes, tinta, async (numero) => {
+                const vista = (await docRef.current.getPage(numero)).getViewport({ scale: 1 });
+                return {
+                    convertir: (x, y) => vista.convertToPdfPoint(x * vista.width, y * vista.height),
+                    ancho: vista.width,
+                };
+            });
+            const base = String(book.name || 'documento').replace(/\.pdf$/i, '').replace(/[\\/:*?"<>|]+/g, ' ').trim();
+            await shareImage(`${base} (con notas).pdf`, new Blob([salida], { type: 'application/pdf' }), 'Compartir el PDF con lo escrito');
+        } catch (fallo) {
+            avisar(fallo?.message ? `No se ha podido exportar: ${fallo.message}` : 'No se ha podido exportar el PDF.');
+        }
+        setExportando(false);
+    };
+
+    const sacarLapiz = () => {
+        // Se escribe sobre el folio quieto: el desplazamiento continuo y el
+        // modo lectura no tienen una página fija debajo.
+        setModo('pagina');
+        setFlujo('paginated');
+        setLapiz(true);
+        setChromeVisible(false);
+    };
+
+    const irAPagina = useCallback((numero) => {
+        setPage(numero);
+        setSalto({ pagina: numero, clave: Date.now() });
+    }, []);
+
     // ── Carga ────────────────────────────────────────────────────────────────
     useEffect(() => {
         let cancelled = false;
@@ -109,6 +245,31 @@ export default function PdfReaderScreen({
 
                 docRef.current = doc;
                 setTotal(doc.numPages);
+                /**
+                 * Las páginas sin texto se reconocen en el teléfono.
+                 *
+                 * Solo cuando el modo lectura las pide, no al abrir: reconocer
+                 * cuesta medio segundo por página y el folio se ve sin ello.
+                 * Lo reconocido se guarda, así que cada página se hace una vez.
+                 */
+                setFuente(crearFuentePdf(doc, {
+                    ocr: crearOcrDePdf({
+                        storage: ports.storage,
+                        libro: book.id,
+                        alEmpezar: (numero) => avisar(`Reconociendo el texto de la página ${numero}…`, 1500),
+                    }),
+                }));
+
+                // ¿Escaneado? Una página del cuerpo sin texto lo delata. No se
+                // mira la primera: suele ser una portada que es solo imagen.
+                const muestra = Math.min(doc.numPages, Math.max(2, Math.round(doc.numPages / 3)));
+                doc.getPage(muestra)
+                    .then((pagina) => pagina.getTextContent())
+                    .then((contenido) => {
+                        const letras = (contenido.items || []).reduce((n, item) => n + (item.str || '').trim().length, 0);
+                        if (!cancelled && letras < 20) setEscaneado(true);
+                    })
+                    .catch(() => {});
 
                 const rawOutline = await doc.getOutline().catch(() => null);
                 if (rawOutline?.length) {
@@ -137,8 +298,9 @@ export default function PdfReaderScreen({
     useEffect(() => {
         if (state !== 'ready' || !docRef.current) return;
         // Desplazando, de pintar se encarga `PdfScroll`: aquí solo se pintaría
-        // encima un lienzo que ya no está en pantalla.
-        if (flujo === 'scrolled') return;
+        // encima un lienzo que ya no está en pantalla. Y en modo lectura no hay
+        // folio que pintar.
+        if (flujo === 'scrolled' || modo === 'lectura') return;
         let cancelled = false;
 
         const render = async () => {
@@ -178,6 +340,13 @@ export default function PdfReaderScreen({
             canvas.style.height = `${Math.round(altoLienzo / ratio)}px`;
 
             const contexto = canvas.getContext('2d');
+            // El folio en blanco entero antes de pintar: pdf.js rellena el fondo
+            // de la página con el mismo desplazamiento que el recorte, y sin
+            // esto quedaba una franja transparente a la derecha con el texto
+            // encima, fuera del papel.
+            contexto.setTransform(1, 0, 0, 1, 0, 0);
+            contexto.fillStyle = '#ffffff';
+            contexto.fillRect(0, 0, canvas.width, canvas.height);
             // El recorte se hace desplazando el lienzo, no recortando después:
             // pintar el folio entero para tirar los bordes gastaría memoria y
             // tiempo en píxeles que nadie va a ver.
@@ -206,7 +375,7 @@ export default function PdfReaderScreen({
 
         render();
         return () => { cancelled = true; };
-    }, [page, scale, state, recorte, recortar, flujo]);
+    }, [page, scale, state, recorte, recortar, flujo, modo]);
 
     /**
      * Encuentra el recorte mirando unas pocas páginas.
@@ -284,9 +453,11 @@ export default function PdfReaderScreen({
             // El recorte se guarda calculado: encontrarlo obliga a rasterizar
             // cuatro páginas y leer sus píxeles, y no hay razón para repetirlo
             // cada vez que se abre el mismo libro.
-            readerPreferences: { theme, pdfCrop: recorte, pdfCropOn: recortar, pdfFlow: flujo },
+            readerPreferences: {
+                theme, pdfCrop: recorte, pdfCropOn: recortar, pdfFlow: flujo, pdfModo: modo, pdfLetra: letra,
+            },
         });
-    }, [page, total, scale, state, theme, recorte, recortar, flujo]);
+    }, [page, total, scale, state, theme, recorte, recortar, flujo, modo, letra]);
 
     const goNext = useCallback(() => setPage((current) => Math.min(current + 1, total || current)), [total]);
     const goPrev = useCallback(() => setPage((current) => Math.max(1, current - 1)), []);
@@ -348,7 +519,38 @@ export default function PdfReaderScreen({
                 </div>
             )}
 
-            {flujo === 'scrolled' ? (
+            {aviso && <div className="pdf-aviso" role="status">{aviso}</div>}
+
+            {modo === 'lectura' && fuente ? (
+                <PdfLectura
+                    doc={docRef.current}
+                    fuente={fuente}
+                    paginaInicial={page}
+                    salto={salto}
+                    palette={READER_THEMES[theme] || READER_THEMES.dark}
+                    letra={letra}
+                    onLetra={setLetra}
+                    onPagina={setPage}
+                    onTap={toggleChrome}
+                    onSinTexto={() => {
+                        // Solo llega aquí si el reconocimiento no ha podido: en
+                        // el navegador, o con una imagen ilegible. Se vuelve al
+                        // folio y se dice por qué, en vez de enseñar una página
+                        // en blanco que parece un fallo.
+                        setModo('pagina');
+                        avisar('No se ha podido reconocer el texto de este escaneado en este dispositivo.');
+                    }}
+                />
+            ) : null}
+
+            {modo === 'lectura' && fuente ? null : escaneado && chromeVisible && state === 'ready' ? (
+                <div className="pdf-aviso" role="note">
+                    Este PDF es un escaneado. Toca <b>Aa</b> para reconocer su texto en el teléfono y
+                    leerlo como un libro, con texto que se puede copiar.
+                </div>
+            ) : null}
+
+            {modo === 'lectura' && fuente ? null : flujo === 'scrolled' ? (
                 <PdfScroll
                     doc={docRef.current}
                     scale={scale}
@@ -361,7 +563,80 @@ export default function PdfReaderScreen({
                 />
             ) : (
                 <div className="pdf-viewport" {...gestures}>
-                    <canvas ref={canvasRef} className={dark ? 'pdf-canvas inverted' : 'pdf-canvas'} />
+                    <div className="pdf-hoja">
+                        <canvas ref={canvasRef} className={dark ? 'pdf-canvas inverted' : 'pdf-canvas'} />
+                        <CapaTinta
+                            activo={lapiz}
+                            trazos={tinta[page] || []}
+                            recorte={(recortar && recorte) ? recorte : null}
+                            invertida={dark}
+                            herramienta={herramienta}
+                            color={colores[herramienta]}
+                            conDedo={conDedo}
+                            onTrazo={(trazo) => cambiarTinta(page, (antes) => [...antes, trazo])}
+                            onBorrar={(punto, radio) => cambiarTinta(page, (antes) => {
+                                const quedan = borrarEn(antes, punto, radio);
+                                return quedan.length === antes.length ? antes : quedan;
+                            })}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {lapiz && (
+                <div className="tinta-barra" role="toolbar" aria-label="Escribir en la página">
+                    <div className="tinta-fila">
+                        {['boligrafo', 'marcador', 'goma'].map((h) => (
+                            <button
+                                key={h}
+                                type="button"
+                                className={`icon-btn${herramienta === h ? ' on' : ''}`}
+                                onClick={() => setHerramienta(h)}
+                                aria-label={{ boligrafo: 'Bolígrafo', marcador: 'Marcador', goma: 'Goma' }[h]}
+                                aria-pressed={herramienta === h}
+                            >
+                                {h === 'goma' ? <IconEraser size={21} /> : h === 'marcador' ? <IconHighlight size={21} /> : <IconPen size={21} />}
+                            </button>
+                        ))}
+                        <span className="tinta-separa" aria-hidden="true" />
+                        {herramienta !== 'goma' && COLORES_TINTA[herramienta].map((c) => (
+                            <button
+                                key={c}
+                                type="button"
+                                className={`tinta-color${colores[herramienta] === c ? ' on' : ''}`}
+                                style={{ '--tinta': c }}
+                                onClick={() => setColores((antes) => ({ ...antes, [herramienta]: c }))}
+                                aria-label={`Color ${c}`}
+                                aria-pressed={colores[herramienta] === c}
+                            />
+                        ))}
+                        <span className="tinta-hueco" />
+                        <button type="button" className="icon-btn" onClick={deshacer} aria-label="Deshacer">
+                            <IconUndo size={21} />
+                        </button>
+                    </div>
+                    <div className="tinta-fila">
+                        <label className="tinta-dedo">
+                            <input
+                                type="checkbox"
+                                checked={conDedo}
+                                onChange={(event) => {
+                                    setConDedo(event.target.checked);
+                                    ports.storage?.setSetting('tinta-dedo', event.target.checked).catch(() => {});
+                                }}
+                            />
+                            Escribir también con el dedo
+                        </label>
+                        <span className="tinta-hueco" />
+                        {hayTinta(tinta) && (
+                            <button type="button" className="icon-btn" onClick={exportarConTinta} disabled={exportando} aria-label="Compartir el PDF con lo escrito">
+                                <IconShare size={21} />
+                            </button>
+                        )}
+                        <button type="button" className="btn" onClick={() => { setLapiz(false); setChromeVisible(true); }}>
+                            Listo
+                        </button>
+                    </div>
                 </div>
             )}
 
@@ -373,6 +648,33 @@ export default function PdfReaderScreen({
                     <span className="reader-book">{book.name}</span>
                     <span className="reader-chapter">página {page} de {total}</span>
                 </div>
+                {/* Escribir, índice y anotaciones arriba, como en el lector de EPUB:
+                    abajo solo queda cómo se ve la página, y cabe en una fila. */}
+                <button
+                    type="button"
+                    className={`icon-btn${hayTinta(tinta) ? ' on' : ''}`}
+                    onClick={sacarLapiz}
+                    aria-label="Escribir en la página"
+                >
+                    <IconPen size={21} />
+                </button>
+                <button
+                    type="button"
+                    className="icon-btn"
+                    onClick={() => setShowOutline(true)}
+                    aria-label="Índice"
+                    disabled={outline.length === 0}
+                >
+                    <IconList size={22} />
+                </button>
+                <button
+                    type="button"
+                    className={`icon-btn${annotations.length ? ' on' : ''}`}
+                    onClick={() => setShowAnnotations(true)}
+                    aria-label={`Anotaciones (${annotations.length})`}
+                >
+                    <IconHighlight size={22} />
+                </button>
                 <button
                     type="button"
                     className={`icon-btn${pageIsBookmarked ? ' on' : ''}`}
@@ -384,13 +686,13 @@ export default function PdfReaderScreen({
                 </button>
             </header>
 
-            <footer className={`reader-bottom${chromeVisible ? '' : ' hidden'}`}>
+            <footer className={`reader-bottom${chromeVisible && !lapiz ? '' : ' hidden'}`}>
                 <div className="progress-line">
                     <div className="progress-label">
                         <b>Página {page}</b>
                         <span>de {total}</span>
                     </div>
-                    <span className="bar thin chapter"><i style={{ width: `${total ? (page / total) * 100 : 0}%` }} /></span>
+                    <span className="bar thin"><i style={{ width: `${total ? (page / total) * 100 : 0}%` }} /></span>
                 </div>
 
                 <input
@@ -399,19 +701,47 @@ export default function PdfReaderScreen({
                     min={1}
                     max={total || 1}
                     value={page}
-                    onChange={(event) => setPage(Number(event.target.value))}
+                    onChange={(event) => irAPagina(Number(event.target.value))}
                     aria-label="Ir a página"
                 />
 
                 <div className="reader-tools">
-                    <button type="button" className="icon-btn" onClick={() => setScale((s) => Math.max(MIN_SCALE, s - 0.2))} aria-label="Alejar">
+                    {/* En modo lectura, menos y más cambian la letra, no el zoom:
+                        no hay folio que ampliar. */}
+                    <button
+                        type="button"
+                        className="icon-btn"
+                        onClick={() => (modo === 'lectura'
+                            ? setLetra((l) => ({ ...l, fontSize: Math.max(FONT_SIZE_MIN, l.fontSize - 1) }))
+                            : setScale((s) => Math.max(MIN_SCALE, s - 0.2)))}
+                        aria-label={modo === 'lectura' ? 'Letra más pequeña' : 'Alejar'}
+                    >
                         <span style={{ fontSize: 20, fontWeight: 600 }}>−</span>
                     </button>
                     <span className="mono" style={{ fontSize: 'var(--t-tiny)', color: 'var(--text-3)' }}>
-                        {Math.round(scale * 100)}%
+                        {modo === 'lectura' ? `${letra.fontSize} pt` : `${Math.round(scale * 100)}%`}
                     </span>
-                    <button type="button" className="icon-btn" onClick={() => setScale((s) => Math.min(MAX_SCALE, s + 0.2))} aria-label="Acercar">
+                    <button
+                        type="button"
+                        className="icon-btn"
+                        onClick={() => (modo === 'lectura'
+                            ? setLetra((l) => ({ ...l, fontSize: Math.min(FONT_SIZE_MAX, l.fontSize + 1) }))
+                            : setScale((s) => Math.min(MAX_SCALE, s + 0.2)))}
+                        aria-label={modo === 'lectura' ? 'Letra más grande' : 'Acercar'}
+                    >
                         <span style={{ fontSize: 20, fontWeight: 600 }}>+</span>
+                    </button>
+                    <button
+                        type="button"
+                        className={`icon-btn${modo === 'lectura' ? ' on' : ''}`}
+                        onClick={() => {
+                            setSalto({ pagina: page, clave: Date.now() });
+                            setModo((actual) => (actual === 'lectura' ? 'pagina' : 'lectura'));
+                        }}
+                        aria-label={modo === 'lectura' ? 'Ver el folio original' : 'Leer como un libro'}
+                        aria-pressed={modo === 'lectura'}
+                    >
+                        <IconTextSize size={21} />
                     </button>
                     <button
                         type="button"
@@ -421,19 +751,21 @@ export default function PdfReaderScreen({
                     >
                         <IconSun size={21} />
                     </button>
-                    <button
-                        type="button"
-                        className={`icon-btn${flujo === 'scrolled' ? ' on' : ''}`}
-                        onClick={() => setFlujo((modo) => (modo === 'scrolled' ? 'paginated' : 'scrolled'))}
-                        aria-label={flujo === 'scrolled' ? 'Leer por páginas' : 'Leer desplazando'}
-                        aria-pressed={flujo === 'scrolled'}
-                    >
-                        <IconList size={21} />
-                    </button>
+                    {modo !== 'lectura' && (
+                        <button
+                            type="button"
+                            className={`icon-btn${flujo === 'scrolled' ? ' on' : ''}`}
+                            onClick={() => setFlujo((actual) => (actual === 'scrolled' ? 'paginated' : 'scrolled'))}
+                            aria-label={flujo === 'scrolled' ? 'Leer por páginas' : 'Leer desplazando'}
+                            aria-pressed={flujo === 'scrolled'}
+                        >
+                            <IconList size={21} />
+                        </button>
+                    )}
 
                     {/* Recortar márgenes. Solo aparece si hay algo que recortar:
                         un botón que no haría nada es peor que no tenerlo. */}
-                    {recorte && (
+                    {recorte && modo !== 'lectura' && (
                         <button
                             type="button"
                             className={`icon-btn${recortar ? ' on' : ''}`}
@@ -444,32 +776,27 @@ export default function PdfReaderScreen({
                             <IconBook size={21} />
                         </button>
                     )}
-                    <button
-                        type="button"
-                        className="icon-btn"
-                        onClick={() => setShowOutline(true)}
-                        aria-label="Índice"
-                        disabled={outline.length === 0}
-                    >
-                        <IconList size={22} />
-                    </button>
-                    <button
-                        type="button"
-                        className={`icon-btn${annotations.length ? ' on' : ''}`}
-                        onClick={() => setShowAnnotations(true)}
-                        aria-label={`Anotaciones (${annotations.length})`}
-                    >
-                        <IconHighlight size={22} />
-                    </button>
                 </div>
             </footer>
+
+            {posicionRemota && state === 'ready' && Number(posicionRemota.cfi) > 0 && (
+                <PosicionRemotaSheet
+                    posicion={posicionRemota}
+                    donde={`la página ${posicionRemota.cfi}`}
+                    onIr={() => {
+                        irAPagina(Math.min(Number(posicionRemota.cfi), total || 1));
+                        onPosicionRemotaVista?.();
+                    }}
+                    onQuedarse={() => onPosicionRemotaVista?.()}
+                />
+            )}
 
             {showAnnotations && (
                 <AnnotationsPanel
                     bookmarks={annotations}
                     onJump={(cfi) => {
                         const target = Number(cfi);
-                        if (Number.isFinite(target)) setPage(Math.min(Math.max(1, target), total || 1));
+                        if (Number.isFinite(target)) irAPagina(Math.min(Math.max(1, target), total || 1));
                         setShowAnnotations(false);
                     }}
                     onDelete={deleteAnnotation}
@@ -492,7 +819,7 @@ export default function PdfReaderScreen({
                                     type="button"
                                     className={`drawer-item${entry.page === page ? ' current' : ''}`}
                                     style={{ paddingLeft: `${12 + entry.depth * 14}px` }}
-                                    onClick={() => { setPage(entry.page); setShowOutline(false); }}
+                                    onClick={() => { irAPagina(entry.page); setShowOutline(false); }}
                                 >
                                     {entry.title}
                                     <span className="mono drawer-page">{entry.page}</span>

@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { hydrateStoredBook, toStoredBookRecord, getBookSearchIndex, getBookTitleDedupKey } from '../core/bookModel.js';
 import { usePorts } from '../ports/index.js';
 import { importPickedBooks } from './importBooks.js';
+import { progresoReparado } from './escalaProgreso.js';
 
 /**
  * Estado de la biblioteca: carga desde SQLite, importación y mutaciones.
@@ -25,7 +26,11 @@ export const useLibrary = () => {
                 await ports.storage.init();
                 const stored = await ports.storage.listBooks();
                 if (alive) {
-                    setBooks(stored.map(hydrateStoredBook));
+                    // Libros que entraron con el progreso en porcentaje antes de
+                    // arreglar la escala. Ver `escalaProgreso.js`.
+                    const reparados = stored.filter((record) => Number(record.progress) > 1).map(progresoReparado);
+                    if (reparados.length) ports.storage.putBooks(reparados).catch(() => {});
+                    setBooks(stored.map((record) => hydrateStoredBook(progresoReparado(record))));
                     setStatus('ready');
                 }
             } catch (loadError) {
@@ -37,6 +42,39 @@ export const useLibrary = () => {
         };
         load();
         return () => { alive = false; };
+    }, [ports]);
+
+    // La lista viva, para lo que llega de fuera de React en ráfagas —libros por
+    // wifi—: con el estado capturado, el segundo libro de una tanda no vería el
+    // primero y la detección de duplicados fallaría.
+    const booksRef = useRef(books);
+    booksRef.current = books;
+
+    /**
+     * Importa un libro que ya está en el almacenamiento privado (llegado por
+     * wifi, de otra app…). Si ya estaba en la biblioteca, se borra la copia
+     * recién llegada en vez de dejarla huérfana en el disco.
+     *
+     * @returns {Promise<{estado: 'añadido'|'repetido'|'fallo', titulo: string}>}
+     */
+    const importarRecibido = useCallback(async (picked) => {
+        try {
+            const result = await importPickedBooks([picked], booksRef.current);
+            if (result.imported.length) {
+                await ports.storage.putBooks(result.imported);
+                const nuevos = result.imported.map(hydrateStoredBook);
+                booksRef.current = [...nuevos, ...booksRef.current];
+                setBooks((current) => [...nuevos, ...current]);
+                return { estado: 'añadido', titulo: nuevos[0].name };
+            }
+            if (result.duplicates.length) {
+                await ports.filePicker.deleteBookFile(picked.path).catch(() => {});
+                return { estado: 'repetido', titulo: result.duplicates[0].title || picked.name };
+            }
+        } catch {
+            // Se informa abajo como fallo.
+        }
+        return { estado: 'fallo', titulo: picked.name };
     }, [ports]);
 
     const persist = useCallback(async (book) => {
@@ -189,6 +227,7 @@ export const useLibrary = () => {
         updateBook,
         removeBook,
         replaceAll,
+        importarRecibido,
         openExternal,
         setError,
         clearError: () => setError(null),

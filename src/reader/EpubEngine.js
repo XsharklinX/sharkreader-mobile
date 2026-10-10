@@ -207,6 +207,19 @@ export const serializeStyles = (doc, presupuesto = PRESUPUESTO_CSS) => {
  * mucho más ancho que la pantalla, y una página es exactamente el ancho del visor;
  * cuánto se ha desplazado ese iframe dice qué columna se está viendo.
  */
+/**
+ * El texto de un bloque sin lo que ha añadido la app dentro: la traducción
+ * puesta debajo de un párrafo no es del libro, y ni la voz ni Personajes deben
+ * leerla.
+ */
+export const textoPropio = (elemento) => {
+    if (!elemento) return '';
+    if (!elemento.querySelector?.('.sr-traduccion')) return (elemento.textContent || '').trim();
+    const copia = elemento.cloneNode(true);
+    copia.querySelectorAll('.sr-traduccion').forEach((nodo) => nodo.remove());
+    return (copia.textContent || '').trim();
+};
+
 export const pageInChapter = ({ hostLeft, hostWidth, frameLeft, frameWidth }) => {
     if (!hostWidth || !frameWidth) return null;
 
@@ -229,6 +242,22 @@ export const createEpubEngine = () => {
     // Instante del último paso de página. El mapa de posiciones lo mira para no
     // trabajar mientras el usuario está pasando páginas. Ver `hayCalma`.
     let ultimoPaso = 0;
+
+    /**
+     * Ganchos que cambian el **aspecto** del capítulo: fuentes, idioma de
+     * guionado, capitular, puntuación colgada.
+     *
+     * Se guardan para repetirlos en las páginas sombra (`crearSombra`): una
+     * página sombra con otra fuente o sin guionado no sería la misma página, y
+     * al soltar el dedo se vería el salto.
+     */
+    const visuales = [];
+    const registrarVisual = (gancho) => {
+        visuales.push(gancho);
+        rendition?.hooks.content.register(gancho);
+    };
+    /** Los últimos estilos aplicados, para que las sombras nazcan iguales. */
+    let ultimosEstilos = null;
 
     return {
         /**
@@ -270,6 +299,7 @@ export const createEpubEngine = () => {
             });
 
             if (styles) rendition.themes.default(styles);
+            ultimosEstilos = styles || null;
 
             // Los gestos se registran ANTES de pintar nada. El hook de contenido
             // de epub.js solo se ejecuta para los capítulos que se monten a
@@ -418,6 +448,10 @@ export const createEpubEngine = () => {
                         clientX: frameRect.left + event.clientX - host.left,
                         clientY: frameRect.top + event.clientY - host.top,
                         pointerId: event.pointerId,
+                        // El tamaño del contacto: es lo que distingue la yema de
+                        // la palma que sujeta el móvil. Ver `palma.js`.
+                        width: event.width,
+                        height: event.height,
                         cancelable: event.cancelable,
                         touches: event.touches,
                         preventDefault: () => event.preventDefault(),
@@ -447,6 +481,15 @@ export const createEpubEngine = () => {
                 doc.addEventListener('touchmove', (event) => {
                     handlers.onTouchMove?.(event, toLocal);
                 }, { passive: false });
+
+                // El pellizco para la letra necesita saber cuándo hay dos dedos
+                // y cuándo se levantan. Ver `pellizco.js`.
+                doc.addEventListener('touchstart', (event) => {
+                    handlers.onTouchStart?.(event);
+                }, { passive: true });
+                const finToque = (event) => handlers.onTouchEnd?.(event);
+                doc.addEventListener('touchend', finToque, { passive: true });
+                doc.addEventListener('touchcancel', finToque, { passive: true });
             });
         },
 
@@ -459,7 +502,7 @@ export const createEpubEngine = () => {
          */
         injectFonts(css) {
             if (!rendition || !css) return;
-            rendition.hooks.content.register((contents) => {
+            registrarVisual((contents) => {
                 const doc = contents.document;
                 if (doc.getElementById('sr-fonts')) return;
                 const style = doc.createElement('style');
@@ -484,7 +527,7 @@ export const createEpubEngine = () => {
             // llegar a la misma conclusión sería trabajo por nada.
             let resuelto = null;
 
-            rendition.hooks.content.register((contents) => {
+            registrarVisual((contents) => {
                 const doc = contents.document;
                 const html = doc?.documentElement;
                 if (!html) return;
@@ -599,7 +642,7 @@ export const createEpubEngine = () => {
          */
         registerDropCapDetection() {
             if (!rendition) return;
-            rendition.hooks.content.register((contents) => {
+            registrarVisual((contents) => {
                 const doc = contents.document;
                 if (!doc?.body) return;
 
@@ -621,7 +664,7 @@ export const createEpubEngine = () => {
 
         registerHangingPunctuation(enabled) {
             if (!rendition) return;
-            rendition.hooks.content.register((contents) => {
+            registrarVisual((contents) => {
                 const doc = contents.document;
                 doc.querySelectorAll('p, blockquote > p, li').forEach((element) => {
                     element.classList.remove('sr-hang-quote', 'sr-hang-dash');
@@ -875,12 +918,76 @@ export const createEpubEngine = () => {
                         return;
                     }
 
-                    const text = (element.textContent || '').trim();
+                    const text = textoPropio(element);
                     if (text) parts.push(text);
                 });
             });
 
             return parts.join(' ');
+        },
+
+        /**
+         * El texto del capítulo actual **hasta la página que se ve**, incluida.
+         *
+         * Lo usan Personajes y lugares para no contar lo que viene después: lo
+         * de las páginas anteriores del capítulo cae a la izquierda de la
+         * columna visible —o encima, desplazando— y lo de las siguientes, a la
+         * derecha. Se separa por párrafos con saltos de línea, que es lo que
+         * espera `personajes.js` para saber dónde empieza cada frase.
+         */
+        textoHastaAqui() {
+            const contents = [].concat(rendition?.getContents?.() || []);
+            const scrolled = rendition?.settings?.flow === 'scrolled';
+            const stage = scrolled ? container?.getBoundingClientRect() : null;
+            const parts = [];
+
+            contents.forEach((content) => {
+                const doc = content?.document;
+                const view = content?.window;
+                if (!doc || !view) return;
+                const width = view.innerWidth || 0;
+                doc.querySelectorAll('p, li, blockquote, h1, h2, h3, h4, h5, h6, td').forEach((element) => {
+                    const rect = element.getBoundingClientRect();
+                    const yaLeido = scrolled
+                        ? rect.top <= (stage?.bottom ?? (view.innerHeight || 0))
+                        : rect.left <= width;
+                    if (!yaLeido) return;
+                    const text = textoPropio(element);
+                    if (text) parts.push(text);
+                });
+            });
+            return parts.join('\n');
+        },
+
+        /**
+         * Ejecuta algo sobre el documento de cada capítulo: el que se ve ahora y
+         * los que se monten después. Lo usan las glosas de vocabulario, que se
+         * pueden encender con el libro ya abierto.
+         *
+         * @param {(doc: Document) => void} procesar
+         */
+        procesarCapitulos(procesar) {
+            if (!rendition) return;
+            rendition.hooks.content.register((contents) => procesar(contents.document));
+            [].concat(rendition.getContents?.() || []).forEach((content) => {
+                if (content?.document) procesar(content.document);
+            });
+        },
+
+        /** Los documentos de los capítulos montados ahora mismo. */
+        documentos() {
+            return [].concat(rendition?.getContents?.() || []).map((c) => c?.document).filter(Boolean);
+        },
+
+        /** El capítulo de una posición: su href en el spine y su índice. */
+        capituloDe(cfi) {
+            if (!book || !cfi) return null;
+            try {
+                const item = book.spine.get(cfi);
+                return item ? { href: item.href, indice: item.index } : null;
+            } catch {
+                return null;
+            }
         },
 
         /**
@@ -991,10 +1098,86 @@ export const createEpubEngine = () => {
                 const element = doc.elementFromPoint(x, y);
                 if (!element) continue;
                 const block = element.closest?.('p, li, blockquote, h1, h2, h3, h4, h5, h6, td');
-                const text = (block?.textContent || '').trim();
+                const text = textoPropio(block);
                 if (text) return text;
             }
             return '';
+        },
+
+        /**
+         * El párrafo que hay bajo un punto **del contenedor**.
+         *
+         * Los gestos llegan ya traducidos al espacio del contenedor (ver
+         * `toLocal`), pero `elementFromPoint` del iframe quiere coordenadas del
+         * iframe, que en modo paginado está desplazado varias columnas. Aquí se
+         * deshace ese desplazamiento.
+         */
+        parrafoEnPunto(x, y) {
+            const host = container?.getBoundingClientRect();
+            for (const content of [].concat(rendition?.getContents?.() || [])) {
+                const doc = content?.document;
+                const frame = content?.window?.frameElement?.getBoundingClientRect();
+                if (!doc?.elementFromPoint || !frame || !host) continue;
+                const element = doc.elementFromPoint(x + host.left - frame.left, y + host.top - frame.top);
+                const bloque = element?.closest?.('p, li, blockquote, h1, h2, h3, h4, h5, h6, td');
+                if (bloque && bloque.textContent.trim()) return bloque;
+            }
+            return null;
+        },
+
+        /**
+         * Pone o quita la traducción de un párrafo, justo debajo de él.
+         *
+         * Se inserta en el propio capítulo y no en una hoja aparte: el sentido
+         * de leer a dos idiomas es ver el original y la traducción juntos, en la
+         * página. Tocar otra vez el párrafo —o la traducción— la quita.
+         *
+         * **Va dentro del párrafo, al final**, como bloque, y no como otro
+         * párrafo detrás. Las posiciones del libro (CFI) cuentan los nodos del
+         * capítulo: un párrafo nuevo entre dos movería el índice de todos los
+         * siguientes, y la posición guardada y los subrayados de ese capítulo
+         * apuntarían a otro sitio. Un hijo añadido al final no mueve ninguno.
+         *
+         * @param {number} x
+         * @param {number} y
+         * @param {(texto: string) => Promise<string>} traducir
+         * @returns {boolean} si había un párrafo en ese punto
+         */
+        alternarTraduccion(x, y, traducir) {
+            const bloque = this.parrafoEnPunto(x, y);
+            if (!bloque) return false;
+            const puesta = [...bloque.children].find((hijo) => hijo.classList.contains('sr-traduccion'));
+            if (puesta) {
+                puesta.remove();
+                return true;
+            }
+            const doc = bloque.ownerDocument;
+            const original = textoPropio(bloque);
+            if (!doc.getElementById('sr-traduccion-css')) {
+                const estilo = doc.createElement('style');
+                estilo.id = 'sr-traduccion-css';
+                // Más pequeña, en cursiva y con una raya a la izquierda: se
+                // distingue del original de un vistazo sin competir con él.
+                estilo.textContent = `.sr-traduccion{display:block;font-style:italic;font-size:.9em;opacity:.78;
+                    text-indent:0;margin:.3em 0 .5em;padding-left:.7em;
+                    border-left:2px solid currentColor;}`;
+                doc.head?.appendChild(estilo);
+            }
+            const nota = doc.createElement('span');
+            nota.className = 'sr-traduccion';
+            nota.setAttribute('lang', '');
+            nota.textContent = 'Traduciendo…';
+            bloque.appendChild(nota);
+            Promise.resolve(traducir(original))
+                .then((traducido) => {
+                    if (traducido) nota.textContent = traducido;
+                    else nota.remove();
+                })
+                .catch((error) => {
+                    nota.textContent = error?.message || 'No se pudo traducir.';
+                    setTimeout(() => nota.remove(), 3500);
+                });
+            return true;
         },
 
         /** Texto seleccionado ahora mismo dentro del capítulo visible. */
@@ -1005,6 +1188,24 @@ export const createEpubEngine = () => {
                 if (selected.trim()) return selected.trim();
             }
             return '';
+        },
+
+        /**
+         * El párrafo donde está un rango del libro, sin lo añadido por la app.
+         *
+         * Para guardar una palabra con la frase en que apareció: el vocabulario
+         * se repasa mejor con su contexto.
+         */
+        parrafoDeRango(cfiRange) {
+            try {
+                const rango = rendition?.getRange?.(cfiRange);
+                const nodo = rango?.startContainer;
+                const elemento = nodo?.nodeType === 1 ? nodo : nodo?.parentElement;
+                const bloque = elemento?.closest?.('p, li, blockquote, td, dd, h1, h2, h3, h4, h5, h6');
+                return textoPropio(bloque || elemento);
+            } catch {
+                return '';
+            }
         },
 
         clearSelection() {
@@ -1135,6 +1336,7 @@ export const createEpubEngine = () => {
             });
 
             rendition.themes.default(styles);
+            ultimosEstilos = styles;
 
             // epub.js no repinta el iframe al cambiar el tema por sí solo.
             const current = rendition.currentLocation();
@@ -1242,6 +1444,199 @@ export const createEpubEngine = () => {
                 onProgress?.(results.length);
             }
             return results;
+        },
+
+        /**
+         * Una página sombra: la siguiente o la anterior, ya pintada.
+         *
+         * ## Por qué
+         *
+         * epub.js mantiene **una** página viva. Mientras se arrastra la hoja, la
+         * siguiente todavía no existe: debajo solo hay fondo, y cualquier efecto
+         * de paso de página tiene que fingirla. Ese fingir —fotos de pantalla,
+         * copias del capítulo— es lo que ha ido rompiendo el pliegue.
+         *
+         * Una sombra es otra `Rendition` del **mismo** libro (sin volver a
+         * descomprimirlo) colocada detrás de la página real, siempre una página
+         * por delante o por detrás. Lleva los mismos estilos, ganchos visuales y
+         * subrayados, así que es exactamente la página que se va a ver.
+         *
+         * Se crea con `new ePub.Rendition` y no con `book.renderTo`: este último
+         * sustituye `book.rendition`, y la página real dejaría de ser la del libro.
+         *
+         * @param {HTMLElement} element contenedor con la misma geometría que el real
+         */
+        crearSombra(element) {
+            if (!book || !rendition || !element) return null;
+            const ajustes = rendition.settings || {};
+            const sombra = new ePub.Rendition(book, {
+                flow: 'paginated',
+                manager: 'default',
+                width: '100%',
+                height: '100%',
+                spread: ajustes.spread || 'none',
+                minSpreadWidth: ajustes.minSpreadWidth,
+                allowScriptedContent: false,
+                snap: false,
+            });
+            sombra.attachTo(element);
+            visuales.forEach((gancho) => sombra.hooks.content.register(gancho));
+            if (ultimosEstilos) sombra.themes.default(ultimosEstilos);
+
+            const marcas = new Map();
+            let turno = 0;
+            let colocadaEn = null;
+
+            return {
+                /**
+                 * Se pone una página por delante (`+1`) o por detrás (`-1`) de
+                 * `cfi`. Si mientras tanto llega otra petición, gana la nueva.
+                 *
+                 * @returns {Promise<boolean>} si quedó colocada para ese cfi
+                 */
+                async colocar(cfi, sentido) {
+                    const mio = ++turno;
+                    colocadaEn = null;
+                    try {
+                        await sombra.display(cfi);
+                        if (mio !== turno) return false;
+                        await (sentido > 0 ? sombra.next() : sombra.prev());
+                        if (mio !== turno) return false;
+                        colocadaEn = cfi;
+                        return true;
+                    } catch {
+                        return false;
+                    }
+                },
+                /** ¿Está lista para la página que hay ahora en pantalla? */
+                listaPara: (cfi) => Boolean(cfi) && colocadaEn === cfi,
+                olvidar() { colocadaEn = null; turno += 1; },
+                estilos(styles) {
+                    [].concat(sombra.getContents?.() || []).forEach((contents) => {
+                        contents?.document?.querySelectorAll('[id^="epubjs-inserted-css"]').forEach((hoja) => hoja.remove());
+                    });
+                    sombra.themes.default(styles);
+                    colocadaEn = null;
+                },
+                resize() {
+                    try { sombra.resize(); } catch { /* aún sin vista */ }
+                    colocadaEn = null;
+                },
+                spread(value, minWidth) {
+                    try { sombra.spread(value, minWidth); } catch { /* aún sin vista */ }
+                    colocadaEn = null;
+                },
+                /** Los subrayados también se ven en la sombra. */
+                marcar(cfi, color, estilo = 'fill') {
+                    if (!cfi || marcas.has(cfi)) return;
+                    try {
+                        // Los mismos valores que `addHighlight`: si la sombra
+                        // pintara el subrayado distinto, se vería el salto.
+                        if (estilo === 'fill') {
+                            sombra.annotations.highlight(cfi, {}, null, `sr-hl-${color}`,
+                                { fill: color, 'fill-opacity': '0.32', 'mix-blend-mode': 'multiply' });
+                        } else {
+                            sombra.annotations.underline(cfi, {}, null, `sr-hl-${estilo}`,
+                                { stroke: color, 'stroke-width': '2', 'stroke-opacity': '0.9' });
+                        }
+                        marcas.set(cfi, estilo);
+                    } catch { /* un CFI que no es de este capítulo se pinta al llegar */ }
+                },
+                desmarcar(cfi) {
+                    const estilo = marcas.get(cfi);
+                    if (!estilo) return;
+                    try { sombra.annotations.remove(cfi, estilo === 'fill' ? 'highlight' : 'underline'); } catch { /* ya no estaba */ }
+                    marcas.delete(cfi);
+                },
+                destroy() {
+                    turno += 1;
+                    try { sombra.destroy(); } catch { /* ya destruida */ }
+                },
+            };
+        },
+
+        /**
+         * La paginación de la edición impresa, como posiciones de este libro.
+         *
+         * epub.js lee la lista (`page-list` de EPUB 3 o `pageList` del NCX) pero
+         * solo con `href` —fichero y ancla—, que no sirve para saber en qué
+         * página cae una posición. Aquí se abre cada capítulo con páginas, se
+         * busca el ancla y se saca su CFI. Una vez por libro: quien llama lo
+         * guarda.
+         *
+         * @returns {Promise<Array<{cfi: string, pagina: string}>>} vacío si el libro no la trae
+         */
+        async paginacionImpresa() {
+            if (!book) return [];
+            const lista = (await book.loaded.pageList.catch(() => null))?.pageList || [];
+            if (!lista.length) return [];
+
+            const porFichero = new Map();
+            for (const item of lista) {
+                const [fichero, ancla] = String(item.href || '').split('#');
+                if (!fichero) continue;
+                if (!porFichero.has(fichero)) porFichero.set(fichero, []);
+                porFichero.get(fichero).push({ ancla, pagina: item.page });
+            }
+
+            const salida = [];
+            for (const seccion of book.spine.spineItems || []) {
+                if (destroyed) return [];
+                const entradas = [...porFichero.entries()].find(([fichero]) =>
+                    seccion.href?.endsWith(fichero.replace(/^(\.\.\/)+/, '')));
+                if (!entradas) continue;
+                try {
+                    await seccion.load(book.load.bind(book));
+                    for (const { ancla, pagina } of entradas[1]) {
+                        const elemento = ancla ? seccion.document.getElementById(decodeURIComponent(ancla)) : seccion.document.body;
+                        if (elemento) salida.push({ cfi: seccion.cfiFromElement(elemento), pagina: String(pagina) });
+                    }
+                } catch {
+                    // Un capítulo ilegible se queda sin números; el resto, no.
+                } finally {
+                    seccion.unload();
+                }
+                // Entre capítulo y capítulo, aire: esto corre con el libro abierto.
+                await new Promise((listo) => { setTimeout(listo, SECTION_PAUSE_MS); });
+            }
+            return salida;
+        },
+
+        /** Compara dos posiciones: negativo si `a` va antes que `b`. */
+        compararPosiciones(a, b) {
+            try { return new EpubCFI().compare(a, b); } catch { return 0; }
+        },
+
+        /** La posición exacta de la página que se ve, para colocar las sombras. */
+        posicionActual() {
+            try { return rendition?.currentLocation?.()?.start?.cfi || null; } catch { return null; }
+        },
+
+        /**
+         * La posición de un trozo de texto dentro de **un** capítulo.
+         *
+         * Para saltar a una frase concreta —la primera aparición de un
+         * personaje— ya se sabe en qué capítulo está: recorrer el libro entero
+         * con `search` tardaría segundos para llegar al mismo sitio.
+         *
+         * @returns {Promise<string|null>} CFI, o null si no se encuentra
+         */
+        async buscarEnCapitulo(href, texto) {
+            if (!book || !href || !texto) return null;
+            const item = book.spine.get(href);
+            if (!item) return null;
+            try {
+                await item.load(book.load.bind(book));
+                // `find` busca la cadena tal cual: con un trozo corto del
+                // principio de la frase basta y se evitan diferencias de
+                // espacios o de guiones al final.
+                const aguja = texto.trim().slice(0, 48);
+                return item.find(aguja)?.[0]?.cfi || null;
+            } catch {
+                return null;
+            } finally {
+                item.unload();
+            }
         },
 
         destroy() {

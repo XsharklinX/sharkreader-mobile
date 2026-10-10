@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Tráfico sin cifrar permitido.
+
+    Desde Android 9 las apps no pueden usar `http://` salvo que lo declaren.
+    SharkReader lo necesita para hablar con equipos de la red de casa, que no
+    tienen certificado: SharkReader de escritorio (posición y notas por la wifi),
+    servidores de Calibre y catálogos OPDS caseros, y WebDAV en un NAS.
+
+    Android no permite limitar esto a direcciones locales por rango, así que se
+    permite en general. La app no hace por su cuenta ninguna petición a internet
+    sin cifrar: OpenLibrary y el diccionario van por https.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

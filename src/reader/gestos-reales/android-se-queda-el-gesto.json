@@ -1,0 +1,346 @@
+{
+ "nombre": "android-se-queda-el-gesto",
+ "origen": "fabricada con valores típicos de Android (temblor, eventos intercalados); sustituir por una grabada en el teléfono",
+ "ancho": 400,
+ "alto": 800,
+ "esperado": [],
+ "eventos": [
+  {
+   "t": 0,
+   "tipo": "onPointerDown",
+   "x": 300,
+   "y": 400,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 8,
+   "tipo": "onPointerMove",
+   "x": 296,
+   "y": 399,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 8,
+   "tipo": "onTouchMove",
+   "x": 296,
+   "y": 399,
+   "dedos": 1,
+   "toques": [
+    [
+     296,
+     399
+    ]
+   ]
+  },
+  {
+   "t": 16,
+   "tipo": "onPointerMove",
+   "x": 292,
+   "y": 400,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 16,
+   "tipo": "onTouchMove",
+   "x": 292,
+   "y": 400,
+   "dedos": 1,
+   "toques": [
+    [
+     292,
+     400
+    ]
+   ]
+  },
+  {
+   "t": 24,
+   "tipo": "onPointerMove",
+   "x": 287,
+   "y": 400,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 24,
+   "tipo": "onTouchMove",
+   "x": 287,
+   "y": 400,
+   "dedos": 1,
+   "toques": [
+    [
+     287,
+     400
+    ]
+   ]
+  },
+  {
+   "t": 32,
+   "tipo": "onPointerMove",
+   "x": 283,
+   "y": 400,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 32,
+   "tipo": "onTouchMove",
+   "x": 283,
+   "y": 400,
+   "dedos": 1,
+   "toques": [
+    [
+     283,
+     400
+    ]
+   ]
+  },
+  {
+   "t": 40,
+   "tipo": "onPointerMove",
+   "x": 279,
+   "y": 402,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 40,
+   "tipo": "onTouchMove",
+   "x": 279,
+   "y": 402,
+   "dedos": 1,
+   "toques": [
+    [
+     279,
+     402
+    ]
+   ]
+  },
+  {
+   "t": 48,
+   "tipo": "onPointerMove",
+   "x": 276,
+   "y": 400,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 48,
+   "tipo": "onTouchMove",
+   "x": 276,
+   "y": 400,
+   "dedos": 1,
+   "toques": [
+    [
+     276,
+     400
+    ]
+   ]
+  },
+  {
+   "t": 56,
+   "tipo": "onPointerMove",
+   "x": 273,
+   "y": 401,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 56,
+   "tipo": "onTouchMove",
+   "x": 273,
+   "y": 401,
+   "dedos": 1,
+   "toques": [
+    [
+     273,
+     401
+    ]
+   ]
+  },
+  {
+   "t": 64,
+   "tipo": "onPointerMove",
+   "x": 267,
+   "y": 402,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 64,
+   "tipo": "onTouchMove",
+   "x": 267,
+   "y": 402,
+   "dedos": 1,
+   "toques": [
+    [
+     267,
+     402
+    ]
+   ]
+  },
+  {
+   "t": 72,
+   "tipo": "onPointerMove",
+   "x": 263,
+   "y": 403,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 72,
+   "tipo": "onTouchMove",
+   "x": 263,
+   "y": 403,
+   "dedos": 1,
+   "toques": [
+    [
+     263,
+     403
+    ]
+   ]
+  },
+  {
+   "t": 80,
+   "tipo": "onPointerMove",
+   "x": 259,
+   "y": 403,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 80,
+   "tipo": "onTouchMove",
+   "x": 259,
+   "y": 403,
+   "dedos": 1,
+   "toques": [
+    [
+     259,
+     403
+    ]
+   ]
+  },
+  {
+   "t": 88,
+   "tipo": "onPointerMove",
+   "x": 255,
+   "y": 404,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 88,
+   "tipo": "onTouchMove",
+   "x": 255,
+   "y": 404,
+   "dedos": 1,
+   "toques": [
+    [
+     255,
+     404
+    ]
+   ]
+  },
+  {
+   "t": 96,
+   "tipo": "onPointerMove",
+   "x": 253,
+   "y": 406,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 96,
+   "tipo": "onTouchMove",
+   "x": 253,
+   "y": 406,
+   "dedos": 1,
+   "toques": [
+    [
+     253,
+     406
+    ]
+   ]
+  },
+  {
+   "t": 104,
+   "tipo": "onPointerMove",
+   "x": 248,
+   "y": 404,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 104,
+   "tipo": "onTouchMove",
+   "x": 248,
+   "y": 404,
+   "dedos": 1,
+   "toques": [
+    [
+     248,
+     404
+    ]
+   ]
+  },
+  {
+   "t": 112,
+   "tipo": "onPointerMove",
+   "x": 244,
+   "y": 404,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 112,
+   "tipo": "onTouchMove",
+   "x": 244,
+   "y": 404,
+   "dedos": 1,
+   "toques": [
+    [
+     244,
+     404
+    ]
+   ]
+  },
+  {
+   "t": 120,
+   "tipo": "onPointerMove",
+   "x": 241,
+   "y": 405,
+   "w": 14,
+   "h": 17
+  },
+  {
+   "t": 120,
+   "tipo": "onTouchMove",
+   "x": 241,
+   "y": 405,
+   "dedos": 1,
+   "toques": [
+    [
+     241,
+     405
+    ]
+   ]
+  },
+  {
+   "t": 124,
+   "tipo": "onPointerCancel",
+   "x": 240,
+   "y": 405
+  },
+  {
+   "t": 125,
+   "tipo": "onTouchEnd",
+   "x": 240,
+   "y": 405,
+   "dedos": 0,
+   "toques": []
+  }
+ ]
+}

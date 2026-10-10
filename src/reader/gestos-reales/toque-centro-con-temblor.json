@@ -1,0 +1,41 @@
+{
+ "nombre": "toque-centro-con-temblor",
+ "origen": "fabricada con valores típicos de Android (temblor, eventos intercalados); sustituir por una grabada en el teléfono",
+ "ancho": 400,
+ "alto": 800,
+ "esperado": [
+  "chrome"
+ ],
+ "eventos": [
+  {
+   "t": 0,
+   "tipo": "onPointerDown",
+   "x": 205,
+   "y": 380,
+   "w": 14,
+   "h": 16
+  },
+  {
+   "t": 30,
+   "tipo": "onPointerMove",
+   "x": 206,
+   "y": 379,
+   "w": 14,
+   "h": 16
+  },
+  {
+   "t": 140,
+   "tipo": "onPointerUp",
+   "x": 204,
+   "y": 382
+  },
+  {
+   "t": 141,
+   "tipo": "onTouchEnd",
+   "x": 205,
+   "y": 380,
+   "dedos": 0,
+   "toques": []
+  }
+ ]
+}

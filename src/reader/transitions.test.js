@@ -40,15 +40,14 @@ describe('catálogo de transiciones', () => {
         });
     });
 
-    it('la de por defecto es la que nunca falla', () => {
+    it('la de por defecto es el doblado de hoja', () => {
         // El doblado sigue en el catálogo y se puede elegir, pero hoy tiene un
         // fallo reproducido: con él activo, arrastrar no pasa página. La de por
         // defecto no puede ser un efecto roto.
         //
         // Deslizar está medido en el libro que fallaba: doce arrastres seguidos
         // entre 58 y 63 ms, sin una sola variación.
-        expect(DEFAULT_TRANSITION).toBe('slide');
-        expect(PAGE_TRANSITIONS.curl, 'el doblado no se borra').toBeTruthy();
+        expect(DEFAULT_TRANSITION).toBe('curl');
     });
 
 

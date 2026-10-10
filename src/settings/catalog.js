@@ -24,6 +24,12 @@ export const CATEGORIES = [
             { id: 'sharky', label: 'Sharky', keywords: 'mascota tiburón comentarios' },
             { id: 'volume-keys', label: 'Teclas de volumen', keywords: 'botones pasar página físicas' },
             { id: 'keep-awake', label: 'Mantener la pantalla encendida', keywords: 'apagar bloqueo suspensión' },
+            { id: 'hold-to-flip', label: 'Mantén el borde para hojear', keywords: 'pasar muchas páginas rápido avanzar saltar' },
+            { id: 'light-comfort', label: 'Adaptar la página a la luz', keywords: 'sensor brillo automático noche oscuridad sol tema' },
+            { id: 'do-not-disturb', label: 'No molestar mientras lees', keywords: 'notificaciones silencio concentración interrupciones avisos dnd' },
+            { id: 'translate-tap', label: 'Traducir al tocar un párrafo', keywords: 'idioma inglés bilingüe traducción aprender' },
+            { id: 'vocab-help', label: 'Ayudas de vocabulario', keywords: 'palabras difíciles glosas nivel word wise aprender idioma' },
+            { id: 'translate-target', label: 'Idioma de traducción', keywords: 'traducir al español inglés' },
         ],
     },
     {
@@ -42,8 +48,10 @@ export const CATEGORIES = [
     {
         id: 'sync',
         label: 'Sincronización',
-        summary: 'Tu servidor WebDAV',
+        summary: 'Tu ordenador o tu servidor WebDAV',
         items: [
+            // El ordenador va primero: es la forma de sincronizar que no pide nada.
+            { id: 'desktop-pair', label: 'SharkReader en el ordenador', keywords: 'escritorio pc portátil emparejar wifi continuar posición' },
             { id: 'sync-server', label: 'Servidor', keywords: 'webdav nextcloud owncloud nube url dirección' },
             { id: 'sync-user', label: 'Usuario y contraseña', keywords: 'credenciales acceso login' },
             { id: 'sync-auto', label: 'Sincronizar al abrir', keywords: 'automático arranque' },
@@ -56,10 +64,13 @@ export const CATEGORIES = [
         label: 'Biblioteca y datos',
         summary: 'Backup, exportar e importar',
         items: [
+            { id: 'import-other-app', label: 'Traer de otra app', keywords: 'kindle koreader clippings subrayados migrar cambiar importar notas' },
+            { id: 'library-tidy', label: 'Ordenar la biblioteca', keywords: 'portadas autores títulos series arreglar metadatos openlibrary reparar' },
             { id: 'backup-import', label: 'Importar backup', keywords: 'restaurar escritorio json zip traer' },
             { id: 'backup-export', label: 'Exportar backup', keywords: 'copia seguridad guardar json' },
             { id: 'export-notes', label: 'Exportar anotaciones', keywords: 'subrayados notas markdown obsidian' },
             { id: 'export-vocab', label: 'Exportar vocabulario', keywords: 'palabras diccionario markdown' },
+            { id: 'export-anki', label: 'Tarjetas para Anki', keywords: 'ankidroid flashcards repasar estudiar memorizar vocabulario mazo' },
             { id: 'storage', label: 'Almacenamiento', keywords: 'espacio megas ocupado libros caché limpiar' },
         ],
     },

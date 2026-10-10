@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Diapositiva de la ficha</title>
+<link rel="stylesheet" href="/src/fonts/fonts.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=block">
+<style>
+/* Una imagen de la ficha de Google Play, 1080×1920. Los colores son los de la
+   app (tokens.css): el azul noche de fondo y el celeste de acento. */
+html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; }
+body {
+    background:
+        radial-gradient(ellipse 900px 620px at 50% 0%, rgba(56, 189, 248, 0.20), transparent 70%),
+        radial-gradient(ellipse 700px 500px at 50% 100%, rgba(2, 132, 199, 0.16), transparent 70%),
+        #0B1222;
+    color: #F1F5F9;
+    font-family: Roboto, 'Segoe UI', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.marca {
+    margin-top: 112px;
+    font-size: 26px;
+    font-weight: 500;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: #38BDF8;
+}
+h1 {
+    margin: 26px 72px 0;
+    font-family: Literata, Georgia, serif;
+    font-weight: 400;
+    font-size: 74px;
+    line-height: 1.08;
+    text-align: center;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+}
+p {
+    margin: 22px 110px 0;
+    font-size: 34px;
+    line-height: 1.35;
+    color: #A5B4C8;
+    text-align: center;
+    text-wrap: balance;
+}
+.telefono {
+    position: absolute;
+    left: 50%;
+    bottom: -40px;
+    transform: translateX(-50%);
+    width: 760px;
+    padding: 16px;
+    border-radius: 72px;
+    background: linear-gradient(160deg, #2A3A52, #121B2C 45%, #1C2840);
+    box-shadow:
+        0 0 0 2px rgba(255, 255, 255, 0.06) inset,
+        0 50px 120px rgba(0, 0, 0, 0.55),
+        0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+.telefono img {
+    display: block;
+    width: 100%;
+    border-radius: 58px;
+}
+</style>
+</head>
+<body>
+<div class="marca">SharkReader</div>
+<h1 id="titulo"></h1>
+<p id="linea"></p>
+<div class="telefono"><img id="pantalla" alt=""></div>
+<script>
+window.montar = async (titulo, linea, imagen) => {
+    document.getElementById('titulo').textContent = titulo;
+    document.getElementById('linea').textContent = linea;
+    const img = document.getElementById('pantalla');
+    await new Promise((ok) => { img.onload = ok; img.src = imagen; });
+    await document.fonts.ready;
+    window.__montada = true;
+};
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 {
   "name": "sharkreader-mobile",
-  "version": "1.8.0",
+  "version": "1.0.0",
   "description": "SharkReader para Android — lector de EPUB y PDF local-first, sin cuenta y sin nube",
   "author": "David Bonilla",
   "license": "ISC",
@@ -16,13 +16,14 @@
     "sync": "pnpm build && cap sync android",
     "android": "pnpm sync && cap open android",
     "android:run": "pnpm sync && cap run android",
-    "apk:debug": "pnpm sync && cd android && .\\gradlew.bat assembleDebug",
-    "apk:release": "pnpm sync && cd android && .\\gradlew.bat assembleRelease",
-    "aab:release": "pnpm sync && cd android && .\\gradlew.bat bundleRelease",
+    "apk:debug": "node scripts/fetch-sherpa.mjs && pnpm sync && cd android && .\\gradlew.bat assembleDebug",
+    "apk:release": "node scripts/fetch-sherpa.mjs && pnpm sync && cd android && .\\gradlew.bat assembleRelease",
+    "aab:release": "node scripts/fetch-sherpa.mjs && pnpm sync && cd android && .\\gradlew.bat bundleRelease",
     "core:diff": "node scripts/core-diff.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "keystore": "node scripts/create-keystore.mjs",
-    "fonts": "node scripts/fetch-fonts.mjs"
+    "fonts": "node scripts/fetch-fonts.mjs",
+    "sherpa": "node scripts/fetch-sherpa.mjs"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "^7.0.3",
@@ -40,7 +41,9 @@
     "epubjs": "^0.3.93",
     "jszip": "^3.10.1",
     "mammoth": "^1.12.0",
+    "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.6.205",
+    "qrcode-generator": "2.0.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
   },

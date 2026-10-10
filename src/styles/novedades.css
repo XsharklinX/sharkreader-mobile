@@ -1,0 +1,718 @@
+/* Estilos de las funciones de la tanda «diferenciarse»: ordenar la biblioteca,
+ * PDF en modo lectura, viñetas, luz, wifi, emparejado, migración, personajes,
+ * traducción y glosas.
+ *
+ * Van en su propio fichero por lo mismo que `reader-chrome.css`: `app.css` ya es
+ * demasiado largo para encontrar nada, y así cada bloque se puede leer junto a
+ * la función que pinta. Todo sale de los tokens de `tokens.css`. */
+
+/* ── Páginas sombra ────────────────────────────────────────────────────── */
+
+/* La página real es opaca: tapa las sombras hasta que se mueve. El grano del
+   papel va por encima de las dos (z 3), así que no se pierde. */
+.reader-viewport { background: var(--reader-bg); }
+
+/* Las sombras: misma geometría que la real (heredan `.reader-viewport`), por
+   debajo de ella, sin gestos y sin transiciones propias. Cuál de las dos queda
+   delante lo decide el gesto (`elevarSombra`). */
+.reader-viewport.sombra {
+    z-index: 1;
+    pointer-events: none;
+    transition: none;
+}
+
+/* El pliegue en la GPU ocupa lo mismo que la hoja y va justo encima de ella
+   (la hoja es z 2; el grano, z 3, sigue por encima de los dos). */
+.pliegue-gl {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* Hojear: el contador, en el centro y grande, que es lo que se mira con el
+   dedo quieto en el borde. */
+.hojeo-aviso {
+    position: absolute;
+    left: 50%;
+    top: 42%;
+    transform: translate(-50%, -50%);
+    z-index: 7;
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    min-width: 150px;
+    padding: var(--sp-3) var(--sp-5);
+    border-radius: var(--r-lg);
+    background: rgba(10, 15, 26, 0.86);
+    backdrop-filter: blur(10px);
+    color: #F1F5F9;
+    pointer-events: none;
+}
+
+.hojeo-aviso b { font-family: var(--font-title); font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.hojeo-aviso span { font-size: var(--t-small); color: #CBD5E1; max-width: 60vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hojeo-aviso small { font-size: var(--t-tiny); color: #94A3B8; }
+
+/* La sugerencia del modo una mano: abajo, donde está el pulgar que la va a
+   responder, y por encima de la línea de estado. */
+.mano-aviso {
+    position: absolute;
+    left: var(--sp-3);
+    right: var(--sp-3);
+    bottom: calc(var(--safe-bottom) + 40px);
+    z-index: 8;
+    display: grid;
+    gap: var(--sp-3);
+    padding: var(--sp-4);
+    border-radius: var(--r-lg);
+    background: var(--sf-1);
+    border: 1px solid var(--line-strong);
+    color: var(--text);
+    animation: fade-in 0.25s var(--ease);
+}
+
+.mano-texto { font-size: var(--t-small); line-height: 1.5; }
+.mano-botones { display: flex; gap: var(--sp-2); }
+.mano-botones .btn { flex: 1; }
+
+/* ── Ordenar la biblioteca ─────────────────────────────────────────────── */
+
+.ordenar { gap: var(--sp-3); }
+
+.ordenar-cuenta {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--sp-1);
+    font-size: var(--t-body);
+}
+
+.ordenar-cuenta b {
+    font-family: var(--font-title);
+    font-variant-numeric: tabular-nums;
+    min-width: 2.2ch;
+    display: inline-block;
+}
+
+.ordenar-nota {
+    margin: 0;
+    font-size: var(--t-tiny);
+    color: var(--text-3);
+    line-height: 1.5;
+}
+
+.ordenar-progreso {
+    display: grid;
+    gap: var(--sp-3);
+    padding-block: var(--sp-4);
+    font-size: var(--t-small);
+    color: var(--text-2);
+}
+
+/* La lista es lo único que desplaza: la hoja no, por lo que cuenta `.sheet`. */
+.ordenar-lista {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    gap: var(--sp-2);
+    align-content: start;
+}
+
+.ordenar-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3);
+    background: var(--sf-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    color: var(--text);
+    text-align: left;
+    min-height: var(--touch);
+}
+
+.ordenar-item.on { border-color: var(--accent); }
+
+.ordenar-check {
+    width: 20px;
+    height: 20px;
+    border-radius: var(--r-sm);
+    border: 1.5px solid var(--line-strong);
+    display: grid;
+    place-items: center;
+    flex: none;
+    color: var(--accent-ink);
+}
+
+.ordenar-item.on .ordenar-check { background: var(--accent); border-color: var(--accent); }
+
+.ordenar-txt { flex: 1; min-width: 0; display: grid; gap: 2px; }
+
+.ordenar-antes {
+    font-size: var(--t-tiny);
+    color: var(--text-3);
+    text-decoration: line-through;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ordenar-despues {
+    font-size: var(--t-small);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ordenar-motivos { font-size: var(--t-micro); color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; }
+
+.ordenar-portada {
+    width: 34px;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    border-radius: var(--r-sm);
+    flex: none;
+    background: var(--sf-3);
+}
+
+/* ── Recibir libros por wifi ───────────────────────────────────────────── */
+
+.recibir {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+}
+
+.recibir-cabecera {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    border-bottom: 1px solid var(--line);
+}
+
+.recibir-cuerpo {
+    padding: var(--sp-5) var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-5);
+}
+
+/* El QR y la dirección son las dos formas de llegar a la misma página: van
+   juntos, el QR con su margen blanco, que es el que necesitan las cámaras. */
+.recibir-codigo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-4);
+    text-align: center;
+}
+
+.codigo-qr { display: block; border-radius: var(--r-md); }
+
+.recibir-pasos { display: grid; gap: var(--sp-1); }
+.recibir-paso { font-size: var(--t-small); color: var(--text-2); }
+
+.recibir-direccion {
+    font-family: var(--font-mono);
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 0.01em;
+    user-select: all;
+    -webkit-user-select: all;
+    overflow-wrap: anywhere;
+}
+
+.recibir-nota {
+    margin: 0;
+    font-size: var(--t-tiny);
+    color: var(--text-3);
+    line-height: 1.55;
+    text-align: center;
+}
+
+.recibir-lista { display: grid; gap: var(--sp-2); }
+.recibir-lista ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
+
+.recibir-titulo {
+    margin: 0;
+    font-family: var(--font-title);
+    font-size: var(--t-heading);
+    font-weight: 600;
+}
+
+.recibir-libro {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr);
+    column-gap: var(--sp-2);
+    align-items: center;
+    padding: var(--sp-3);
+    background: var(--sf-1);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+}
+
+.recibir-marca {
+    grid-row: span 2;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--sf-3);
+    color: var(--accent-ink);
+}
+
+.recibir-libro[data-estado="añadido"] .recibir-marca { background: var(--ok); }
+.recibir-libro[data-estado="fallo"] .recibir-marca { background: var(--risk); }
+
+.recibir-nombre {
+    font-size: var(--t-small);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.recibir-estado { font-size: var(--t-tiny); color: var(--text-3); }
+
+/* ── Seguir donde ibas en el ordenador ─────────────────────────────────── */
+
+.posicion-remota { gap: var(--sp-3); }
+
+.posicion-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    font-size: var(--t-tiny);
+    color: var(--accent);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.posicion-titulo {
+    margin: 0;
+    font-family: var(--font-title);
+    font-size: var(--t-title);
+    font-weight: 600;
+    line-height: 1.25;
+    text-wrap: balance;
+}
+
+/* ── Personajes y lugares ──────────────────────────────────────────────── */
+
+.personajes { gap: var(--sp-3); }
+
+.personajes-pestanas { display: flex; gap: var(--sp-4); border-bottom: 1px solid var(--line); }
+
+.personajes-pestana {
+    background: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--text-2);
+    padding: var(--sp-2) 0;
+    font-size: var(--t-small);
+    font-weight: 600;
+    min-height: 40px;
+}
+
+.personajes-pestana.on { color: var(--accent); border-bottom-color: var(--accent); }
+
+.personajes-lista,
+.personajes-frases {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    align-content: start;
+}
+
+.personaje-fila {
+    width: 100%;
+    display: grid;
+    /* Sin esto, la columna crece hasta el texto más largo —«desde Capítulo
+       XIV. Donde se ponen los versos…»— y la cuenta queda fuera de la pantalla. */
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--sp-2);
+    padding: var(--sp-3) 0;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    color: var(--text);
+    text-align: left;
+}
+
+.personaje-cabeza { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-3); min-width: 0; }
+
+.personaje-nombre { flex-shrink: 0; font-family: var(--font-title); font-size: var(--t-body); font-weight: 600; }
+
+.personaje-cuenta {
+    font-size: var(--t-micro);
+    color: var(--text-3);
+    text-align: right;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 55%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Una barra por capítulo leído: cuándo sale cada uno se ve sin leer cifras. */
+.personaje-barras { display: flex; align-items: flex-end; gap: 2px; height: 14px; }
+.personaje-barras i { flex: 1; max-width: 10px; background: var(--accent); border-radius: 1px; }
+
+.personajes-nota { margin: 0; font-size: var(--t-micro); color: var(--text-3); text-align: center; }
+
+.personaje-frase {
+    width: 100%;
+    display: grid;
+    gap: 4px;
+    padding: var(--sp-3) 0;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    color: var(--text);
+}
+
+.personaje-donde { font-size: var(--t-micro); color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.personaje-texto { font-family: var(--font-read); font-size: var(--t-small); line-height: 1.5; color: var(--text-2); }
+
+/* ── Traducción de lo seleccionado ─────────────────────────────────────── */
+
+.traduccion { gap: var(--sp-3); }
+.traduccion .section-title { display: inline-flex; align-items: center; gap: var(--sp-2); }
+
+.traduccion-original {
+    margin: 0;
+    font-family: var(--font-read);
+    font-size: var(--t-small);
+    line-height: 1.55;
+    color: var(--text-3);
+    max-height: 30dvh;
+    overflow-y: auto;
+}
+
+.traduccion-texto {
+    margin: 0;
+    font-family: var(--font-read);
+    font-size: var(--t-body);
+    line-height: 1.6;
+    color: var(--text);
+    padding-left: var(--sp-3);
+    border-left: 2px solid var(--accent);
+    max-height: 40dvh;
+    overflow-y: auto;
+}
+
+.traduccion-nota { margin: 0; font-size: var(--t-micro); color: var(--text-3); }
+
+/* ── Traer de otra app ─────────────────────────────────────────────────── */
+
+.migrar-origen {
+    display: grid;
+    gap: var(--sp-1);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--sf-1);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+}
+
+.migrar-titulo { margin: 0; font-family: var(--font-title); font-size: var(--t-heading); font-weight: 600; }
+
+/* Las notas del libro conservan sus saltos de línea: cada subrayado traído sin
+   posición va en su propio párrafo. */
+.bs-notas { white-space: pre-line; max-height: 40dvh; overflow-y: auto; }
+
+/* ── PDF en modo lectura ───────────────────────────────────────────────── */
+
+/* El marco recorta; la tira lleva las columnas y se desplaza. Mismos márgenes
+   que el lector de EPUB para que cambiar de un libro a un PDF no cambie dónde
+   cae el texto en la pantalla. */
+.pdfl {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    padding: calc(var(--safe-top) + 28px) 22px calc(var(--safe-bottom) + 34px);
+    touch-action: pan-y;
+}
+
+.pdfl-tira {
+    height: 100%;
+    column-fill: auto;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    overflow-wrap: break-word;
+    transition: transform 0.24s var(--ease);
+    will-change: transform;
+    /* El texto se puede seleccionar: copiar una frase de un PDF es justo lo que
+       en el modo página no se puede hacer bien. */
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pdfl-tira { transition: none; }
+}
+
+.pdfl-p {
+    margin: 0;
+    text-indent: 1.3em;
+}
+
+/* Tras un título o al empezar, sin sangría: es como se compone un libro. */
+.pdfl-h + .pdfl-p,
+.pdfl-tira > .pdfl-p:first-child { text-indent: 0; }
+
+.pdfl-h {
+    font-size: 1.22em;
+    font-weight: 600;
+    line-height: 1.25;
+    text-align: left;
+    margin: 0.9em 0 0.5em;
+    break-after: avoid;
+    text-wrap: balance;
+}
+
+.pdfl-figura {
+    margin: 0.6em 0;
+    display: flex;
+    justify-content: center;
+    break-inside: avoid;
+}
+
+.pdfl-figura canvas { max-width: 100%; display: block; border-radius: 2px; }
+
+.pdfl-fin {
+    margin: 2em 0 0;
+    text-align: center;
+    font-size: 0.8em;
+    opacity: 0.55;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* ── Cómic viñeta a viñeta ─────────────────────────────────────────────── */
+
+/* La página se coloca desde la esquina y se mueve con `transform`: el encuadre
+   de `vinetas.js` calcula en ese sistema. La transición es lo que hace que
+   pasar de viñeta se lea como mover la cámara por la página y no como saltar
+   entre recortes sueltos. */
+.comic-page.comic-vineta {
+    position: absolute;
+    left: 0;
+    top: 0;
+    max-width: none;
+    max-height: none;
+    height: auto;
+    transition: transform 0.38s var(--ease), width 0.38s var(--ease);
+    will-change: transform;
+}
+
+.comic-viewport:has(.comic-vineta) { overflow: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+    .comic-page.comic-vineta { transition: none; }
+}
+
+/* ── La página se adapta a la luz ──────────────────────────────────────── */
+
+/* Abajo y estrecho: es un aviso que se lee de reojo y se va solo. El único
+   botón es deshacer, porque es lo único que se puede querer hacer con él. */
+.luz-aviso {
+    position: absolute;
+    left: 50%;
+    bottom: calc(var(--safe-bottom) + 44px);
+    transform: translateX(-50%);
+    z-index: 7;
+    max-width: calc(100% - 32px);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 6px 6px 6px 14px;
+    border-radius: var(--r-full);
+    background: rgba(10, 15, 26, 0.84);
+    backdrop-filter: blur(10px);
+    color: #F1F5F9;
+    font-size: var(--t-small);
+    animation: fade-in 0.25s var(--ease);
+}
+
+.luz-punto {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--warn);
+    flex: none;
+}
+
+.luz-texto { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+.luz-deshacer {
+    flex: none;
+    min-height: 36px;
+    padding: 0 12px;
+    border-radius: var(--r-full);
+    background: none;
+    border: 0;
+    color: #7DD3FC;
+    font-weight: 600;
+    font-size: var(--t-small);
+}
+
+/* Aviso flotante del lector de PDF: escaneado, reconociendo texto… Arriba y no
+   abajo, que es donde está el pulgar y donde está la barra de herramientas. */
+.pdf-aviso {
+    position: absolute;
+    left: var(--sp-4);
+    right: var(--sp-4);
+    top: calc(var(--safe-top) + 64px);
+    z-index: 8;
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: var(--r-md);
+    background: var(--sf-1);
+    border: 1px solid var(--line-strong);
+    color: var(--text);
+    font-size: var(--t-small);
+    line-height: 1.45;
+}
+
+.pdfl-cargando {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    margin: 0;
+    font-size: var(--t-small);
+    opacity: 0.7;
+}
+
+/* ── Voces naturales sin conexión ──────────────────────────────────────── */
+
+.voces { gap: var(--sp-3); }
+
+.voces-lista { flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: var(--sp-4); align-content: start; }
+.voces-grupo { display: grid; gap: var(--sp-1); }
+
+.voces-idioma {
+    margin: 0;
+    font-size: var(--t-micro);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    font-weight: 600;
+}
+
+.voz-fila {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2) 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.voz-txt { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.voz-nombre { font-size: var(--t-body); font-weight: 600; display: inline-flex; align-items: center; gap: var(--sp-1); }
+.voz-nombre svg { color: var(--ok); }
+.voz-meta { font-size: var(--t-tiny); color: var(--text-3); }
+.voz-avance { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--sp-2); font-size: var(--t-tiny); color: var(--text-2); }
+
+/* ── Lo que ha pasado hasta aquí ───────────────────────────────────────── */
+
+.resumen { gap: var(--sp-3); }
+.resumen-modo { margin: 0; font-size: var(--t-tiny); color: var(--text-3); }
+.resumen-lista { list-style: none; margin: 0; padding: 0; flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: var(--sp-4); align-content: start; }
+.resumen-capitulo { display: grid; gap: var(--sp-2); }
+.resumen-titulo { margin: 0; font-size: var(--t-micro); letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.resumen-capitulo ul { margin: 0; padding-left: 1.1em; display: grid; gap: var(--sp-2); font-family: var(--font-read); font-size: var(--t-small); line-height: 1.55; color: var(--text); }
+
+/* ── Dictar una nota ───────────────────────────────────────────────────── */
+
+.dictar { display: grid; gap: var(--sp-2); }
+.dictar-boton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    min-height: 44px;
+    padding: 0 var(--sp-4);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: var(--t-small);
+    font-weight: 600;
+}
+.dictar-boton.on { border-color: var(--accent); color: var(--accent); }
+.dictar-punto { width: 10px; height: 10px; border-radius: 50%; background: var(--text-3); }
+.dictar-boton.on .dictar-punto { background: var(--accent); animation: dictar-latido 1.1s ease-in-out infinite; }
+@keyframes dictar-latido { 50% { transform: scale(1.5); opacity: 0.5; } }
+@media (prefers-reduced-motion: reduce) { .dictar-boton.on .dictar-punto { animation: none; } }
+.dictar-parcial { margin: 0; font-family: var(--font-read); font-size: var(--t-small); color: var(--text-2); font-style: italic; }
+.dictar-error { margin: 0; font-size: var(--t-tiny); color: var(--text-3); }
+
+/* ── Escribir sobre el PDF ─────────────────────────────────────────────── */
+
+/* La hoja envuelve el folio para que la tinta tenga exactamente su tamaño. */
+.pdf-hoja { position: relative; line-height: 0; }
+.tinta {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    /* El marcador tiñe el texto en vez de taparlo. Con el folio invertido, el
+       fondo es oscuro y multiplicar lo haría desaparecer: se aclara. */
+    mix-blend-mode: multiply;
+}
+.tinta.inverted { filter: invert(1) hue-rotate(180deg); mix-blend-mode: screen; }
+.tinta.activa { pointer-events: auto; touch-action: none; }
+
+.tinta-barra {
+    position: absolute;
+    left: var(--sp-3);
+    right: var(--sp-3);
+    bottom: calc(var(--safe-bottom) + var(--sp-3));
+    z-index: 20;
+    display: grid;
+    gap: var(--sp-1);
+    padding: var(--sp-2) var(--sp-3);
+    border-radius: 18px;
+    background: var(--sf-2);
+    border: 1px solid var(--line);
+    box-shadow: var(--el-3);
+}
+.tinta-fila { display: flex; align-items: center; gap: var(--sp-1); min-height: 44px; }
+.tinta-separa { width: 1px; height: 24px; background: var(--line); margin: 0 var(--sp-1); }
+.tinta-hueco { flex: 1; }
+.tinta-color {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    background: var(--tinta);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+    padding: 0;
+}
+.tinta-color.on { border-color: var(--accent); }
+.tinta-dedo { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--t-small); color: var(--text-2); }
+.tinta-dedo input { accent-color: var(--accent); width: 18px; height: 18px; }

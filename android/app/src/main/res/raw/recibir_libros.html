@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enviar libros a SharkReader</title>
+<style>
+  :root {
+    --bg: #0F172A; --sf: #1E293B; --sf2: #273549; --line: #334155;
+    --text: #F1F5F9; --text2: #94A3B8; --accent: #38BDF8; --ink: #06131F;
+    --ok: #22C55E; --risk: #F87171;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+    font: 16px/1.5 "Segoe UI", Roboto, system-ui, sans-serif;
+    display: flex; justify-content: center; padding: 48px 20px;
+  }
+  main { width: 100%; max-width: 620px; display: grid; gap: 20px; align-content: start; }
+  .marca { font-family: Georgia, "Noto Serif", serif; font-weight: 600; font-size: 20px; }
+  .marca b { color: var(--accent); font-weight: 600; }
+  h1 { font-family: Georgia, "Noto Serif", serif; font-size: 30px; line-height: 1.15; margin: 0; font-weight: 600; }
+  p { margin: 0; color: var(--text2); }
+  .zona {
+    border: 2px dashed var(--line); border-radius: 14px; padding: 44px 20px;
+    text-align: center; display: grid; gap: 10px; justify-items: center; cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .zona.encima { border-color: var(--accent); background: rgba(56, 189, 248, .07); }
+  .zona strong { font-size: 18px; }
+  .boton {
+    background: var(--accent); color: var(--ink); border: 0; border-radius: 8px;
+    padding: 10px 18px; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  .formatos { font-size: 13px; }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  li { background: var(--sf); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 6px; }
+  .fila { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+  .nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .estado { color: var(--text2); flex: none; font-variant-numeric: tabular-nums; }
+  .estado.ok { color: var(--ok); }
+  .estado.mal { color: var(--risk); }
+  .barra { height: 4px; border-radius: 4px; background: var(--sf2); overflow: hidden; }
+  .barra i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s; }
+  .nota { font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <span class="marca"><b>Shark</b>Reader</span>
+  <h1>Enviar libros al móvil</h1>
+  <p>Arrastra aquí tus libros o elígelos. Aparecen en la biblioteca del móvil en cuanto terminan de llegar.</p>
+
+  <label class="zona" id="zona">
+    <strong>Suelta los libros aquí</strong>
+    <span class="boton">Elegir libros</span>
+    <span class="formatos">EPUB, PDF, CBZ, DOCX, TXT y Markdown</span>
+    <input id="entrada" type="file" multiple hidden
+           accept=".epub,.pdf,.cbz,.docx,.txt,.md,.markdown">
+  </label>
+
+  <ul id="lista"></ul>
+
+  <p class="nota">Los libros van directos al móvil por tu wifi. No pasan por internet ni por ningún servidor.
+    Deja abierta en el móvil la pantalla «Recibir libros» hasta que terminen.</p>
+</main>
+<script>
+  var zona = document.getElementById('zona');
+  var entrada = document.getElementById('entrada');
+  var lista = document.getElementById('lista');
+  var base = location.pathname.replace(/\/$/, '');
+  var cola = [];
+  var ocupado = false;
+  var validas = /\.(epub|pdf|cbz|docx|txt|md|markdown)$/i;
+
+  function tamano(bytes) {
+    if (bytes > 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+    return Math.max(1, Math.round(bytes / 1024)) + ' KB';
+  }
+
+  function anadir(ficheros) {
+    Array.prototype.forEach.call(ficheros, function (f) {
+      var li = document.createElement('li');
+      li.innerHTML = '<div class="fila"><span class="nombre"></span><span class="estado"></span></div>' +
+        '<div class="barra"><i></i></div>';
+      li.querySelector('.nombre').textContent = f.name;
+      var estado = li.querySelector('.estado');
+      lista.appendChild(li);
+      if (!validas.test(f.name)) {
+        estado.textContent = 'formato no admitido';
+        estado.className = 'estado mal';
+        return;
+      }
+      estado.textContent = 'en cola · ' + tamano(f.size);
+      cola.push({ fichero: f, li: li });
+    });
+    siguiente();
+  }
+
+  function siguiente() {
+    if (ocupado || !cola.length) return;
+    ocupado = true;
+    var item = cola.shift();
+    var estado = item.li.querySelector('.estado');
+    var barra = item.li.querySelector('.barra i');
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', base + '/subir?nombre=' + encodeURIComponent(item.fichero.name));
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+    xhr.upload.onprogress = function (e) {
+      if (!e.lengthComputable) return;
+      var p = Math.round(e.loaded / e.total * 100);
+      barra.style.width = p + '%';
+      estado.textContent = p + ' %';
+    };
+    xhr.onload = function () {
+      if (xhr.status === 200) {
+        barra.style.width = '100%';
+        estado.textContent = 'en el móvil';
+        estado.className = 'estado ok';
+      } else {
+        estado.textContent = xhr.responseText || 'no se pudo enviar';
+        estado.className = 'estado mal';
+      }
+      ocupado = false;
+      siguiente();
+    };
+    xhr.onerror = function () {
+      estado.textContent = 'se perdió la conexión con el móvil';
+      estado.className = 'estado mal';
+      ocupado = false;
+      siguiente();
+    };
+    xhr.send(item.fichero);
+  }
+
+  entrada.addEventListener('change', function () { anadir(entrada.files); entrada.value = ''; });
+  ['dragenter', 'dragover'].forEach(function (t) {
+    zona.addEventListener(t, function (e) { e.preventDefault(); zona.classList.add('encima'); });
+  });
+  ['dragleave', 'drop'].forEach(function (t) {
+    zona.addEventListener(t, function (e) { e.preventDefault(); zona.classList.remove('encima'); });
+  });
+  zona.addEventListener('drop', function (e) { anadir(e.dataTransfer.files); });
+</script>
+</body>
+</html>

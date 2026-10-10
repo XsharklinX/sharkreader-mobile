@@ -249,6 +249,16 @@ export default function BookSheet({ book, onClose, onOpen, onUpdate, onDelete, o
                             </section>
                         )}
 
+                        {/* Notas sueltas del libro. Las llena, por ejemplo, traer
+                            subrayados de otra app cuando alguno no se encuentra
+                            en el texto: no se pierden, quedan aquí. */}
+                        {book.notes?.trim() && (
+                            <section className="bs-section">
+                                <h3 className="bs-heading">Notas</h3>
+                                <p className="bs-synopsis open bs-notas">{book.notes}</p>
+                            </section>
+                        )}
+
                         {tags.length > 0 && (
                             <section className="bs-section">
                                 <h3 className="bs-heading">Etiquetas</h3>

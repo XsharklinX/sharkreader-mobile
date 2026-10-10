@@ -335,3 +335,45 @@ export const IconView = ({ id, size = 17 }) => {
         </Svg>
     );
 };
+
+/* ── Iconos de la tanda de octubre de 2026 ──────────────────────────────── */
+
+/** Recibir libros por la wifi de casa. */
+export const IconWifi = (p) => (
+    <Svg {...p}><path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.6 16a5 5 0 0 1 6.8 0" /><circle cx="12" cy="19.2" r="0.9" fill="currentColor" /></Svg>
+);
+
+/** Emparejar con el ordenador. */
+export const IconLink = (p) => (
+    <Svg {...p}><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2" /><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2" /></Svg>
+);
+
+/** Traducir: dos alfabetos. */
+export const IconTranslate = (p) => (
+    <Svg {...p}><path d="M3 5h9M7.5 3v2M5 5c.5 3 2.6 5.6 5.5 7M10 5c-.6 3.4-3 6.4-6.5 8" /><path d="M12.5 21l4-10 4 10M14 17.5h5" /></Svg>
+);
+
+/** Personajes del libro. */
+export const IconPeople = (p) => (
+    <Svg {...p}><circle cx="9" cy="8" r="3.2" /><path d="M3 20c.6-3.6 3-5.6 6-5.6s5.4 2 6 5.6" /><path d="M15.5 4.9a3.2 3.2 0 0 1 0 6.2M17.6 14.6c2 .7 3.1 2.6 3.4 5.4" /></Svg>
+);
+
+/** Traer de otra app: una flecha que entra en una caja. */
+export const IconImport = (p) => (
+    <Svg {...p}><path d="M12 3v11M7.5 9.5 12 14l4.5-4.5" /><path d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14" /></Svg>
+);
+
+/** Escribir a mano sobre un PDF: un lápiz. */
+export const IconPen = (p) => (
+    <Svg {...p}><path d="M15.5 4.5 19.5 8.5 8.5 19.5 4 20l.5-4.5z" /><path d="M13.5 6.5 17.5 10.5" /></Svg>
+);
+
+/** Borrar trazos: una goma. */
+export const IconEraser = (p) => (
+    <Svg {...p}><path d="M9 20h11" /><path d="M4.6 14.6 13.4 5.8a1.5 1.5 0 0 1 2.1 0l3.7 3.7a1.5 1.5 0 0 1 0 2.1L11 19.8H8.8l-4.2-4.2a.7.7 0 0 1 0-1z" /><path d="m9 10 5 5" /></Svg>
+);
+
+/** Deshacer: una flecha que vuelve. */
+export const IconUndo = (p) => (
+    <Svg {...p}><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></Svg>
+);

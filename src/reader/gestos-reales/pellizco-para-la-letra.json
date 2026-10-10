@@ -1,0 +1,430 @@
+{
+ "nombre": "pellizco-para-la-letra",
+ "origen": "fabricada con valores típicos de Android (temblor, eventos intercalados); sustituir por una grabada en el teléfono",
+ "ancho": 400,
+ "alto": 800,
+ "esperado": [
+  "pellizco"
+ ],
+ "eventos": [
+  {
+   "t": 0,
+   "tipo": "onPointerDown",
+   "x": 180,
+   "y": 400,
+   "w": 14,
+   "h": 16
+  },
+  {
+   "t": 2,
+   "tipo": "onTouchStart",
+   "x": 180,
+   "y": 400,
+   "dedos": 1,
+   "toques": [
+    [
+     180,
+     400
+    ]
+   ]
+  },
+  {
+   "t": 40,
+   "tipo": "onPointerDown",
+   "x": 240,
+   "y": 430,
+   "w": 14,
+   "h": 16
+  },
+  {
+   "t": 41,
+   "tipo": "onTouchStart",
+   "x": 180,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     180,
+     400
+    ],
+    [
+     240,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 50,
+   "tipo": "onTouchMove",
+   "x": 180,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     180,
+     400
+    ],
+    [
+     240,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 62,
+   "tipo": "onTouchMove",
+   "x": 176,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     176,
+     400
+    ],
+    [
+     244,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 74,
+   "tipo": "onTouchMove",
+   "x": 172,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     172,
+     400
+    ],
+    [
+     248,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 86,
+   "tipo": "onTouchMove",
+   "x": 168,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     168,
+     400
+    ],
+    [
+     252,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 98,
+   "tipo": "onTouchMove",
+   "x": 164,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     164,
+     400
+    ],
+    [
+     256,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 110,
+   "tipo": "onTouchMove",
+   "x": 160,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     160,
+     400
+    ],
+    [
+     260,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 122,
+   "tipo": "onTouchMove",
+   "x": 156,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     156,
+     400
+    ],
+    [
+     264,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 134,
+   "tipo": "onTouchMove",
+   "x": 152,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     152,
+     400
+    ],
+    [
+     268,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 146,
+   "tipo": "onTouchMove",
+   "x": 148,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     148,
+     400
+    ],
+    [
+     272,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 158,
+   "tipo": "onTouchMove",
+   "x": 144,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     144,
+     400
+    ],
+    [
+     276,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 170,
+   "tipo": "onTouchMove",
+   "x": 140,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     140,
+     400
+    ],
+    [
+     280,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 182,
+   "tipo": "onTouchMove",
+   "x": 136,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     136,
+     400
+    ],
+    [
+     284,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 194,
+   "tipo": "onTouchMove",
+   "x": 132,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     132,
+     400
+    ],
+    [
+     288,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 206,
+   "tipo": "onTouchMove",
+   "x": 128,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     128,
+     400
+    ],
+    [
+     292,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 218,
+   "tipo": "onTouchMove",
+   "x": 124,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     124,
+     400
+    ],
+    [
+     296,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 230,
+   "tipo": "onTouchMove",
+   "x": 120,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     120,
+     400
+    ],
+    [
+     300,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 242,
+   "tipo": "onTouchMove",
+   "x": 116,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     116,
+     400
+    ],
+    [
+     304,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 254,
+   "tipo": "onTouchMove",
+   "x": 112,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     112,
+     400
+    ],
+    [
+     308,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 266,
+   "tipo": "onTouchMove",
+   "x": 108,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     108,
+     400
+    ],
+    [
+     312,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 278,
+   "tipo": "onTouchMove",
+   "x": 104,
+   "y": 400,
+   "dedos": 2,
+   "toques": [
+    [
+     104,
+     400
+    ],
+    [
+     316,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 300,
+   "tipo": "onPointerUp",
+   "x": 120,
+   "y": 400
+  },
+  {
+   "t": 301,
+   "tipo": "onTouchEnd",
+   "x": 120,
+   "y": 400,
+   "dedos": 1,
+   "toques": [
+    [
+     300,
+     430
+    ]
+   ]
+  },
+  {
+   "t": 330,
+   "tipo": "onPointerUp",
+   "x": 300,
+   "y": 430
+  },
+  {
+   "t": 331,
+   "tipo": "onTouchEnd",
+   "x": 300,
+   "y": 430,
+   "dedos": 0,
+   "toques": []
+  }
+ ]
+}

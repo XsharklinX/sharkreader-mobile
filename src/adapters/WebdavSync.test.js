@@ -8,13 +8,13 @@ beforeEach(() => { vi.unstubAllGlobals(); });
 
 describe('construcción de la URL', () => {
     it('une base y fichero sin duplicar barras', () => {
-        expect(buildUrl('https://x.com/dav')).toBe('https://x.com/dav/sharkreader-sync.json');
-        expect(buildUrl('https://x.com/dav/')).toBe('https://x.com/dav/sharkreader-sync.json');
-        expect(buildUrl('https://x.com/dav///')).toBe('https://x.com/dav/sharkreader-sync.json');
+        expect(buildUrl('https://x.com/dav')).toBe('https://x.com/dav/sharkreader_sync.json');
+        expect(buildUrl('https://x.com/dav/')).toBe('https://x.com/dav/sharkreader_sync.json');
+        expect(buildUrl('https://x.com/dav///')).toBe('https://x.com/dav/sharkreader_sync.json');
     });
 
     it('tolera espacios alrededor de lo que pegue el usuario', () => {
-        expect(buildUrl('  https://x.com/dav  ')).toBe('https://x.com/dav/sharkreader-sync.json');
+        expect(buildUrl('  https://x.com/dav  ')).toBe('https://x.com/dav/sharkreader_sync.json');
     });
 });
 
@@ -41,6 +41,21 @@ describe('lectura', () => {
     it('un 404 significa "aún no se ha sincronizado", no un error', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 404 })));
         expect(await sync.read()).toBeNull();
+    });
+
+    it('lee el mismo fichero que el escritorio, con guion bajo', async () => {
+        const fetchMock = vi.fn(async () => ({ ok: true, status: 200, text: async () => '{}' }));
+        vi.stubGlobal('fetch', fetchMock);
+        await sync.read();
+        expect(fetchMock.mock.calls[0][0]).toMatch(/sharkreader_sync\.json$/);
+    });
+
+    it('si no existe, recupera el que subía el móvil antes, con guion', async () => {
+        const fetchMock = vi.fn(async (url) => (url.endsWith('sharkreader-sync.json')
+            ? { ok: true, status: 200, text: async () => '{"books":[1]}' }
+            : { ok: false, status: 404 }));
+        vi.stubGlobal('fetch', fetchMock);
+        expect(await sync.read()).toBe('{"books":[1]}');
     });
 
     it('un fichero vacío se trata como si no existiera', async () => {

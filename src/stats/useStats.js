@@ -34,6 +34,17 @@ export const DEFAULT_PREFERENCES = {
     // Pasar página con las teclas de volumen. Apagado: esas teclas son del
     // volumen, y con la voz sonando hacen falta para eso.
     volumeKeys: false,
+    // La página se adapta a la luz ambiente. Apagado de entrada: cambiar el
+    // tema solo, sin haberlo pedido, se leería como un fallo.
+    confortLuz: false,
+    // Leer en otro idioma: traducir un párrafo al tocarlo, y a qué idioma.
+    // `a` vacío significa «el del teléfono».
+    traduccion: { activo: false, a: '', soloWifi: true },
+    // Ayudas de vocabulario sobre el texto, por nivel (b1, b2, c1).
+    glosas: { activo: false, nivel: 'b2' },
+    // No molestar con un libro abierto. Apagado: necesita un acceso que se da
+    // en los ajustes de Android, y eso solo se pide si el usuario lo quiere.
+    noMolestar: false,
 };
 
 /**

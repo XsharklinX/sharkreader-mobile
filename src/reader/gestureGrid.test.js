@@ -118,3 +118,27 @@ describe('canTurnPages', () => {
         expect(canTurnPages(Array(9).fill('next'))).toBe(false);
     });
 });
+
+describe('modo una mano', () => {
+    it('reconoce los ajustes de una mano', async () => {
+        const { PRESETS_GRID, presetDe } = await import('./gestureGrid.js');
+        expect(presetDe(PRESETS_GRID.diestro)).toBe('diestro');
+        expect(presetDe(PRESETS_GRID.normal)).toBe('normal');
+        expect(presetDe(['next', 'next', 'next', 'next', 'next', 'next', 'next', 'next', 'next'])).toBeNull();
+    });
+
+    it('con una mano casi todo avanza y atrás queda en la esquina del pulgar', async () => {
+        const { PRESETS_GRID, actionAt } = await import('./gestureGrid.js');
+        // Diestro: abajo a la derecha, atrás; en el centro, adelante.
+        expect(actionAt(PRESETS_GRID.diestro, 390, 780, 400, 800)).toBe('prev');
+        expect(actionAt(PRESETS_GRID.diestro, 200, 400, 400, 800)).toBe('next');
+        expect(actionAt(PRESETS_GRID.zurdo, 10, 780, 400, 800)).toBe('prev');
+    });
+
+    it('lo sugiere solo si nueve de cada diez toques caen en un lado', async () => {
+        const { sugerirUnaMano } = await import('./gestureGrid.js');
+        expect(sugerirUnaMano({ izquierda: 2, derecha: 38 })).toBe('diestro');
+        expect(sugerirUnaMano({ izquierda: 10, derecha: 30 })).toBeNull();
+        expect(sugerirUnaMano({ izquierda: 0, derecha: 10 })).toBeNull();
+    });
+});

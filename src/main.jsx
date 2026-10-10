@@ -10,6 +10,9 @@ import './styles/app.css';
 import './styles/reader-chrome.css';
 // Anatomía común de las hojas de opciones del lector.
 import './styles/sheets.css';
+// Las funciones de la tanda de octubre de 2026: PDF en modo lectura, viñetas,
+// wifi, emparejado, personajes, traducción… Ver la cabecera del fichero.
+import './styles/novedades.css';
 
 // Los puertos se instalan antes de montar React: ninguna pantalla debe poder
 // ejecutarse contra un registro vacío.

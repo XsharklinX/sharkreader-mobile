@@ -96,6 +96,14 @@ describe('importar sobre una biblioteca con progreso', () => {
         expect(result.books[0].progress).toBeCloseTo(0.8);
     });
 
+    it('el progreso del escritorio, en porcentaje, entra en el móvil como fracción', () => {
+        // El escritorio guarda 0–100 y el móvil 0–1. Antes, un libro al 45 %
+        // salía en el móvil al 4.500 %.
+        const incoming = backupOf([desktopBook({ id: 'a', progress: 45 })]);
+        const [book] = mergeIntoLibrary(incoming, [], {}).books;
+        expect(book.progress).toBeCloseTo(0.45);
+    });
+
     it('un libro que solo está en el móvil no se pierde al importar', () => {
         const local = [{
             ...desktopBook({ id: 'solo-movil', title: 'Neuromante' }),

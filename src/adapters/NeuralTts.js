@@ -146,23 +146,52 @@ export const createNeuralTts = (getConfig) => {
  * activada, y si falla se vuelve a la del sistema en lugar de dejar al usuario
  * sin voz a mitad de capítulo.
  */
-export const createTtsRouter = (systemTts, neuralTts) => ({
+/**
+ * Tres motores: la voz del sistema, la del servidor propio y la natural sin
+ * conexión (`VozLocal.js`). Se elige por voz; si la elegida falla, se sigue con
+ * la del sistema en vez de callarse a mitad de capítulo.
+ */
+const sinLocal = {
+    isSupported: async () => false,
+    listVoices: async () => [],
+    speak: async () => { throw new Error('sin voz local'); },
+    stop: async () => {},
+    pause: async () => {},
+    resume: async () => {},
+};
+
+export const createTtsRouter = (systemTts, neuralTts, localTts = sinLocal) => ({
     async isSupported() {
-        return (await systemTts.isSupported()) || (await neuralTts.isSupported());
+        return (await systemTts.isSupported()) || (await neuralTts.isSupported()) || (await localTts.isSupported());
     },
 
     async listVoices() {
-        const [system, neural] = await Promise.all([
+        const [system, neural, local] = await Promise.all([
             systemTts.listVoices(),
             neuralTts.listVoices(),
+            localTts.listVoices().catch(() => []),
         ]);
         return [
+            // Las naturales primero: si alguien se ha bajado una, es la que quiere.
+            ...local.map((voice) => ({ ...voice, engine: 'local' })),
             ...system.map((voice) => ({ ...voice, engine: 'system' })),
             ...neural.map((voice) => ({ ...voice, engine: 'neural' })),
         ];
     },
 
+    async prepare(text, options = {}) {
+        if (options.engine === 'local') await localTts.prepare?.(text, options);
+    },
+
     async speak(text, options = {}) {
+        if (options.engine === 'local') {
+            try {
+                await localTts.speak(text, options);
+                return;
+            } catch {
+                // Voz borrada o fallo al generar: la del sistema.
+            }
+        }
         if (options.engine === 'neural' && await neuralTts.isSupported()) {
             try {
                 await neuralTts.speak(text, options);
@@ -177,11 +206,14 @@ export const createTtsRouter = (systemTts, neuralTts) => ({
     },
 
     async stop() {
-        await Promise.all([systemTts.stop(), neuralTts.stop()]);
+        await Promise.all([systemTts.stop(), neuralTts.stop(), localTts.stop()]);
     },
 
-    async pause() { await Promise.all([systemTts.pause(), neuralTts.pause()]); },
-    async resume() { await Promise.all([systemTts.resume(), neuralTts.resume()]); },
+    async pause() { await Promise.all([systemTts.pause(), neuralTts.pause(), localTts.pause()]); },
+    async resume() { await Promise.all([systemTts.resume(), neuralTts.resume(), localTts.resume()]); },
+
+    /** Descargar y borrar voces naturales, para la pantalla de voces. */
+    local: localTts,
 
     startService: (...args) => systemTts.startService?.(...args),
     stopService: (...args) => systemTts.stopService?.(...args),

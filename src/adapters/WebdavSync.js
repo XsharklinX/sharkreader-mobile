@@ -15,7 +15,16 @@
  * cabeceras, que es todo lo que hace falta para leer y escribir un fichero.
  */
 
-const FILE_NAME = 'sharkreader-sync.json';
+/**
+ * El nombre que usa el escritorio, con guion bajo.
+ *
+ * El móvil usaba `sharkreader-sync.json`, con guion, así que los dos escribían
+ * en ficheros distintos de la misma carpeta y **nunca se encontraban**: la
+ * promesa de este puerto no se cumplía. El antiguo se sigue leyendo si el bueno
+ * no existe, para no perder lo que ya estuviera subido desde el móvil.
+ */
+const FILE_NAME = 'sharkreader_sync.json';
+const LEGACY_FILE_NAME = 'sharkreader-sync.json';
 
 const authHeader = ({ user, password }) =>
     `Basic ${btoa(unescape(encodeURIComponent(`${user}:${password}`)))}`;
@@ -60,7 +69,10 @@ export const createWebdavSync = (getConfig) => {
          * no se ha sincronizado nunca desde ningún dispositivo.
          */
         async read() {
-            const { response } = await request('GET');
+            let { response, config } = await request('GET');
+            if (response.status === 404) {
+                ({ response } = await request('GET', buildUrl(config.url, LEGACY_FILE_NAME)));
+            }
             if (response.status === 404) return null;
             if (!response.ok) throw new Error(describeError(response.status));
             const text = await response.text();

@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import VocesSheet from './VocesSheet.jsx';
 import Sheet, { Row, Group, Segmented } from '../ui/Sheet.jsx';
 import { SPEECH_RATES, SPEECH_PITCHES } from '../adapters/AndroidTts.js';
 import { QUALITY_LABELS, qualityRank } from './prosody.js';
@@ -63,6 +64,7 @@ const SLEEP_OPTIONS = [
 
 export default function SpeechSheet({ speech, sentence, chapter, onClose }) {
     const { state, settings, voices, updateSettings, sleepAt, setSleepTimer } = speech;
+    const [voces, setVoces] = useState(false);
     const speaking = state === 'speaking';
 
     const currentVoice = voices.find((voice) => voice.id === settings.voiceId);
@@ -75,6 +77,7 @@ export default function SpeechSheet({ speech, sentence, chapter, onClose }) {
             title: 'Voz',
             render: () => (
                 <>
+                    {voces && <VocesSheet onClose={() => setVoces(false)} onCambio={speech.recargarVoces} />}
                     {voices.length === 0 ? (
                         <p className="option-desc">
                             No hay voces instaladas. Se añaden desde los ajustes de
@@ -95,7 +98,9 @@ export default function SpeechSheet({ speech, sentence, chapter, onClose }) {
                                         key={voice.id}
                                         type="button"
                                         className={`voice-item${settings.voiceId === voice.id ? ' on' : ''}`}
-                                        onClick={() => updateSettings({ voiceId: voice.id })}
+                                        // El motor va con la voz: sin él, el enrutador no sabía que
+                                        // había que usar la neuronal o la natural y sonaba la del sistema.
+                                        onClick={() => updateSettings({ voiceId: voice.id, engine: voice.engine || 'system' })}
                                         aria-pressed={settings.voiceId === voice.id}
                                     >
                                         <span className="voice-item-txt">
@@ -103,6 +108,7 @@ export default function SpeechSheet({ speech, sentence, chapter, onClose }) {
                                             <span className="voice-item-meta">
                                                 {voice.lang}
                                                 {voice.engine === 'neural' && ' · neuronal'}
+                                                {voice.engine === 'local' && ' · natural, en el teléfono'}
                                             </span>
                                         </span>
 
@@ -121,6 +127,12 @@ export default function SpeechSheet({ speech, sentence, chapter, onClose }) {
                                     </button>
                                 ))}
                             </div>
+
+                            {/* Voces que suenan como una persona y no necesitan red:
+                                se generan en el teléfono. Ver `VozLocal.js`. */}
+                            <button type="button" className="btn btn-block" onClick={() => setVoces(true)}>
+                                Voces naturales sin conexión
+                            </button>
 
                             <p className="option-desc">
                                 Las marcadas «con datos» suenan mejor pero necesitan

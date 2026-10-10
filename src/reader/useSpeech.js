@@ -45,7 +45,15 @@ export const useSpeech = ({ getPageText, onSentence, onNextPage, title = '', cha
             // Sin voz elegida se coge la mejor disponible, no la primera de la
             // lista: Android no la ordena por calidad y podía tocar la peor.
             const chosen = { ...DEFAULT_SPEECH, ...(stored || {}) };
-            if (!chosen.voiceId) chosen.voiceId = bestVoice(available)?.id ?? null;
+            if (!chosen.voiceId) {
+                const mejor = bestVoice(available);
+                chosen.voiceId = mejor?.id ?? null;
+                chosen.engine = mejor?.engine || 'system';
+            }
+            // Una voz guardada de antes de que existiera `engine`: se deduce de la lista.
+            if (chosen.voiceId && !chosen.engine) {
+                chosen.engine = available.find((v) => v.id === chosen.voiceId)?.engine || 'system';
+            }
 
             setSettings(chosen);
             setVoices(available);
@@ -103,10 +111,15 @@ export const useSpeech = ({ getPageText, onSentence, onNextPage, title = '', cha
             // La pausa que toca según cómo acabe la frase. Ver `prosody.js`: sin
             // esto la lectura sale sin respiración, que es lo que más hacía que
             // sonara a máquina aunque la voz fuese buena.
-            await ports.tts.speak(sentence, {
+            const sonando = ports.tts.speak(sentence, {
                 ...settingsRef.current,
                 pauseMs: silenceBetween(sentence, upcoming, settingsRef.current.rate),
             });
+            // La voz natural genera el audio en el teléfono: se le pide la frase
+            // siguiente mientras suena esta, para que no haya silencio entre las
+            // dos. Las demás voces no lo necesitan y no lo implementan.
+            if (upcoming) ports.tts.prepare?.(upcoming, settingsRef.current)?.catch?.(() => {});
+            await sonando;
             if (!running.current) break;
             index.current += 1;
         }
@@ -246,5 +259,11 @@ export const useSpeech = ({ getPageText, onSentence, onNextPage, title = '', cha
         currentIndex: () => index.current,
         sentences: () => queue.current,
         toggle,
+        /** Tras descargar o borrar una voz natural, la lista cambia. */
+        recargarVoces: async () => {
+            const [available, isSupported] = await Promise.all([ports.tts.listVoices(), ports.tts.isSupported()]);
+            setVoices(available);
+            setSupported(isSupported);
+        },
     };
 };

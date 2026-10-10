@@ -21,7 +21,7 @@ import { normalizeDescription } from '../core/epubMeta.js';
  * La sinopsis va en la serif de lectura, no en la de la interfaz: es texto del
  * libro, no un ajuste.
  */
-export default function BookInfoSheet({ book, location, onClose }) {
+export default function BookInfoSheet({ book, location, onClose, onResumen }) {
     const done = Math.round((book.progress || 0) * 100);
     const cover = book.coverUrl || book.coverBase64;
 
@@ -63,6 +63,15 @@ export default function BookInfoSheet({ book, location, onClose }) {
                             <span className="bar thin"><i style={{ width: `${done}%` }} /></span>
                         </div>
                     </div>
+
+                    {/* «¿De qué iba esto?» se pregunta aquí, al volver a un libro
+                        tras unos días. La sinopsis cuenta el principio y a veces
+                        el final; esto, lo que ya has leído. */}
+                    {onResumen && (
+                        <button type="button" className="btn btn-primary btn-block" onClick={onResumen}>
+                            Lo que ha pasado hasta aquí
+                        </button>
+                    )}
 
                     <Group label="Sinopsis">
                         {parrafos.length > 0 ? (

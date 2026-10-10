@@ -4,6 +4,7 @@ import { validateBackupData } from '../core/backupValidation.js';
 import { migrateBackupToLatest } from '../core/backupMigrations.js';
 import { hydrateStoredBook } from '../core/bookModel.js';
 import { buildBackup } from './backup.js';
+import { backupEnPorcentaje, libroEnFraccion } from './escalaProgreso.js';
 import { usePorts } from '../ports/index.js';
 
 const CONFIG_KEY = 'sync';
@@ -95,8 +96,8 @@ export const useSync = (library) => {
             let updated = 0;
 
             if (raw) {
-                const remote = validateBackupData(migrateBackupToLatest(JSON.parse(raw)));
-                merged = mergeBackupData(local, remote);
+                const { backup: validado } = validateBackupData(migrateBackupToLatest(JSON.parse(raw)));
+                merged = mergeBackupData(local, backupEnPorcentaje(validado));
 
                 const before = new Set(library.books.map((book) => book.id));
                 added = merged.books.filter((book) => !before.has(book.id)).length;
@@ -104,7 +105,7 @@ export const useSync = (library) => {
             }
 
             // 2. Aplicar el resultado en local.
-            await library.replaceAll(merged.books.map(hydrateStoredBook));
+            await library.replaceAll(merged.books.map((record) => hydrateStoredBook(libroEnFraccion(record))));
             if (merged.stats) await ports.storage.setSetting('stats', merged.stats);
             if (merged.achievements) await ports.storage.setSetting('achievements', merged.achievements);
 

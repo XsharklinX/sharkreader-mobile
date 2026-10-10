@@ -1,0 +1,39 @@
+{
+ "nombre": "agarre-largo-en-el-borde",
+ "origen": "fabricada con valores típicos de Android (temblor, eventos intercalados); sustituir por una grabada en el teléfono",
+ "ancho": 400,
+ "alto": 800,
+ "esperado": [],
+ "eventos": [
+  {
+   "t": 0,
+   "tipo": "onPointerDown",
+   "x": 396,
+   "y": 620,
+   "w": 16,
+   "h": 18
+  },
+  {
+   "t": 30,
+   "tipo": "onPointerMove",
+   "x": 399,
+   "y": 618,
+   "w": 16,
+   "h": 18
+  },
+  {
+   "t": 950,
+   "tipo": "onPointerUp",
+   "x": 396,
+   "y": 620
+  },
+  {
+   "t": 951,
+   "tipo": "onTouchEnd",
+   "x": 396,
+   "y": 620,
+   "dedos": 0,
+   "toques": []
+  }
+ ]
+}

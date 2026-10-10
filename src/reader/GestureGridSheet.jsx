@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import {
     GESTURE_ACTIONS, ZONE_LABELS, DEFAULT_GESTURE_GRID,
-    normalizeGrid, withZone, mirrorGrid, canTurnPages,
+    normalizeGrid, withZone, mirrorGrid, canTurnPages, PRESETS_GRID, presetDe,
 } from './gestureGrid.js';
+
+const NOMBRES_PRESET = { normal: 'Las dos manos', diestro: 'Una mano · derecha', zurdo: 'Una mano · izquierda' };
 
 /**
  * Editor de la rejilla de gestos.
@@ -66,6 +68,23 @@ export default function GestureGridSheet({ grid, onChange, onClose }) {
             >
                 <span className="grip" aria-hidden="true" />
                 <h2 className="section-title">Gestos</h2>
+
+                {/* Los ajustes de un toque van primero: es lo que quiere casi
+                    todo el mundo. La rejilla de abajo es para afinar. */}
+                <div className="pills" role="group" aria-label="Cómo sujetas el móvil">
+                    {Object.keys(PRESETS_GRID).map((id) => (
+                        <button
+                            key={id}
+                            type="button"
+                            className={`pill${presetDe(zones) === id ? ' on' : ''}`}
+                            onClick={() => onChange([...PRESETS_GRID[id]])}
+                            aria-pressed={presetDe(zones) === id}
+                        >
+                            {NOMBRES_PRESET[id]}
+                        </button>
+                    ))}
+                </div>
+
                 <p className="option-desc">
                     Toca una zona para elegir qué hace. Las columnas laterales son
                     más estrechas a propósito: es el ancho que abarca el pulgar sin

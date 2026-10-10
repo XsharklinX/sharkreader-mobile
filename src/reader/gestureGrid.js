@@ -103,6 +103,58 @@ export const DEFAULT_GESTURE_GRID = [
  * @param {number} height
  * @returns {number} Índice de 0 a 8.
  */
+/**
+ * Modo una mano.
+ *
+ * Con una mano, el pulgar alcanza bien la mitad de abajo y el lado de esa mano,
+ * y mal la esquina contraria. En la rejilla por defecto, volver atrás está en el
+ * lado izquierdo: lejos del pulgar derecho.
+ *
+ * Aquí casi toda la pantalla avanza, la franja de arriba abre los controles y
+ * volver atrás queda en la esquina de abajo **del lado de la mano**, que es donde
+ * descansa el pulgar. Son ajustes de un toque: la rejilla de nueve zonas se
+ * queda para quien quiera afinar.
+ */
+export const PRESETS_GRID = {
+    normal: DEFAULT_GESTURE_GRID,
+    diestro: [
+        'chrome', 'chrome', 'chrome',
+        'next', 'next', 'next',
+        'next', 'next', 'prev',
+    ],
+    zurdo: [
+        'chrome', 'chrome', 'chrome',
+        'next', 'next', 'next',
+        'prev', 'next', 'next',
+    ],
+};
+
+/** Qué preset es esta rejilla, o `null` si es una a medida. */
+export const presetDe = (grid) => {
+    const normalized = normalizeGrid(grid);
+    return Object.keys(PRESETS_GRID).find((id) =>
+        PRESETS_GRID[id].every((accion, i) => accion === normalized[i])) || null;
+};
+
+/**
+ * ¿Lee con una mano? Se mira de qué lado caen los toques que pasan página.
+ *
+ * Con la rejilla normal, quien lee con la derecha toca casi siempre el lado
+ * derecho —también para volver, estirando el pulgar si hace falta—. Si de
+ * cuarenta toques nueve de cada diez caen en un lado, se le ofrece el modo de
+ * esa mano. Una vez: si dice que no, no se vuelve a preguntar.
+ *
+ * @param {{izquierda: number, derecha: number}} cuenta
+ * @returns {'diestro'|'zurdo'|null}
+ */
+export const sugerirUnaMano = ({ izquierda = 0, derecha = 0 }) => {
+    const total = izquierda + derecha;
+    if (total < 40) return null;
+    if (derecha / total >= 0.9) return 'diestro';
+    if (izquierda / total >= 0.9) return 'zurdo';
+    return null;
+};
+
 export const zoneIndexAt = (x, y, width, height) => {
     const side = tapZoneWidth(width);
     const column = x < side ? 0 : x > width - side ? 2 : 1;

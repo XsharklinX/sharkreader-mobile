@@ -5,6 +5,7 @@ import { validateBackupData, BackupValidationError } from '../core/backupValidat
 import { migrateBackupToLatest } from '../core/backupMigrations.js';
 import { mergeBackupData, buildPortableBackup } from '../core/backupMerge.js';
 import { hydrateStoredBook, toStoredBookRecord } from '../core/bookModel.js';
+import { backupEnPorcentaje, libroEnPorcentaje, libroEnFraccion } from './escalaProgreso.js';
 import {
     buildAnnotationEntries,
     groupAnnotationsByBook,
@@ -71,16 +72,19 @@ export const mergeIntoLibrary = (entrante, currentBooks = [], currentStats = {})
      * libros se **avisa**. Un respaldo que no restaura tiene que dar un error,
      * nunca un número tranquilizador.
      */
-    const incoming = entrante?.backup && !Array.isArray(entrante.books)
+    const desenvuelto = entrante?.backup && !Array.isArray(entrante.books)
         ? entrante.backup
         : entrante;
 
-    if (!incoming || !Array.isArray(incoming.books)) {
+    if (!desenvuelto || !Array.isArray(desenvuelto.books)) {
         throw new Error('El backup no contiene ningún libro que restaurar.');
     }
 
+    // El backup va en porcentaje y la app en fracción. Ver `escalaProgreso.js`.
+    const incoming = backupEnPorcentaje(desenvuelto);
+
     const local = buildPortableBackup({
-        books: currentBooks.map((book) => toStoredBookRecord(book, {}, { includeFile: false })),
+        books: currentBooks.map((book) => libroEnPorcentaje(toStoredBookRecord(book, {}, { includeFile: false }))),
         deletedBooks: {},
         categories: [],
         collections: [],
@@ -95,7 +99,7 @@ export const mergeIntoLibrary = (entrante, currentBooks = [], currentStats = {})
     const before = new Set(currentBooks.map((book) => book.id));
 
     return {
-        books: merged.books.map(hydrateStoredBook),
+        books: merged.books.map((record) => hydrateStoredBook(libroEnFraccion(record))),
         stats: merged.stats || currentStats,
         achievements: merged.achievements || {},
         summary: {
@@ -123,7 +127,8 @@ export const isBookReadable = (book) => Boolean(book.sourcePath);
 /** Construye el backup portable de esta app, listo para compartir. */
 export const buildBackup = (books, stats = {}, achievements = {}) =>
     buildPortableBackup({
-        books: books.map((book) => toStoredBookRecord(book, {}, { includeFile: false })),
+        // En porcentaje, como el escritorio. Ver `escalaProgreso.js`.
+        books: books.map((book) => libroEnPorcentaje(toStoredBookRecord(book, {}, { includeFile: false }))),
         deletedBooks: {},
         categories: [],
         collections: [],

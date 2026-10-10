@@ -39,7 +39,7 @@ export default function GoToSheet({ totalLocations, currentLocation, onGo, onClo
                         // «12/340», y un campo numérico no los admite.
                         type="text"
                         inputMode="numeric"
-                        placeholder="120, 35 % o 12/340"
+                        placeholder="pág. 134, 35 % o 120"
                         value={value}
                         onChange={(event) => setValue(event.target.value)}
                         aria-label="Posición de destino"
@@ -51,7 +51,7 @@ export default function GoToSheet({ totalLocations, currentLocation, onGo, onClo
                             ? goToHint(totalLocations)
                             : target
                                 ? `Ir a ${target.label}`
-                                : 'No se entiende. Prueba con 120, 35 % o 12/340.'}
+                                : 'No se entiende. Prueba con pág. 134, 35 % o 120.'}
                     </p>
 
                     {totalLocations > 0 && (

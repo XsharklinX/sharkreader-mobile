@@ -45,6 +45,13 @@ export const parseGoTo = (input, totalLocations = 0) => {
         };
     }
 
+    // «pág. 134», «p 134», «página xii»: el número de página estable —el de la
+    // edición impresa o el sintético—. Ver `paginasLibro.js`.
+    const paginaMatch = text.match(/^p(?:á|a)?g?(?:ina)?\.?\s*([0-9]+|[ivxlc]+)$/i);
+    if (paginaMatch) {
+        return { kind: 'pagina', value: paginaMatch[1].toLowerCase(), label: `Página ${paginaMatch[1]}` };
+    }
+
     // «12/340»: se reescala al total que tenemos ahora. Sin total propio no hay
     // forma de traducirlo, así que se rechaza en vez de adivinar.
     const fractionMatch = text.match(/^(\d+)\s*\/\s*(\d+)$/);
@@ -89,5 +96,5 @@ const formatNumber = (value) =>
  */
 export const goToHint = (totalLocations = 0) =>
     totalLocations > 0
-        ? `Escribe una posición (1–${totalLocations}), un porcentaje (35 %) o una página (12/340).`
+        ? `Escribe una página (pág. 134), una posición (1–${totalLocations}) o un porcentaje (35 %).`
         : 'Escribe un porcentaje (35 %) o una página (12/340).';

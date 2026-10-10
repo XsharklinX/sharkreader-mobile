@@ -130,6 +130,11 @@ export default function PdfScroll({
                 canvas.style.height = `${Math.round(h / ratio)}px`;
 
                 const ctx = canvas.getContext('2d');
+                // El papel entero primero: pdf.js pinta el fondo con el mismo
+                // desplazamiento del recorte y dejaba una franja transparente.
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
                 if (crop) {
                     ctx.setTransform(1, 0, 0, 1,
                         -Math.round(vista.width * crop.x), -Math.round(vista.height * crop.y));

@@ -1,131 +1,122 @@
-# Política de privacidad de SharkReader Mobile
+# Política de privacidad de SharkReader
 
-**Última actualización: 29 de julio de 2026**
+**Última actualización: 7 de octubre de 2026 · versión 1.0**
 
-SharkReader Mobile (`com.sharkreader.mobile`) es una aplicación de lectura de
-libros electrónicos para Android, desarrollada por David Bonilla.
+SharkReader (`com.sharkreader.mobile`) es una aplicación de lectura de libros
+electrónicos para Android, desarrollada por David Bonilla.
 
-Esta política existe porque Google Play la exige, pero el resumen cabe en una
-línea: **la app no recopila ningún dato personal y no tiene servidores propios.**
+En una línea: **SharkReader no tiene cuentas, ni publicidad, ni servidores
+propios, y tus libros, notas y estadísticas no salen de tu teléfono salvo que
+tú los envíes.** Esta página explica con detalle cada excepción.
 
----
-
-## Qué datos se recogen
-
-**Ninguno.**
-
-SharkReader no tiene cuentas de usuario, no pide registro, no incluye SDK de
-analítica, no muestra publicidad y no envía información a ningún servidor
-propio. No existe ningún servidor de SharkReader.
+La versión publicada de esta política está en
+`https://xsharklinx.github.io/SharkReader/privacidad.html` (copia en HTML de
+este documento, en `docs/privacidad.html`).
 
 ---
 
-## Qué se guarda y dónde
+## 1. Lo que se guarda en tu teléfono
 
-Todo lo siguiente se almacena **exclusivamente en tu dispositivo**, en el
-almacenamiento privado de la aplicación:
+Todo esto vive **solo en el almacenamiento privado de la app**:
 
 | Dato | Para qué |
 |---|---|
-| Los ficheros EPUB, PDF, CBZ, TXT y Markdown que importas | Poder leerlos |
-| Título, autor, portada y etiquetas | Organizar la biblioteca |
-| Posición de lectura y porcentaje de progreso | Reanudar donde lo dejaste |
-| Subrayados, notas y marcadores | Tus anotaciones |
-| Minutos leídos, racha, logros y metas | Las estadísticas de lectura |
+| Los libros que importas (EPUB, PDF, CBZ, TXT, Markdown, DOCX) | Poder leerlos |
+| Título, autor, portada, etiquetas y colecciones | Organizar la biblioteca |
+| Posición de lectura y progreso | Volver a donde lo dejaste |
+| Subrayados, notas, marcadores y lo escrito a mano sobre los PDF | Tus anotaciones |
+| Palabras guardadas en el vocabulario y su frase de contexto | Repasar vocabulario |
+| Tiempo leído, rachas, metas y logros | Tus estadísticas |
 | Preferencias de lectura y de la app | Recordar cómo te gusta leer |
-| Palabras guardadas en el vocabulario | La lista de vocabulario |
+| Voces y modelos de idioma descargados | Que funcionen sin conexión |
 
-Nada de esto sale del dispositivo salvo que **tú** lo exportes, lo compartas o
-configures una sincronización.
+Nada de esto se envía a ningún sitio salvo que **tú** lo exportes, lo compartas
+o actives una sincronización. Al desinstalar la app, Android lo borra todo.
 
-Al desinstalar la aplicación, Android borra todos estos datos.
+## 2. Cuándo se conecta a internet
 
----
+La app se puede usar entera sin conexión. Solo sale a internet en estos casos:
 
-## Conexiones a internet
-
-La app funciona por completo sin conexión. Solo sale a internet en estos casos,
-y siempre porque tú lo pides:
-
-**1. Buscar metadata y portadas (OpenLibrary)**
-Cuando pulsas «Metadata» en la ficha de un libro, se envía el título y el autor
-a `openlibrary.org` para buscar la portada y los datos de catálogo. No se envía
-nada más ni se identifica tu dispositivo. Se rige por la
-[política de privacidad de Internet Archive](https://archive.org/about/terms.php).
-
-**2. Diccionario**
-Al consultar una palabra se envía **solo esa palabra** a `dictionaryapi.dev`. No
-se envía el libro, el contexto ni ningún identificador. Las definiciones se
-guardan en caché en tu dispositivo para poder consultarlas después sin conexión.
-
-**3. Sincronización WebDAV (opcional, desactivada por defecto)**
-Si la configuras, la app se conecta **a tu propio servidor** —Nextcloud,
-ownCloud o el que indiques— con las credenciales que tú introduces. Los datos
-viajan del dispositivo a tu servidor y no pasan por ninguna infraestructura
-nuestra. Las credenciales se guardan en el almacenamiento privado de la app.
-
-Si nunca usas estas tres funciones, la app no hace **ninguna** conexión de red.
-
----
-
-## Permisos que solicita la aplicación
-
-| Permiso | Para qué | Obligatorio |
+| Destino | Qué se envía | Cuándo |
 |---|---|---|
-| `INTERNET` | Las tres funciones de arriba | No: la app funciona sin ellas |
-| `POST_NOTIFICATIONS` | Recordatorio diario y resumen semanal | No: se pide al activar la función |
-| `FOREGROUND_SERVICE` y `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | Que la lectura en voz alta continúe con la pantalla apagada | No: solo se usa al leer en voz alta |
+| `openlibrary.org` (Internet Archive) | Título y autor de un libro | Al buscar información o portada, o al usar «Ordenar la biblioteca» |
+| `dictionaryapi.dev` | Solo la palabra consultada | Al buscar una palabra en el diccionario |
+| Google (modelos de ML Kit) | Nada tuyo: se descarga el modelo de un idioma | La primera vez que traduces, usas ayudas de vocabulario o reconoces el texto de un escaneado en ese idioma |
+| Google (IA del teléfono, AICore) | Nada tuyo: Android descarga su modelo | Solo si pulsas «Usar la IA del teléfono para resumir» |
+| `github.com` (proyecto sherpa-onnx) | Nada tuyo: se descarga una voz | Solo al descargar una «voz natural sin conexión» |
+| Tu ordenador, en tu wifi | Posición, subrayados y notas | Solo si emparejas SharkReader de escritorio; no pasa por internet |
+| Tu servidor WebDAV | Tu biblioteca y progreso | Solo si configuras la sincronización con **tu** servidor |
+| El proxy de voces que configures | El texto que se lee en voz alta | Solo si configuras un proxy de voces neuronales propio |
 
-**La app no pide permisos de almacenamiento.** Los libros se seleccionan a
-través del Storage Access Framework de Android, que solo da acceso a los
-ficheros que tú eliges, uno a uno o por carpeta.
+**La traducción, el reconocimiento de texto y los resúmenes se hacen en el
+teléfono.** Lo que traduces, reconoces o resumes no sale de él.
 
-No se solicita acceso a contactos, ubicación, cámara, micrófono, calendario,
-llamadas ni SMS.
+## 3. Diagnósticos de Google ML Kit
 
----
+La traducción, el reconocimiento de texto de los escaneados y los resúmenes usan
+las bibliotecas **ML Kit de Google**, que funcionan en el teléfono. Según la
+documentación de Google, ML Kit envía a Google **datos de diagnóstico y uso**:
+modelo del dispositivo y versión de Android, nombre y versión de la app,
+métricas de rendimiento, configuración usada (por ejemplo, los idiomas),
+códigos de error y, en las funciones de IA, identificadores técnicos.
 
-## Compartir con terceros
+- Viajan **cifrados (HTTPS)** y Google declara que **no los cede a terceros**.
+- **No incluyen** el texto de tus libros, lo que traduces ni tus notas.
+- Solo se producen si usas alguna de esas tres funciones.
 
-La aplicación **no comparte, vende ni cede datos a terceros**. No hay
-integraciones publicitarias ni de análisis.
+Detalle oficial: <https://developers.google.com/ml-kit/android-data-disclosure>.
 
-Cuando usas «Compartir» —una imagen de cita, un backup, tus anotaciones o tu
-vocabulario— eres tú quien elige la aplicación de destino, y a partir de ese
-momento el contenido se rige por la política de esa aplicación.
+## 4. Dictar notas (micrófono)
 
----
+El botón «Dictar la nota» usa el **reconocimiento de voz del propio Android**.
+La app pide que se haga **sin conexión**, y si tu teléfono tiene el idioma
+descargado, la voz no sale de él. Si no lo tiene, el servicio de voz del
+sistema (normalmente Google) puede procesarla en sus servidores según su propia
+política. SharkReader **no graba ni guarda audio**: solo recibe el texto.
 
-## Menores
+El permiso de micrófono se pide la primera vez que pulsas el botón, nunca antes.
 
-La aplicación no está dirigida específicamente a menores, pero tampoco recopila
-datos de nadie, por lo que no recoge información de menores de ninguna edad.
+## 5. Permisos
 
----
+| Permiso | Para qué | ¿Hace falta? |
+|---|---|---|
+| Internet y estado de la red | Lo descrito en el apartado 2 | No: la app funciona sin conexión |
+| Notificaciones | Recordatorios de lectura y resumen semanal | No: se pide al activarlos |
+| Servicio en primer plano (reproducción) y mantener activo | Que la lectura en voz alta siga con la pantalla apagada | Solo al leer en voz alta |
+| Huella / biometría | Bloquear la app, si lo activas | No |
+| Micrófono | Dictar notas | Se pide al pulsar «Dictar» |
+| Acceso a «No molestar» | Silenciar avisos mientras lees, si lo activas | Lo concedes tú en los ajustes de Android |
+| Vibración | Respuesta al pasar páginas | No |
+| Arranque del teléfono | Volver a programar los recordatorios tras reiniciar | Solo con recordatorios |
 
-## Cambios en esta política
+**La app no pide acceso a tus archivos.** Los libros se eligen con el selector
+de Android, que solo da acceso a lo que tú escoges. Tampoco pide contactos,
+ubicación, cámara, calendario, llamadas ni SMS.
 
-Si en el futuro se añade alguna función que implique tratamiento de datos, esta
-política se actualizará antes de publicar esa versión, y el cambio se indicará
-en las notas de la versión.
+## 6. Compartir con terceros
 
----
+SharkReader **no vende, cede ni comparte** tus datos. No hay publicidad ni
+analítica propia. Cuando usas «Compartir» —una cita, un PDF con tus notas, las
+tarjetas de Anki, una copia de seguridad— eres tú quien elige la app de
+destino, y desde ese momento se rige por la política de esa app.
 
-## Contacto
+## 7. Borrar tus datos
 
-Para cualquier duda sobre privacidad:
+No hay cuenta que borrar. Todo se elimina desinstalando la app o desde
+*Ajustes de Android › Aplicaciones › SharkReader › Almacenamiento › Borrar datos*.
+Dentro de la app puedes borrar libros, anotaciones, vocabulario y voces
+descargadas uno a uno.
 
-- Correo: syzcompartido@gmail.com
+## 8. Menores
+
+La app no está dirigida a menores y no recoge datos personales de nadie.
+
+## 9. Cambios
+
+Si una versión futura cambia algo de esto, la política se actualizará antes de
+publicarla y se indicará en las notas de la versión.
+
+## 10. Contacto
+
+- Correo: contactoyerlindavid@gmail.com
 - Incidencias: https://github.com/XsharklinX/SharkReader/issues
-
----
-
-## Formulario de Seguridad de los Datos de Google Play
-
-Para dejar constancia de lo declarado en Play Console:
-
-- **¿Recopila datos de usuario?** No
-- **¿Comparte datos con terceros?** No
-- **¿Los datos se cifran en tránsito?** No aplica: no se transmiten datos propios
-- **¿Se pueden eliminar los datos?** Sí, desinstalando la app o borrando su
-  almacenamiento desde los ajustes de Android

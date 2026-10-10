@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { HIGHLIGHT_SWATCHES, HIGHLIGHT_LABEL_DEFAULTS, highlightComment } from './annotations.js';
 import { normalizeAnnotationText } from '../core/annotationExport.js';
 import { IconTrash } from '../ui/icons.jsx';
+import BotonDictar from '../ui/BotonDictar.jsx';
 
 /**
  * Editar un subrayado que ya existe.
@@ -64,6 +65,7 @@ export default function HighlightEditor({ annotation, onSave, onDelete, onClose 
 
                 <div className="setting">
                     <span className="setting-label">Nota</span>
+                    <BotonDictar valor={comment} onCambio={setComment} />
                     <textarea
                         className="note-input"
                         rows={4}

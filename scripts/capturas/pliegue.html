@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pliegue para capturas</title>
+<style>
+html, body { margin: 0; height: 100%; background: #F7F1E6 no-repeat 0 0 / 100% 100%; }
+canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<canvas id="lienzo"></canvas>
+<script type="module">
+// El pliegue de la app (`pliegueGL.js`) fuera del lector: la página actual
+// como textura, doblada hasta el dedo, y la siguiente de fondo. Lo usa
+// capturar.mjs; sin llamar a `pintar`, dibuja una página de prueba, que sirve
+// para comprobar que el sombreador compila.
+import { crearDibujoPliegue } from '/src/reader/pliegueGL.js';
+
+const parametros = new URLSearchParams(location.search);
+const dedo = JSON.parse(parametros.get('f') || '[180, 470]');
+const papel = parametros.get('papel') || '#F7F1E6';
+const lienzo = document.getElementById('lienzo');
+const dibujo = crearDibujoPliegue(lienzo);
+
+const doblar = () => dibujo.dibujar({ x: dedo[0], y: dedo[1] }, { x: innerWidth, y: innerHeight }, papel);
+
+window.__pliegue = {
+    compilado: Boolean(dibujo),
+    listoParaFotos: Boolean(dibujo),
+    async pintar(arriba, abajo) {
+        document.body.style.backgroundImage = `url(${abajo})`;
+        await dibujo.cargar(arriba, [0, 0, 1, 1]);
+        doblar();
+        window.__pliegue.dibujado = true;
+    },
+};
+
+if (dibujo && !parametros.has('f')) {
+    const hoja = document.createElement('canvas');
+    hoja.width = innerWidth * devicePixelRatio;
+    hoja.height = innerHeight * devicePixelRatio;
+    const c = hoja.getContext('2d');
+    c.fillStyle = papel;
+    c.fillRect(0, 0, hoja.width, hoja.height);
+    c.fillStyle = '#241F18';
+    c.font = `${17 * devicePixelRatio}px Georgia, serif`;
+    for (let i = 0; i < 26; i += 1) {
+        c.fillText('En un lugar de la Mancha, de cuyo nombre no quiero acordarme', 26 * devicePixelRatio, (60 + i * 26) * devicePixelRatio);
+    }
+    await dibujo.cargar(hoja.toDataURL('image/png'), [0, 0, 1, 1]);
+    doblar();
+    window.__pliegue.dibujado = true;
+}
+</script>
+</body>
+</html>

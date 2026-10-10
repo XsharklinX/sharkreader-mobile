@@ -17,8 +17,9 @@ import CatalogScreen from '../catalog/CatalogScreen.jsx';
 import { useContentIndex } from '../library/useContentIndex.js';
 import {
     IconSearch, IconSort, IconClose, IconBook, IconFolder, IconView, IconSettings,
-    IconCloud, IconMenu,
+    IconCloud, IconMenu, IconWifi,
 } from '../ui/icons.jsx';
+import RecibirScreen from '../library/RecibirScreen.jsx';
 import SideMenu from '../ui/SideMenu.jsx';
 import { useBackHandler } from '../ui/useBackHandler.js';
 
@@ -55,6 +56,7 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
     const [notice, setNotice] = useState(null);
     const [importChoice, setImportChoice] = useState(false);
     const [catalogOpen, setCatalogOpen] = useState(false);
+    const [recibiendo, setRecibiendo] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
 
     // ── Selección múltiple ───────────────────────────────────────────────────
@@ -585,6 +587,12 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                 </div>
             )}
 
+            {recibiendo && (
+                <div className="overlay-screen">
+                    <RecibirScreen library={library} onClose={() => setRecibiendo(false)} />
+                </div>
+            )}
+
             {importChoice && (
                 <div className="scrim" onClick={() => setImportChoice(false)} role="presentation">
                     <section
@@ -605,6 +613,17 @@ export default function LibraryScreen({ library, stats: statsApi, onOpenBook, on
                                 <span className="row-txt">
                                     <span>Elegir libros</span>
                                     <span className="row-sub">Uno o varios ficheros sueltos</span>
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                className="row"
+                                onClick={() => { setImportChoice(false); setRecibiendo(true); }}
+                            >
+                                <span className="row-icon"><IconWifi size={20} /></span>
+                                <span className="row-txt">
+                                    <span>Desde el ordenador</span>
+                                    <span className="row-sub">Por la wifi de casa, arrastrándolos al navegador</span>
                                 </span>
                             </button>
                             <button

@@ -606,3 +606,35 @@
     background: #F1F5F9;
     border-radius: 999px;
 }
+
+/* El cuerpo de letra mientras se pellizca. Misma caja que el aviso del brillo:
+   son dos gestos del mismo tipo —ajustar algo con los dedos sin abrir menús— y
+   deben responder con la misma voz. */
+.pellizco-aviso {
+    position: absolute;
+    left: 50%;
+    top: 40%;
+    transform: translate(-50%, -50%);
+    z-index: 6;
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-5);
+    border-radius: var(--r-lg);
+    background: rgba(10, 15, 26, 0.72);
+    backdrop-filter: blur(10px);
+    color: #F1F5F9;
+    pointer-events: none;
+}
+
+.pellizco-aviso b {
+    font-family: var(--font-title);
+    font-size: 28px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.pellizco-aviso span {
+    font-size: var(--t-small);
+    color: #94A3B8;
+}

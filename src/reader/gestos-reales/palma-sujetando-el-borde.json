@@ -1,0 +1,39 @@
+{
+ "nombre": "palma-sujetando-el-borde",
+ "origen": "fabricada con valores típicos de Android (temblor, eventos intercalados); sustituir por una grabada en el teléfono",
+ "ancho": 400,
+ "alto": 800,
+ "esperado": [],
+ "eventos": [
+  {
+   "t": 0,
+   "tipo": "onPointerDown",
+   "x": 392,
+   "y": 560,
+   "w": 52,
+   "h": 54
+  },
+  {
+   "t": 30,
+   "tipo": "onPointerMove",
+   "x": 393,
+   "y": 561,
+   "w": 52,
+   "h": 54
+  },
+  {
+   "t": 1200,
+   "tipo": "onPointerUp",
+   "x": 389,
+   "y": 562
+  },
+  {
+   "t": 1201,
+   "tipo": "onTouchEnd",
+   "x": 392,
+   "y": 560,
+   "dedos": 0,
+   "toques": []
+  }
+ ]
+}

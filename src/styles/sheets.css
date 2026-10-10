@@ -149,6 +149,8 @@
     /* Alto fijo: si creciera con el cuerpo de letra, subir el tamaño empujaría
        los controles fuera de la pantalla justo mientras se usan. */
     height: 116px;
+    /* En la hoja, que es una columna flex, se encogía hasta una sola línea. */
+    flex-shrink: 0;
     overflow: hidden;
     -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
     mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
@@ -859,4 +861,34 @@
     font-size: var(--t-micro);
     color: var(--text-3);
     margin-left: var(--sp-1);
+}
+
+/* ── La lista de formatos de cita ──────────────────────────────────────────
+ *
+ * Estas clases se escribían en `CitationSheet.jsx` y **no tenían ninguna
+ * regla**: la hoja salía como una pila de botones sin forma. Es el mismo fallo
+ * que dejó la barra del PDF convertida en una columna de iconos, y lo encontró
+ * la prueba de clases sin estilo, no una persona.
+ */
+
+.option-list { display: flex; flex-direction: column; gap: var(--sp-1); }
+
+.option-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.option-name { font-size: var(--t-body); font-weight: 600; }
+
+/* La marca de elegido: un círculo que se rellena. Va a la derecha y con tamaño
+   fijo para que los nombres queden alineados entre sí aunque midan distinto. */
+.option-mark {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--line-strong);
+}
+
+.option.on .option-mark {
+    border-color: var(--accent);
+    background:
+        radial-gradient(circle, var(--accent) 0 5px, transparent 5px);
 }

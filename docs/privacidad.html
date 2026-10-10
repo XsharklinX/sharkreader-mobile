@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SharkReader · Privacidad</title>
+<meta name="description" content="Política de privacidad de SharkReader, lector de libros para Android. Sin cuentas, sin publicidad, sin servidores propios.">
+<style>
+:root {
+    --bg: #f7f5f0; --text: #1d1d1f; --text-2: #55565b; --line: #e3dfd6; --card: #ffffff; --accent: #1f6feb;
+    color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+    :root { --bg: #111214; --text: #ececee; --text-2: #a4a6ad; --line: #2a2c31; --card: #1a1b1f; --accent: #6ea8ff; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+header { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+header img { width: 52px; height: 52px; border-radius: 12px; }
+h1 { font-size: 1.7rem; line-height: 1.2; margin: 0; }
+h2 { font-size: 1.15rem; margin: 2.2em 0 .6em; }
+.fecha { color: var(--text-2); font-size: .9rem; margin: 0 0 24px; }
+.idiomas { display: flex; gap: 8px; margin: 0 0 24px; }
+.idiomas a { padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px; color: var(--text); text-decoration: none; font-size: .9rem; }
+.resumen { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; font-size: 1.05rem; }
+a { color: var(--accent); }
+.tabla { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .93rem; background: var(--card); border-radius: 12px; overflow: hidden; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+th { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-2); }
+tr:last-child td { border-bottom: 0; }
+code { font-size: .9em; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 56px 0; }
+footer { color: var(--text-2); font-size: .85rem; margin-top: 48px; }
+</style>
+</head>
+<body>
+<main>
+<header>
+    <img src="assets/icono-512.png" alt="" onerror="this.remove()">
+    <h1>Política de privacidad de SharkReader</h1>
+</header>
+<p class="fecha">Última actualización: 7 de octubre de 2026 · versión 1.0</p>
+<nav class="idiomas"><a href="#es">Español</a><a href="#en" lang="en">English</a></nav>
+
+<section id="es">
+<p class="resumen"><strong>SharkReader no tiene cuentas, ni publicidad, ni servidores propios.</strong> Tus libros, notas y estadísticas no salen de tu teléfono salvo que tú los envíes. Aquí se explica cada excepción.</p>
+
+<p>SharkReader (<code>com.sharkreader.mobile</code>) es una aplicación de lectura de libros electrónicos para Android, desarrollada por David Bonilla.</p>
+
+<h2>1. Lo que se guarda en tu teléfono</h2>
+<p>Todo esto vive solo en el almacenamiento privado de la app: los libros que importas; título, autor, portada y colecciones; posición y progreso; subrayados, notas, marcadores y lo escrito a mano sobre los PDF; el vocabulario y su frase de contexto; tiempo leído, rachas, metas y logros; tus preferencias; y las voces y modelos de idioma descargados.</p>
+<p>Nada de esto se envía a ningún sitio salvo que tú lo exportes, lo compartas o actives una sincronización. Al desinstalar la app, Android lo borra todo.</p>
+
+<h2>2. Cuándo se conecta a internet</h2>
+<p>La app se puede usar entera sin conexión. Solo sale a internet en estos casos:</p>
+<div class="tabla"><table>
+<tr><th>Destino</th><th>Qué se envía</th><th>Cuándo</th></tr>
+<tr><td><code>openlibrary.org</code></td><td>Título y autor de un libro</td><td>Al buscar información o portada, u ordenar la biblioteca</td></tr>
+<tr><td><code>dictionaryapi.dev</code></td><td>Solo la palabra consultada</td><td>Al buscarla en el diccionario</td></tr>
+<tr><td>Google (modelos de ML Kit)</td><td>Nada tuyo: se descarga el modelo de un idioma</td><td>La primera vez que traduces, usas ayudas de vocabulario o reconoces un escaneado en ese idioma</td></tr>
+<tr><td>Google (IA del teléfono)</td><td>Nada tuyo: Android descarga su modelo</td><td>Solo si activas los resúmenes con la IA del teléfono</td></tr>
+<tr><td><code>github.com</code> (sherpa-onnx)</td><td>Nada tuyo: se descarga una voz</td><td>Solo al descargar una voz natural sin conexión</td></tr>
+<tr><td>Tu ordenador, en tu wifi</td><td>Posición, subrayados y notas</td><td>Solo si emparejas SharkReader de escritorio; no pasa por internet</td></tr>
+<tr><td>Tu servidor WebDAV</td><td>Tu biblioteca y progreso</td><td>Solo si configuras la sincronización con tu servidor</td></tr>
+<tr><td>Tu proxy de voces</td><td>El texto que se lee en voz alta</td><td>Solo si configuras un proxy de voces neuronales propio</td></tr>
+</table></div>
+<p><strong>La traducción, el reconocimiento de texto y los resúmenes se hacen en el teléfono.</strong> Lo que traduces, reconoces o resumes no sale de él.</p>
+
+<h2>3. Diagnósticos de Google ML Kit</h2>
+<p>La traducción, el reconocimiento de texto y los resúmenes usan las bibliotecas ML Kit de Google, que funcionan en el teléfono. Según Google, ML Kit le envía datos de diagnóstico y uso: modelo del dispositivo y versión de Android, nombre y versión de la app, métricas de rendimiento, configuración usada (como los idiomas), códigos de error y, en las funciones de IA, identificadores técnicos. Viajan cifrados, Google declara que no los cede a terceros, no incluyen el texto de tus libros ni tus notas, y solo se producen si usas esas funciones. <a href="https://developers.google.com/ml-kit/android-data-disclosure">Detalle oficial de Google</a>.</p>
+
+<h2>4. Dictar notas (micrófono)</h2>
+<p>«Dictar la nota» usa el reconocimiento de voz de Android. La app pide que se haga sin conexión; si tu teléfono tiene el idioma descargado, la voz no sale de él. Si no, el servicio de voz del sistema (normalmente Google) puede procesarla según su propia política. SharkReader no graba ni guarda audio: solo recibe el texto. El permiso se pide la primera vez que pulsas el botón.</p>
+
+<h2>5. Permisos</h2>
+<div class="tabla"><table>
+<tr><th>Permiso</th><th>Para qué</th></tr>
+<tr><td>Internet y estado de la red</td><td>Lo descrito en el apartado 2. La app funciona sin conexión</td></tr>
+<tr><td>Notificaciones</td><td>Recordatorios y resumen semanal, si los activas</td></tr>
+<tr><td>Servicio en primer plano y mantener activo</td><td>Que la lectura en voz alta siga con la pantalla apagada</td></tr>
+<tr><td>Biometría</td><td>Bloquear la app, si lo activas</td></tr>
+<tr><td>Micrófono</td><td>Dictar notas; se pide al pulsar «Dictar»</td></tr>
+<tr><td>Acceso a «No molestar»</td><td>Silenciar avisos mientras lees; lo concedes tú en los ajustes de Android</td></tr>
+<tr><td>Vibración</td><td>Respuesta táctil</td></tr>
+<tr><td>Arranque del teléfono</td><td>Volver a programar los recordatorios tras reiniciar</td></tr>
+</table></div>
+<p>La app no pide acceso a tus archivos: los libros se eligen con el selector de Android, que solo da acceso a lo que escoges. Tampoco pide contactos, ubicación, cámara, calendario, llamadas ni SMS.</p>
+
+<h2>6. Compartir con terceros</h2>
+<p>SharkReader no vende, cede ni comparte tus datos. No hay publicidad ni analítica propia. Cuando usas «Compartir» —una cita, un PDF con tus notas, tarjetas de Anki, una copia de seguridad— eliges tú la app de destino, y desde ese momento se rige por su política.</p>
+
+<h2>7. Borrar tus datos</h2>
+<p>No hay cuenta que borrar. Todo se elimina desinstalando la app o desde Ajustes de Android › Aplicaciones › SharkReader › Almacenamiento › Borrar datos. Dentro de la app puedes borrar libros, anotaciones, vocabulario y voces uno a uno.</p>
+
+<h2>8. Menores</h2>
+<p>La app no está dirigida a menores y no recoge datos personales de nadie.</p>
+
+<h2>9. Cambios</h2>
+<p>Si una versión futura cambia algo de esto, esta página se actualizará antes de publicarla y se indicará en las notas de la versión.</p>
+
+<h2>10. Contacto</h2>
+<p>Correo: <a href="mailto:contactoyerlindavid@gmail.com">contactoyerlindavid@gmail.com</a> · Incidencias: <a href="https://github.com/XsharklinX/SharkReader/issues">GitHub</a></p>
+</section>
+
+<hr>
+
+<section id="en" lang="en">
+<h1>SharkReader Privacy Policy</h1>
+<p class="fecha">Last updated: October 7, 2026 · version 1.0</p>
+<p class="resumen"><strong>SharkReader has no accounts, no ads and no servers of its own.</strong> Your books, notes and statistics never leave your phone unless you send them. Every exception is explained below.</p>
+
+<p>SharkReader (<code>com.sharkreader.mobile</code>) is an e-book reading app for Android, developed by David Bonilla.</p>
+
+<h2>1. What is stored on your phone</h2>
+<p>All of this stays in the app's private storage only: the books you import; title, author, cover and collections; reading position and progress; highlights, notes, bookmarks and handwriting on PDFs; your vocabulary and its context sentence; reading time, streaks, goals and achievements; your preferences; and downloaded voices and language models.</p>
+<p>None of it is sent anywhere unless you export it, share it or turn on a sync. Uninstalling the app deletes everything.</p>
+
+<h2>2. When the app goes online</h2>
+<p>The whole app works offline. It only connects in these cases:</p>
+<div class="tabla"><table>
+<tr><th>Destination</th><th>What is sent</th><th>When</th></tr>
+<tr><td><code>openlibrary.org</code></td><td>A book's title and author</td><td>When looking up book info or covers, or tidying the library</td></tr>
+<tr><td><code>dictionaryapi.dev</code></td><td>Only the word looked up</td><td>When you look a word up</td></tr>
+<tr><td>Google (ML Kit models)</td><td>Nothing of yours: a language model is downloaded</td><td>The first time you translate, use vocabulary help or recognise a scan in that language</td></tr>
+<tr><td>Google (on-device AI)</td><td>Nothing of yours: Android downloads its model</td><td>Only if you turn on summaries with the phone's AI</td></tr>
+<tr><td><code>github.com</code> (sherpa-onnx)</td><td>Nothing of yours: a voice is downloaded</td><td>Only when you download an offline natural voice</td></tr>
+<tr><td>Your computer, on your Wi-Fi</td><td>Position, highlights and notes</td><td>Only if you pair SharkReader for desktop; it never goes through the internet</td></tr>
+<tr><td>Your WebDAV server</td><td>Your library and progress</td><td>Only if you set up sync with your own server</td></tr>
+<tr><td>Your voice proxy</td><td>The text being read aloud</td><td>Only if you configure your own neural voice proxy</td></tr>
+</table></div>
+<p><strong>Translation, text recognition and summaries run on the phone.</strong> What you translate, recognise or summarise never leaves it.</p>
+
+<h2>3. Google ML Kit diagnostics</h2>
+<p>Translation, text recognition and summaries use Google's on-device ML Kit libraries. According to Google, ML Kit sends Google diagnostic and usage data: device model and Android version, app name and version, performance metrics, configuration used (such as languages), error codes and, for AI features, technical identifiers. It is encrypted in transit, Google states it is not transferred to third parties, it never includes the text of your books or your notes, and it only happens if you use those features. <a href="https://developers.google.com/ml-kit/android-data-disclosure">Google's official disclosure</a>.</p>
+
+<h2>4. Dictating notes (microphone)</h2>
+<p>"Dictate note" uses Android's speech recognition. The app asks for offline recognition; if the language is downloaded on your phone, your voice never leaves it. Otherwise the system speech service (usually Google) may process it under its own policy. SharkReader never records or stores audio: it only receives the text. The permission is requested the first time you tap the button.</p>
+
+<h2>5. Permissions</h2>
+<div class="tabla"><table>
+<tr><th>Permission</th><th>Purpose</th></tr>
+<tr><td>Internet and network state</td><td>Section 2. The app works offline</td></tr>
+<tr><td>Notifications</td><td>Reminders and weekly summary, if enabled</td></tr>
+<tr><td>Foreground service and wake lock</td><td>Keep reading aloud with the screen off</td></tr>
+<tr><td>Biometrics</td><td>App lock, if enabled</td></tr>
+<tr><td>Microphone</td><td>Dictating notes; requested when you tap "Dictate"</td></tr>
+<tr><td>Do Not Disturb access</td><td>Silence notifications while reading; you grant it in Android settings</td></tr>
+<tr><td>Vibration</td><td>Haptic feedback</td></tr>
+<tr><td>Run at startup</td><td>Reschedule reminders after a reboot</td></tr>
+</table></div>
+<p>The app does not request access to your files: books are picked with Android's file picker, which only grants access to what you choose. It does not request contacts, location, camera, calendar, calls or SMS.</p>
+
+<h2>6. Sharing with third parties</h2>
+<p>SharkReader does not sell, transfer or share your data. There are no ads and no analytics of our own. When you use "Share" —a quote, a PDF with your notes, Anki cards, a backup— you choose the destination app, and from then on its own policy applies.</p>
+
+<h2>7. Deleting your data</h2>
+<p>There is no account to delete. Everything is removed by uninstalling the app or from Android Settings › Apps › SharkReader › Storage › Clear data. Inside the app you can delete books, annotations, vocabulary and voices one by one.</p>
+
+<h2>8. Children</h2>
+<p>The app is not directed at children and collects no personal data from anyone.</p>
+
+<h2>9. Changes</h2>
+<p>If a future version changes any of this, this page will be updated before release and the change noted in the release notes.</p>
+
+<h2>10. Contact</h2>
+<p>Email: <a href="mailto:contactoyerlindavid@gmail.com">contactoyerlindavid@gmail.com</a> · Issues: <a href="https://github.com/XsharklinX/SharkReader/issues">GitHub</a></p>
+</section>
+
+<footer>SharkReader · David Bonilla</footer>
+</main>
+</body>
+</html>

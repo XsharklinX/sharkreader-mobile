@@ -105,11 +105,45 @@ export default function PageFold({
      * el desplazamiento se escribe aparte, que es gratis.
      */
     useEffect(() => {
-        if (!sheet?.html || !flatRef.current || !backRef.current) return;
+        if (!(sheet?.html || sheet?.image) || !flatRef.current || !backRef.current) return;
 
+        /**
+         * Con foto, una imagen; sin foto, la copia de HTML de siempre.
+         *
+         * **Por qué existe la foto.** La copia de HTML lleva la página sin sus
+         * imágenes —se sustituyen por un hueco transparente para que el capítulo
+         * quepa en memoria— y eso en una página de texto no se nota, pero en una
+         * portada o en una lámina la página *es* la imagen: al apoyar el dedo, la
+         * hoja se quedaba **completamente en blanco**. Ver `SharkCapturePlugin`.
+         *
+         * La foto es lo que hay en la pantalla, con todo dentro, y ocupa lo que
+         * ocupa la pantalla y no lo que ocupa el libro. El camino de HTML se
+         * queda porque en el navegador no hay plugin que haga fotos y porque una
+         * foto puede fallar; sin él, el pliegue desaparecería en vez de perder
+         * las ilustraciones.
+         */
         const build = (host) => {
             host.replaceChildren();
+            return sheet.image ? buildFoto(host) : buildFrame(host);
+        };
 
+        const buildFoto = (host) => {
+            const img = document.createElement('img');
+            img.setAttribute('alt', '');
+            img.setAttribute('aria-hidden', 'true');
+            img.setAttribute('draggable', 'false');
+            img.style.position = 'absolute';
+            img.style.willChange = 'transform';
+            // Sin suavizado al ampliar: la foto es de media resolución y el
+            // filtro por defecto le da un aspecto lavado al texto. El del
+            // navegador para píxeles cercanos es más honesto en movimiento.
+            img.style.imageRendering = 'auto';
+            img.src = sheet.image;
+            host.appendChild(img);
+            return img;
+        };
+
+        const buildFrame = (host) => {
             const frame = document.createElement('iframe');
             // Sin scripts: es una copia del contenido de un EPUB y no hay razón
             // para ejecutar nada. Es la misma postura que en el iframe real.
@@ -133,7 +167,7 @@ export default function PageFold({
         // Copias nuevas: cualquier pliegue que quedara a medias estaría mostrando
         // ya otra página. Se retira.
         controllerRef?.current?.hide?.();
-    }, [sheet?.html, sheet?.css, controllerRef]);
+    }, [sheet?.html, sheet?.css, sheet?.image, controllerRef]);
 
     /**
      * Coloca las copias sobre la página visible.
@@ -144,12 +178,22 @@ export default function PageFold({
      */
     useEffect(() => {
         if (!sheet) return;
+
+        // La foto es de la pantalla entera, así que lo que hay que descontar es
+        // dónde empieza la hoja dentro de ella. La copia de HTML es el capítulo
+        // entero, y lo que se descuenta es dónde empieza la columna. Son dos
+        // orígenes distintos y por eso no se puede usar el mismo par de números.
+        const ancho = sheet.image ? sheet.imageWidth : sheet.frameWidth;
+        const alto = sheet.image ? sheet.imageHeight : sheet.frameHeight;
+        const x = sheet.image ? sheet.imageOffsetX : sheet.offsetX;
+        const y = sheet.image ? sheet.imageOffsetY : sheet.offsetY;
+
         framesRef.current.forEach((frame) => {
             if (!frame) return;
-            frame.style.width = `${sheet.frameWidth}px`;
-            frame.style.height = `${sheet.frameHeight}px`;
-            frame.style.left = `${-sheet.offsetX}px`;
-            frame.style.top = `${-sheet.offsetY}px`;
+            frame.style.width = `${ancho}px`;
+            frame.style.height = `${alto}px`;
+            frame.style.left = `${-x}px`;
+            frame.style.top = `${-y}px`;
         });
     }, [sheet]);
 

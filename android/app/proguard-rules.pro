@@ -41,3 +41,17 @@
 # nombre de fichero original se oculta igualmente.
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# ── Voz neuronal sin conexión (sherpa-onnx) ──────────────────────────────────
+# El código nativo lee los campos de las clases de configuración por su nombre
+# (JNI). Si R8 los renombra, la voz falla solo en la versión de Play, que es
+# la única que se ofusca. El AAR no trae reglas propias.
+-keep class com.k2fsa.sherpa.onnx.** { *; }
+
+# ── Servidor local (NanoHTTPD) y compresión de las voces ─────────────────────
+-keep class fi.iki.elonen.** { *; }
+-dontwarn org.apache.commons.compress.**
+-dontwarn org.brotli.dec.**
+-dontwarn com.github.luben.zstd.**
+-dontwarn org.tukaani.xz.**
+-dontwarn org.objectweb.asm.**

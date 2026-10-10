@@ -1,0 +1,41 @@
+{
+ "nombre": "toque-borde-izquierdo",
+ "origen": "fabricada con valores típicos de Android (temblor, eventos intercalados); sustituir por una grabada en el teléfono",
+ "ancho": 400,
+ "alto": 800,
+ "esperado": [
+  "prev"
+ ],
+ "eventos": [
+  {
+   "t": 0,
+   "tipo": "onPointerDown",
+   "x": 24,
+   "y": 520,
+   "w": 14,
+   "h": 16
+  },
+  {
+   "t": 30,
+   "tipo": "onPointerMove",
+   "x": 24,
+   "y": 520,
+   "w": 14,
+   "h": 16
+  },
+  {
+   "t": 90,
+   "tipo": "onPointerUp",
+   "x": 21,
+   "y": 522
+  },
+  {
+   "t": 91,
+   "tipo": "onTouchEnd",
+   "x": 24,
+   "y": 520,
+   "dedos": 0,
+   "toques": []
+  }
+ ]
+}

@@ -65,3 +65,12 @@ describe('goToHint', () => {
         expect(goToHint(0)).not.toContain('–');
     });
 });
+
+describe('ir a una página estable', () => {
+    it('entiende «pág. 134», «p 134» y páginas en romanos', async () => {
+        const { parseGoTo } = await import('./navigation.js');
+        expect(parseGoTo('pág. 134')).toMatchObject({ kind: 'pagina', value: '134' });
+        expect(parseGoTo('p 134')).toMatchObject({ kind: 'pagina', value: '134' });
+        expect(parseGoTo('página xii')).toMatchObject({ kind: 'pagina', value: 'xii' });
+    });
+});
